@@ -36,16 +36,20 @@ Documentation-and-prompt project — no runnable code.
 - `memory/` — persistent fraud actor memory (known hubs, relays, POS actors, notes). Read at investigation start; update at close.
 - `docs/` — versioned skill reference documents.
 
-| Skill | File | Primary DB |
+`.claude/commands/` is the **sf-skills** submodule (`github.com/danterpaniagua/sf-skills`). Skills are prefixed by product. Invoke from the `bots/` root context.
+
+| Skill | Invocation | Primary DB |
 |---|---|---|
-| `dba-investigation` | `.claude/commands/dba-investigation.md` | `PNSSRL` |
-| `fraud-points` | `.claude/commands/fraud-points.md` | `SmartFran.Solution.SmartLoyalty` |
-| `fraud-pos` | `.claude/commands/fraud-pos.md` | `SmartFran.Solution.SmartLoyalty` |
-| `sre-output` | `.claude/commands/sre-output.md` | None |
-| `doc-audit` | `.claude/commands/doc-audit.md` | None |
-| `azure-nsg` | `.claude/commands/azure-nsg.md` | None |
+| `loyalty-dba-investigation` | `/loyalty-dba-investigation` | `PNSSRL` |
+| `loyalty-fraud-points` | `/loyalty-fraud-points` | `SmartFran.Solution.SmartLoyalty` |
+| `loyalty-fraud-pos` | `/loyalty-fraud-pos` | `SmartFran.Solution.SmartLoyalty` |
+| `loyalty-sre-output` | `/loyalty-sre-output` | None |
+| `loyalty-azure-nsg` | `/loyalty-azure-nsg` | None |
+| `doc-audit` | `/doc-audit` | None |
 
 Skills never execute queries — output SQL blocks for the user to run and paste back.
+
+> When working from `loyalty/`, skills are also available unprefixed via `loyalty/.claude/commands/` (e.g. `/fraud-points`). That copy is the actively maintained source — sf-skills is updated by syncing from it.
 
 ## Static Code Analysis Mode
 
