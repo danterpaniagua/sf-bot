@@ -1,0 +1,34 @@
+rol;nombre;documento;email;tx_enviadas;pts_enviados;mayor_tx;tx_recibidas;pts_recibidos;limite_diario;CustomerId
+HUB;Lautaro Crupi;Dni 48050655;lautarocrupi8@gmail.com;4;30000;8000;16;150000;EXCEDE DIARIO (+22000 pts);B8B4E7DC-0353-C4B3-53E0-08DC0286FF2B
+Receptor;Carlos Agustin Sihuen Sanchez;Dni 48394358;agus.sanchezz649@gmail.com;0;0;0;4;30000;OK;348A7937-0090-CC25-1789-08DDB839291B
+Receptor;Pedro Portillo;Dni 39772013;portillopedro096@gmail.com;0;0;0;10;99270;OK;F926ABB4-3B3C-C783-B653-08DDCBC46A21
+Receptor;Beluuu Ibazeta;Dni 38074410;bel.5@icloud.com;0;0;0;2;7000;OK;1AD71215-EEA1-CF8F-7101-08DE1977E6C0
+Receptor;Marcela Barrionuevo;DNI 23412314;marcelabarrionuevo935@gmail.com;0;0;0;1;8000;OK;6458F887-F02A-CC30-A3E6-08D9C25043D3
+Emisor;Alejandro Ruiz Campo;Dni 26028736;americanamtb@yahoo.com.ar;1;28390;28390;0;0;EXCEDE DIARIO (+20390 pts);7249A6E1-B049-C00D-49F5-08D2C2A0554B
+Emisor;Ana Cecilia Romero Serrano;Dni 26028671;sunnyacromero@yahoo.com.ar;1;23805;23805;0;0;EXCEDE DIARIO (+15805 pts);6F8FDB81-BCE0-CB5E-561B-08D34122535B
+Emisor;Edith Noemi Barboza;Dni 26029374;edithbarboza005@gmail.com;1;21660;21660;0;0;EXCEDE DIARIO (+13660 pts);AF476FB2-8830-CAA5-FCA9-08D2D2502A43
+Emisor;Claudia Patricia Mazzini;Dni 26029358;patrymazzini@hotmail.com;1;20990;20990;0;0;EXCEDE DIARIO (+12990 pts);8B08B67F-0258-C4AE-17D4-08D2C791ED68
+Emisor;Sebastian Francisco Jesus Bustos;Dni 26028731;sebabustos22@hotmail.com;1;19645;19645;0;0;EXCEDE DIARIO (+11645 pts);EC58232A-6880-CAF8-F393-08D2EBB8CF9A
+Emisor;Estela Garcia Kalat;Dni 26029371;egkalat@hotmail.com;1;17670;17670;0;0;EXCEDE DIARIO (+9670 pts);10499061-6DF1-C00E-61A3-08D2C2D72ABD
+Emisor;Rosa Analia Chavez;Dni 26028746;analiachavez.rectorado@gmail.com;1;11010;11010;0;0;EXCEDE DIARIO (+3010 pts);C5FF8233-0AD0-C722-7187-08D4044A38BD
+Emisor;Andrea Gabriela Guaimas;Dni 26029380;angumas@yahoo.com.ar;1;10485;10485;0;0;EXCEDE DIARIO (+2485 pts);A6F72B6E-14EF-C39E-6ED5-08D62EA9D711
+Emisor;Mariela Jimenez;Dni 26029376;marielajimenez0406@gmail.com.ar;1;9570;9570;0;0;EXCEDE DIARIO (+1570 pts);2B613F01-A0C2-C0A0-C6EC-08D50B4FFB8B
+Emisor;Va Fe;DNI 26028740;valentinferreyra922@gmail.com;1;9350;9350;0;0;EXCEDE DIARIO (+1350 pts);4E9E97C8-EB63-C237-28AE-08DA7DADAEEF
+Emisor;Marisa Ocampo;Dni 26028727;gridolules3559@hotmail.com;1;8640;8640;0;0;EXCEDE DIARIO (+640 pts);0F778A0F-D6F7-C150-05B2-08D284A33E58
+Emisor;Maria Virginia Coronel;Dni 26028732;vircoronel1977@hotmail.com;1;8575;8575;0;0;EXCEDE DIARIO (+575 pts);FF9AA523-7DD6-C7EB-28EA-08D2B8B4D396
+Emisor;Carla Farias;Dni 26029353;carlitafarias77@hotmail.com;1;8425;8425;0;0;EXCEDE DIARIO (+425 pts);15FC6AC8-7FD3-CC57-99F8-08D2910B08F4
+Emisor;Theito Pirola;DNI 44886521;pirola.theo@gmail.com;1;8000;8000;0;0;OK;E06CD7DA-2EEE-CA28-A8FE-08D89BDDFE90
+Emisor;Martin Fernandez;Dni 26028741;alejandromafer@gmail.com;1;7190;7190;0;0;OK;3D605677-F6F4-CE41-3058-08D435D1B88E
+Emisor;Lidia Vergara;Dni 16005406;bel.5@gmail.com;2;7000;5000;0;0;OK;D6178C8E-A607-CDF1-3E90-08DDAEB71552
+Emisor;Gonzalo Aragon;Dni 26028715;mariogonzaloaragon@gmail.com;1;6915;6915;0;0;OK;15FA62BB-D16C-CA7C-812B-08D58A9F66D1
+Emisor;Max Kepes;Dni 26028757;maxkepes@gmail.com;1;6800;6800;0;0;OK;FFE24F67-2CC3-C802-8F54-08D2C542C3A0
+Emisor;Marta Alejandra Sotelo;Dni 26029388;lycsoria@hotmail.com;1;5140;5140;0;0;OK;C0D41D0C-D64A-CED3-EA2E-08D3E00AD7F4
+Emisor;Rosa Elizabeth Chaile;Dni 26028725;rchaile77@gmail.com;1;4970;4970;0;0;OK;D7C8857C-55B2-CB7A-1EA7-08D2A732A4C0
+Emisor;Alejandro Krausbeck;Dni 26028720;a@hotmail.com;1;4730;4730;0;0;OK;2872CD5D-6085-CC70-200F-08D4329E7C32
+Emisor;Virginia De La Vega;Dni 26028699;vikyoshee@hotmail.com;1;3325;3325;0;0;OK;1A606614-E720-CF71-1897-08DE2DB2B48F
+Emisor;Analia Ganem;DNI 26028686;analiaganem@gmail.com;1;3160;3160;0;0;OK;48834642-5BF2-C6C9-6738-08D8F7E8C49A
+Emisor;Verónica Elizabeth Aguirre;Dni 26029383;elizabeth28aguirre@gmail.com;1;3095;3095;0;0;OK;743883B1-76EC-CCE9-F863-08D3C938ED87
+Emisor;Cecilia Espin;Dni 26028676;acespin2610@gmail.com;1;2600;2600;0;0;OK;A4A51071-CD32-C65D-4B35-08DE6E7B8FBB
+Emisor;Pablo Lencina;DNI 26029365;fede.pfl21@gmail.com;1;1240;1240;0;0;OK;E12441A0-5CBB-C65E-DF32-08D7F7FA43BA
+Emisor;Natalia Fernandez;Dni 26029386;nati@gmail.com;1;995;995;0;0;OK;6D079DBC-37AC-C9EC-8438-08D39C518B79
+Emisor;Gabriel Andres Ferrer;Dni 26028669;gabrielferrer217@hotmail.com;1;895;895;0;0;OK;FCBA77F0-740A-C83E-3BEF-08D258F0B9B2

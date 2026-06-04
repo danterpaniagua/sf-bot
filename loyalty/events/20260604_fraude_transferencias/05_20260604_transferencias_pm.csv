@@ -1,0 +1,23 @@
+transfer_id,fecha_hora_local,emisor_nombre,emisor_dni,receptor_nombre,receptor_dni,puntos,canal,observacion
+1,2026-06-04 01:00,Claudia Alderete,44659878,Gabriela Alderete Leal,45279111,1000,APP,
+2,2026-06-04 01:17,Marta Susana Bravo,22246498,Mariquena Veloz,38093019,1400,APP,
+3,2026-06-04 01:19,Celeste Sanchez,46516234,Lucas Barrios,46144746,4000,APP,
+4,2026-06-04 02:05,Simon Brizuela,46845174,Simon Brizuela,46845173,8000,APP,"Cuentas con DNI consecutivo y mismo nombre — correo electrónico desechable"
+5,2026-06-04 02:08,Simon Brizuela,46845173,Dimon Briz,123456,9075,APP,"Transferencia circular — correo electrónico desechable"
+6,2026-06-04 02:08,Simon Brizuela,46845173,Dimon Briz,123456,9075,APP,"Transferencia duplicada — transferencia circular — correo electrónico desechable"
+7,2026-06-04 02:12,Dimon Briz,123456,Simon Brizuela,46845173,18150,APP,"Transferencia circular — correo electrónico desechable"
+8,2026-06-04 02:23,Simon Brizuela,46845173,Dimon Briz,123456,9075,APP,"Transferencia circular — correo electrónico desechable"
+9,2026-06-04 02:29,Dimon Briz,123456,Simon Brizuela,46845173,8000,APP,"Transferencia circular — correo electrónico desechable"
+10,2026-06-04 02:31,Dimon Briz,123456,Simon Brizuela,46845173,100,APP,"Transferencia circular — correo electrónico desechable"
+11,2026-06-04 02:33,CECILIA ROMINA AVILA,32487731,Ramón Alberto Santo Blanco,29093848,2290,APP,
+12,2026-06-04 02:36,Simon Brizuela,46845173,Dimon Briz,123456,100,APP,"Transferencia circular — correo electrónico desechable"
+13,2026-06-04 02:37,Simon Brizuela,46845173,Dimon Briz,123456,100,APP,"Transferencia circular — correo electrónico desechable"
+14,2026-06-04 02:52,Dimon Briz,123456,Simon Brizuela,46845173,1665,APP,"Transferencia circular — correo electrónico desechable"
+15,2026-06-04 03:09,Mia Aylén Guzmán,50616717,Giovanni Rafael,4384472,3070,APP,
+16,2026-06-04 04:16,Sergio Emanuel Cordero,35674095,Maria Velez,37315106,8000,APP,
+17,2026-06-04 04:16,Sergio Emanuel Cordero,35674095,Lucia Fariaz,11744821,8000,APP,
+18,2026-06-04 04:49,Javier Barria,43691258,Agustina Perez,45384178,4090,APP,
+19,2026-06-04 07:30,María Celeste Mamanis,35384064,Santiago Cabral,48786856,8000,APP,"Límite diario superado"
+20,2026-06-04 07:30,María Celeste Mamanis,35384064,Santiago Cabral,48786856,8000,APP,"Transferencia duplicada — límite diario superado"
+21,2026-06-04 07:31,María Celeste Mamanis,35384064,Santiago Cabral,48786856,4155,APP,"Límite diario superado"
+22,2026-06-04 08:03,Julia Roquelina Cuccaro,4826910,Carlos Daniel Sancho,24545466,8000,APP,"Receptor recurrente — también receptor el 2026-06-03"

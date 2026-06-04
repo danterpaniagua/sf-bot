@@ -1,0 +1,3 @@
+rol,nombre,documento,email,tx_enviadas,pts_enviados,mayor_tx,tx_recibidas,pts_recibidos,limite_diario,balance_post_evento,CustomerId
+Emisor,Juan Esteban Boccasile,Dni 7786506,romina_boccasile@yahoo.com.ar,1,24785,24785,0,0,EXCEDE DIARIO (+16785),0,263784AB-17D5-C9AD-E88B-08D48DA00511
+Receptor,Romina Boccasile,Dni 27711999,romina_boccasile@yahoo.com.ar,0,0,0,1,24785,OK,31455,8283DB4F-A59C-C4FB-80E0-08D3CC484CBD
