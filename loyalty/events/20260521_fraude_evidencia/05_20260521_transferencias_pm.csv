@@ -1,0 +1,41 @@
+transfer_id,fecha_hora_local,emisor_nombre,emisor_dni,receptor_nombre,receptor_dni,puntos,canal,observacion
+280900,2026-05-20 23:00,Luciano Artaza,DNI 31646485,Camila Ruiz,DNI 42694191,3045,APP,Fan-in (receptor recibe de múltiples emisores)
+280901,2026-05-20 23:01,Pedro Vega,DNI 17408241,Ivana Vega,DNI 23016064,2200,APP,
+280902,2026-05-20 23:01,Rocio Cortez,DNI 42476165,Camila Ruiz,DNI 42694191,3215,APP,Fan-in (receptor) / Acumulación y reenvío inmediato (emisor)
+280903,2026-05-20 23:01,R Laureana Sanchez,DNI 13681068,Karina Del Valle Baigorria,DNI 34990743,1655,APP,
+280904,2026-05-20 23:05,Adrian Cares,DNI 43215319,Aylen Suyay Seguel,DNI 43156481,3095,APP,Transferencia circular
+280905,2026-05-20 23:09,Thalia Da Rocha,DNI 46005186,Maria Liliana Ramos,DNI 29819742,1120,APP,
+280906,2026-05-20 23:09,Rocio Terceros,DNI 41838920,Eugenia Portillo,DNI 34158707,8000,APP,
+280907,2026-05-20 23:12,[Sin registro de identidad],[Sin registro de identidad],Maricel Durand,DNI 35083887,390,APP,Identidad no resuelta (emisor)
+280908,2026-05-20 23:17,[Sin registro de identidad],[Sin registro de identidad],Soledad Cremella,DNI 35387359,500,APP,Identidad no resuelta (emisor)
+280909,2026-05-20 23:18,Yolanda Irupe Soto Baldovino,DNI 34718354,Marina Ayelen Sandoval,DNI 42347001,1200,WEB,
+280910,2026-05-20 23:18,Luz Peralta,DNI 47820807,Rocio Moreno,DNI 47985341,400,APP,
+280911,2026-05-20 23:21,Alan Villanueva,DNI 44034655,Mili Ledesma,DNI 47783405,895,APP,
+280912,2026-05-20 23:21,Aylen Suyay Seguel,DNI 43156481,Adrian Cares,DNI 43215319,5600,APP,Transferencia circular
+280913,2026-05-20 23:23,Angel Zabala,DNI 42711504,Agustin Gonzalez,DNI 46259001,310,APP,
+280914,2026-05-20 23:25,Florencia Fernandez,DNI 44701853,Lucas Reynoso,DNI 43755936,8000,APP,
+280915,2026-05-20 23:26,Ana Maria Ratto,DNI 30506133,Ana Gordillo,DNI 47588893,1200,APP,
+280916,2026-05-20 23:32,Lola Romero,DNI 49236384,Jano Venuti,DNI 50610038,3000,APP,
+280917,2026-05-20 23:34,Bruno Mansilla,DNI 40609117,Eric Mansilla,DNI 45796771,5600,APP,
+280918,2026-05-20 23:37,Ariadna Lescano,DNI 47409848,Cande Crettaz,DNI 47409841,1700,APP,
+280919,2026-05-20 23:38,Mauro Maturano,DNI 36984069,Rocio Cortez,DNI 42476165,8000,APP,Acumulación y reenvío inmediato (receptor reenvía en menos de 2 minutos)
+280920,2026-05-20 23:39,Rocio Cortez,DNI 42476165,Valentina Cortez,DNI 43880772,5500,APP,Acumulación y reenvío inmediato / Límite diario superado (8.715 pts enviados)
+280921,2026-05-20 23:43,Julieta Villalba,DNI 44118689,[Sin registro de identidad],[Sin registro de identidad],1080,APP,Identidad no resuelta (receptor)
+280922,2026-05-20 23:44,Ivana Peralta,DNI 42387761,El Kb,DNI 36510746,600,APP,
+280923,2026-05-20 23:52,Jonatan Moises Belen,DNI 37440816,Ana Noriega,DNI 35721250,8000,APP,Transferencia duplicada / Límite diario superado (28.000 pts total en la sesión)
+280924,2026-05-20 23:52,Jonatan Moises Belen,DNI 37440816,Ana Noriega,DNI 35721250,8000,APP,Transferencia duplicada / Límite diario superado (28.000 pts total en la sesión)
+280925,2026-05-20 23:53,Jatun Nahir,DNI 36349275,Hernan Santoni,DNI 44316709,1900,APP,
+280926,2026-05-20 23:58,Thiago Anziliero,DNI 48420216,Joaquin Suarez,DNI 48420192,900,APP,
+280927,2026-05-21 00:05,Agustina Romero,DNI 47440633,Betty Gonzalez,DNI 29526919,3200,APP,
+280928,2026-05-21 00:09,Fanny Mabel Contreras,DNI 22327899,Daiana Ricabarren,DNI 39793236,570,WEB,Fan-in (receptor recibe de múltiples emisores)
+280929,2026-05-21 00:13,Claudio Victor Ricabarren,DNI 16909149,Daiana Ricabarren,DNI 39793236,500,WEB,Fan-in (receptor recibe de múltiples emisores)
+280930,2026-05-21 00:19,Yote Cojo,DNI 45196846,Juan Pablo Patzold,DNI 4511986,185,APP,
+280931,2026-05-21 00:20,Román Mendoza,DNI 46736348,Valentina Iñigo,DNI 49209069,2000,APP,
+280932,2026-05-21 00:20,Jonatan Moises Belen,DNI 37440816,Anabel Belén,DNI 36541153,8000,APP,Transferencia duplicada / Límite diario superado (28.000 pts total en la sesión)
+280933,2026-05-21 00:21,Jonatan Moises Belen,DNI 37440816,Anabel Belén,DNI 36541153,4000,APP,Transferencia duplicada / Límite diario superado (28.000 pts total en la sesión)
+280934,2026-05-21 01:11,Maria Jose Serrano,DNI 32630189,Paulina Guantay,DNI 45771489,2500,APP,
+280935,2026-05-21 01:21,Hebe Soledad Mercedes Diaz Romero,DNI 34209597,Bautista Lazarte,DNI 49248454,8000,APP,
+280936,2026-05-21 01:28,Karen Lopez,DNI 47533557,Marcelino Ruiz Díaz,DNI 42615539,8000,APP,
+280937,2026-05-21 01:51,Ana Belén Gómez,DNI 32004659,Fabriccio Lautaro Coliboro,DNI 46986670,1600,APP,
+280938,2026-05-21 02:21,Maximiliano Torres,DNI 49060035,Mariano Dario Schiebelbein,DNI 27060045,200,APP,
+280939,2026-05-21 03:27,Romina Cucuza,DNI 34586404,Adrián Meregoni,DNI 34453770,490,WEB,

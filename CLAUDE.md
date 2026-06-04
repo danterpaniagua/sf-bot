@@ -33,12 +33,14 @@ Documentation-and-prompt project — no runnable code.
 - `.claude/commands/` — skills invoked by name; each overrides CLAUDE.md for its scope.
 - `queries/` — reference SQL for `PNSSRL` (index maintenance, blocking, resource capture).
 - `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
+- `memory/` — persistent fraud actor memory (known hubs, relays, POS actors, notes). Read at investigation start; update at close.
 - `docs/` — versioned skill reference documents.
 
 | Skill | File | Primary DB |
 |---|---|---|
 | `dba-investigation` | `.claude/commands/dba-investigation.md` | `PNSSRL` |
 | `fraud-points` | `.claude/commands/fraud-points.md` | `SmartFran.Solution.SmartLoyalty` |
+| `fraud-pos` | `.claude/commands/fraud-pos.md` | `SmartFran.Solution.SmartLoyalty` |
 | `sre-output` | `.claude/commands/sre-output.md` | None |
 | `doc-audit` | `.claude/commands/doc-audit.md` | None |
 | `azure-nsg` | `.claude/commands/azure-nsg.md` | None |

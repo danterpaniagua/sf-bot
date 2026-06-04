@@ -1,0 +1,93 @@
+rol;nombre;dni;tx_enviadas;pts_enviados;mayor_tx;limite_diario
+Receptor;Theito Pirola;44886521;0;0;0;OK — recibio 768000 pts de 91 cuentas
+Emisor;Jimena Maria Cruz;26029653;1;28455;28455;EXCEDE DIARIO (+20455 pts)
+Emisor;Nelida Rosa Lopez;26029534;1;26720;26720;EXCEDE DIARIO (+18720 pts)
+Emisor;Monica Ester Rocha;26029669;1;26420;26420;EXCEDE DIARIO (+18420 pts)
+Emisor;Juan Pablo Calcagni;26029467;1;26260;26260;EXCEDE DIARIO (+18260 pts)
+Emisor;Paola Magdalena Bossini;26029855;1;21500;21500;EXCEDE DIARIO (+13500 pts)
+Emisor;Fab Por;26029701;1;20830;20830;EXCEDE DIARIO (+12830 pts)
+Emisor;Ana Lia Cayo;26011400;1;19260;19260;EXCEDE DIARIO (+11260 pts)
+Emisor;Miguel Ferre;26029749;1;17560;17560;EXCEDE DIARIO (+9560 pts)
+Emisor;Manuel Romero;26029480;1;17520;17520;EXCEDE DIARIO (+9520 pts)
+Emisor;Marta Analia Chaves;26029567;1;16525;16525;EXCEDE DIARIO (+8525 pts)
+Emisor;Mario Roberto Perez;26029678;1;16180;16180;EXCEDE DIARIO (+8180 pts)
+Emisor;Jose Luis Lopez Lopez;26029772;1;15845;15845;EXCEDE DIARIO (+7845 pts)
+Emisor;Sebastian Mena;26029732;1;15000;15000;EXCEDE DIARIO (+7000 pts)
+Emisor;Juan Esteban Sansierra;26029460;1;14890;14890;EXCEDE DIARIO (+6890 pts)
+Emisor;Lucila Casamento;26029642;1;14730;14730;EXCEDE DIARIO (+6730 pts)
+Emisor;Raul Leonardo Cisneros;26029683;1;14435;14435;EXCEDE DIARIO (+6435 pts)
+Emisor;Daniel Torres;26029438;1;14125;14125;EXCEDE DIARIO (+6125 pts)
+Emisor;Silvia Patricia Rodriguez Robles;26029436;1;13820;13820;EXCEDE DIARIO (+5820 pts)
+Emisor;Maria Jose Ousset;26029810;1;13420;13420;EXCEDE DIARIO (+5420 pts)
+Emisor;Marcelo Ramon Roldan;26029649;1;13370;13370;EXCEDE DIARIO (+5370 pts)
+Emisor;Maria Andrea Succar;26029610;1;12285;12285;EXCEDE DIARIO (+4285 pts)
+Emisor;Cristian Adrian Marchisio;26029504;1;11860;11860;EXCEDE DIARIO (+3860 pts)
+Emisor;Gabriela Susana Gonzalez;26029836;1;11850;11850;EXCEDE DIARIO (+3850 pts)
+Emisor;Ada Jorgelina Nain;26029846;1;11080;11080;EXCEDE DIARIO (+3080 pts)
+Emisor;Rosa Valeria Kocsis;26029658;1;10835;10835;EXCEDE DIARIO (+2835 pts)
+Emisor;Silvana Ayudarte;26029707;1;10720;10720;EXCEDE DIARIO (+2720 pts)
+Emisor;Silvia Del Valle Jimenez;26029630;1;10540;10540;EXCEDE DIARIO (+2540 pts)
+Emisor;Nadeida Goni;26029757;1;10510;10510;EXCEDE DIARIO (+2510 pts)
+Emisor;Gustavo Alderete;26029512;1;10475;10475;EXCEDE DIARIO (+2475 pts)
+Emisor;Leticia Palazzolo;26029437;1;10150;10150;EXCEDE DIARIO (+2150 pts)
+Emisor;Susana Valenzuela;26029681;1;9895;9895;EXCEDE DIARIO (+1895 pts)
+Emisor;Yudith Juarez;26029646;1;9335;9335;EXCEDE DIARIO (+1335 pts)
+Emisor;Eliana Rovelli;26029803;1;8930;8930;EXCEDE DIARIO (+930 pts)
+Emisor;Victor Fernandez;26029720;1;8790;8790;EXCEDE DIARIO (+790 pts)
+Emisor;Mariela Farano;26029821;1;8780;8780;EXCEDE DIARIO (+780 pts)
+Emisor;Karina Isabel Fregenal;26029578;1;8500;8500;EXCEDE DIARIO (+500 pts)
+Emisor;Analia Ferreyra;26029661;1;8370;8370;EXCEDE DIARIO (+370 pts)
+Emisor;Olga Camisay;26029452;1;7990;7990;OK
+Emisor;Maria Belen Medina;26029602;1;7250;7250;OK
+Emisor;Mariela Frias;26029778;1;6985;6985;OK
+Emisor;Marina Ines Cordoba Lanus;26029600;1;6900;6900;OK
+Emisor;Marcos Davila;26029648;1;6860;6860;OK
+Emisor;Ana Carolina Paez;26029835;1;6860;6860;OK
+Emisor;Maria Fernanda Gay;26029589;1;6800;6800;OK
+Emisor;Martin Sabastian Lopez;26029754;1;6700;6700;OK
+Emisor;Maria Cristina Rodriguez;26029473;1;6600;6600;OK
+Emisor;Carolina Saune;26029471;1;6580;6580;OK
+Emisor;Cristian Armando Palavecino;26029700;1;6330;6330;OK
+Emisor;Marcela Alejandra Vega;26029806;1;6255;6255;OK
+Emisor;Marcela Martinez;26029735;1;6220;6220;OK
+Emisor;Cecilia Lugones;26029858;1;6175;6175;OK
+Emisor;Alfredo Ariel Inigo;26029733;1;6130;6130;OK
+Emisor;Juan Jose Flores;26029463;1;6040;6040;OK
+Emisor;Cristian Marcelo Zamorano;26011403;1;5740;5740;OK
+Emisor;Paula Andrea Migliori;26029501;1;5710;5710;OK
+Emisor;Carolina Molina;26029441;1;5570;5570;OK
+Emisor;Patricio Orio;26029838;1;5565;5565;OK
+Emisor;Vilma Juarez;26029456;1;5530;5530;OK
+Emisor;Maria Victoria Medrano Caballero;26029582;1;5365;5365;OK
+Emisor;Analia Veronica Cassino;26029794;1;5330;5330;OK
+Emisor;Francisca Elizabeth Mansilla;26029530;1;5300;5300;OK
+Emisor;Andrea Daniela Martino;26029699;1;5235;5235;OK
+Emisor;Natalia Jerez;26029767;1;5130;5130;OK
+Emisor;Laura Cecilia Lobo;26029812;1;5020;5020;OK
+Emisor;Natalia Martinez Anis;26029620;1;4940;4940;OK
+Emisor;Eugenia Corbalan;26029440;1;4650;4650;OK
+Emisor;Ana Carolina Apud;26029703;1;4140;4140;OK
+Emisor;Daniel Taranto;26029464;1;4100;4100;OK
+Emisor;Jorge Eduardo Soria;26029618;1;4000;4000;OK
+Emisor;Alejandro Choua;26029497;1;3900;3900;OK
+Emisor;Gustavo Portero;26029787;1;3865;3865;OK
+Emisor;Veronica Pinto;26029780;1;3250;3250;OK
+Emisor;Paola Pacheco;26029635;1;3030;3030;OK
+Emisor;Claudia Gabriela Morales;26029612;1;2720;2720;OK
+Emisor;Griselda Juarez;26029457;1;2550;2550;OK
+Emisor;Juan Alfredo Santos;26029789;1;2415;2415;OK
+Emisor;Silvana Valeria Moyano;26029771;1;2200;2200;OK
+Emisor;Jose Maria Ledesma;26029750;1;1880;1880;OK
+Emisor;Juan Carlos De La Vega;26029444;1;1845;1845;OK
+Emisor;Maria Martinez;26029664;1;1830;1830;OK
+Emisor;Guillermo Fabian Szlosberg;26029790;1;1780;1780;OK
+Emisor;Silvia Perez;26029705;1;1550;1550;OK
+Emisor;Maria Gabriela Ybarra;26029652;1;1375;1375;OK
+Emisor;Clara Lucena;26029552;1;1330;1330;OK
+Emisor;Daniel Osvaldo Arganiaraz;26029823;1;1210;1210;OK
+Emisor;Sergio Luis Ceballo;26029461;1;1060;1060;OK
+Emisor;Natalia Ascarafide;26029614;1;880;880;OK
+Emisor;Fabiana Nancy Gordillo;26029654;1;590;590;OK
+Emisor;Silvia Amoroso;26029532;1;390;390;OK
+Emisor;Fernanda Jaime;26029762;1;300;300;OK
+Emisor;Diego Nieva;26029741;1;280;280;OK
