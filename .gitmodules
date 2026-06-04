@@ -1,3 +1,3 @@
-[submodule "commands"]
-	path = commands
+[submodule ".claude/commands"]
+	path = .claude/commands
 	url = git@github.com:danterpaniagua/sf-skills.git
