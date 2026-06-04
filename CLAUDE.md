@@ -40,6 +40,7 @@ Documentation-and-prompt project — no runnable code.
 |---|---|---|
 | `dba-investigation` | `.claude/commands/dba-investigation.md` | `PNSSRL` |
 | `fraud-points` | `.claude/commands/fraud-points.md` | `SmartFran.Solution.SmartLoyalty` |
+| `fraud-pos` | `.claude/commands/fraud-pos.md` | `SmartFran.Solution.SmartLoyalty` |
 | `sre-output` | `.claude/commands/sre-output.md` | None |
 | `doc-audit` | `.claude/commands/doc-audit.md` | None |
 | `azure-nsg` | `.claude/commands/azure-nsg.md` | None |

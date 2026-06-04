@@ -12,7 +12,7 @@ Investigation of database events on the SmartLoyalty SQL Server instance (`SFCG-
 
 ## Directory Layout
 
-- `.claude/commands/` — skills; each overrides CLAUDE.md for its scope.
+- `.claude/commands/` — skills; each overrides CLAUDE.md for its scope. Active skills: `fraud-points`, `fraud-pos`, `dba-investigation`, `sre-output`, `azure-nsg`.
 - `queries/` — reference SQL for `PNSSRL`.
 - `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
 - `memory/` — persistent fraud actor memory: `known_hubs.md`, `known_relays.md`, `known_pos.md`, `actor_notes.md`. Read at investigation start; update at close.

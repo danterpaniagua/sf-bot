@@ -2,7 +2,9 @@
 
 ## Scope
 
-Detect fraudulent activity in point movements within `SmartFran.Solution.SmartLoyalty`: transfers, accumulations, manual assignments, redemptions, and POS terminal manipulation via franchise networks.
+Detect fraudulent activity in point movements within `SmartFran.Solution.SmartLoyalty`: transfers, accumulations, manual assignments, and redemptions.
+
+> POS terminal manipulation via franchise networks is handled by the **`fraud-pos`** skill. When an account shows high-volume cross-branch POS activity or geographic impossibility, note the signal and invoke `fraud-pos` for the franchise investigation path.
 
 This skill operates on the **production database** (`SmartFran.Solution.SmartLoyalty`). Access is **implicit within this skill's scope** — no explicit user request required.
 
@@ -220,19 +222,6 @@ Filter on `sml.PointsTransference.Date`.
 6. **Email verification**: join `sml.Person` → check verified status per the Email Verification schema below. Unverified email on a high-volume sender or receiver = elevated risk signal.
 7. **Registration pattern**: group by `RegistrationChannel`, `RegisterById`, `CreatedDate`.
 
-### POS terminal fraud
-
-When an account shows high-volume POS activity across multiple branches — especially with `Points = 0` on most transactions — investigate whether its `CustomerId` is hardcoded or shared across terminals.
-
-1. **Volume by branch**: `GROUP BY bo.Code, bo.Name` on `sml.Sale` where `CustomerId = <suspect>`. Flag if same account appears in > 3 branches, especially across different provinces.
-2. **Geographic impossibility**: same `CustomerId` in sales at geographically distant branches within minutes = credential distributed across terminals.
-3. **Franchise owner mapping**: join `sml.BranchOffice → sml.FranchiseGroup` for each flagged branch. Branches sharing a `FranchiseGroupId` = same owner, coordinated configuration.
-4. **Staff investigation**: query `sml.FranchiseStaff` for flagged franchise groups. Multiple staff sharing same email = single insider controlling multiple identities. Filter `DeactivatedDate IS NULL`.
-5. **Point yield**: `SUM(Points)` per branch — branches with high count but 0 pts = zero-point terminals; branches with real pts = primary diversion source.
-6. **Redemption link**: check if accumulation account or linked hubs have `DiscountPointsByExchange` at specific branches — identifies the cashout point.
-
----
-
 ### Manual assignment exploit
 
 When `ManualAssignPointsId IS NOT NULL` is the source of anomalous points — pivot to `sml.ManualAssignPoints` directly. This path bypasses POS and promotion logic entirely.
@@ -293,34 +282,6 @@ Expected distribution under normal conditions:
 | `DiscountPointsByExchange` | negative — separate analysis |
 
 A session where `CompensationalPoints` represents > 20% of total positive points signals the exploit pattern. Cross-reference with `RegisterByUser` in `sml.ManualAssignPoints`.
-
----
-
-### `sml.Sale`
-`Id, SaleDate, Delivery, BranchOfficeId, CustomerId, CustomerCardId, PointsLogId, InvalidatedPointsLogId, PaymentTypeCode, Distribution, PlatformCode`
-
-One row per POS transaction. `CustomerId` = loyalty account scanned at the terminal. `PlatformCode = 'POS'` for in-store transactions.
-
-| Column | Fraud relevance |
-|---|---|
-| `CustomerId` | Same CustomerId across hundreds of sales at multiple branches = hardcoded credential in terminal |
-| `BranchOfficeId` | FK to `sml.BranchOffice` — identifies which branch processed the sale |
-| `PlatformCode` | `POS` = terminal scan; unexpected values = channel anomaly |
-
-### `sml.BranchOffice`
-`Id, Name, Code, FranchiseGroupId, AddressId, ActivatedDate, DeactivatedDate, CreatedDate`
-
-One row per franchise branch. FK to `sml.FranchiseGroup`.
-
-### `sml.FranchiseGroup`
-`Id, Name`
-
-One row per franchise owner. A single owner may operate multiple branches.
-
-### `sml.FranchiseStaff`
-`Id, StaffId, FranchiseGroupId, StaffRoleCode, UserId, CreatedDate, DeactivatedDate`
-
-Staff members per franchise group. `StaffId` joins to `sml.Person.Id`. Multiple staff sharing the same email = phantom accounts or single insider with multiple roles. `DeactivatedDate IS NULL` = currently active.
 
 ---
 
@@ -460,9 +421,6 @@ And project these columns:
 | **Circular transfer** | A→B then B→A within a short interval = points laundering |
 | **Account consolidation** | Sender drains balance to 0, receiver balance far exceeds the transfer amount = points aggregated into one account ahead of a large redemption |
 | **Dormant account activation** | Account with no prior activity suddenly initiates or receives large transfers |
-| **POS credential hardcoded** | Same CustomerId in `sml.Sale` across many branches and provinces = account registered as default customer in multiple terminals |
-| **Multi-branch franchise network** | Same `FranchiseGroupId` across multiple high-volume branches with same diverted account = coordinated insider |
-| **Staff identity consolidation** | Multiple `FranchiseStaff` rows sharing one email = single operator controlling phantom staff accounts |
 | **Profile tampering** | `Person.UpdateDate` close to a transfer `LogDate` |
 | **Duplicate accounts** | Multiple `Person.Id` sharing the same `UidCode` + `UidSerie` (scoped by `Country_Id`) |
 | **Consecutive DNI same name** | Two accounts share the same full name with DNIs differing by 1 — same person, duplicate registration |
