@@ -7,3 +7,5 @@
 - [Known POS actors](known_pos.md) — confirmed branches and franchise operators (accumulation + redemption), insider staff
 - [Actor notes](actor_notes.md) — extended context for known fraud actors, keyed by DNI or branch Codigo
 - [JIRA reference](reference_jira.md) — JIRA project GITIN; GITIN-1275 = fraude 2026-06-04 epic
+- [Ticket SQL queries format](feedback_ticket_sql_queries.md) — queries go in a separate .sql file; ticket references them with a brief description table
+- [Commands architecture](project_commands_architecture.md) — all skills in root .claude/commands/ with prefix; only loyalty/ has a local commands dir

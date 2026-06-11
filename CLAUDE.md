@@ -21,22 +21,17 @@ Monorepo of Claude Code bot configurations. Each subdirectory is an independent 
 | Directory | Status | Purpose |
 |---|---|---|
 | `loyalty/` | Active | SmartLoyalty SQL Server — DBA investigation, fraud detection, SRE reporting |
+| `smartpedidos/` | Active | SmartPedidos delivery platform — Node.js/Express API code analysis and SRE |
+| `operations/` | Active | Infrastructure operations — software upgrades, application bugs, monitoring and automation |
 | `cloud/` | Empty | Future cloud infrastructure bot |
-| `smartpedidos/` | Empty | Future SmartPedidos bot |
 
 Open from within the subdirectory (`cd loyalty && claude`) to load the correct CLAUDE.md and skills. Skill-level instructions override CLAUDE.md.
 
-## `loyalty/` Architecture
+## Skills
 
-Documentation-and-prompt project — no runnable code.
+All skills live in `.claude/commands/` (the **sf-skills** submodule). Prefixed by product to avoid collisions. Invoke from the `bots/` root context.
 
-- `.claude/commands/` — skills invoked by name; each overrides CLAUDE.md for its scope.
-- `queries/` — reference SQL for `PNSSRL` (index maintenance, blocking, resource capture).
-- `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
-- `memory/` — persistent fraud actor memory (known hubs, relays, POS actors, notes). Read at investigation start; update at close.
-- `docs/` — versioned skill reference documents.
-
-`.claude/commands/` is the **sf-skills** submodule (`github.com/danterpaniagua/sf-skills`). Skills are prefixed by product. Invoke from the `bots/` root context.
+### `loyalty-*` — SmartLoyalty SQL Server
 
 | Skill | Invocation | Primary DB |
 |---|---|---|
@@ -45,11 +40,59 @@ Documentation-and-prompt project — no runnable code.
 | `loyalty-fraud-pos` | `/loyalty-fraud-pos` | `SmartFran.Solution.SmartLoyalty` |
 | `loyalty-sre-output` | `/loyalty-sre-output` | None |
 | `loyalty-azure-nsg` | `/loyalty-azure-nsg` | None |
-| `doc-audit` | `/doc-audit` | None |
+
+> When working from `loyalty/`, skills are also available unprefixed (e.g. `/fraud-points`). `loyalty/.claude/commands/` is the source of truth — sf-skills is synced from it.
 
 Skills never execute queries — output SQL blocks for the user to run and paste back.
 
-> When working from `loyalty/`, skills are also available unprefixed via `loyalty/.claude/commands/` (e.g. `/fraud-points`). That copy is the actively maintained source — sf-skills is updated by syncing from it.
+### `sp-*` — SmartPedidos (Node.js/Express)
+
+| Skill | Invocation | Scope |
+|---|---|---|
+| `sp-log-improvements` | `/sp-log-improvements` | Apply logging standard to a service codebase |
+| `sp-srp-refactor` | `/sp-srp-refactor` | SRP violation analysis and Jira story generation |
+| `sp-static-analysis` | `/sp-static-analysis` | Static analysis for critical defects and vulnerabilities |
+| `sp-tech-debt` | `/sp-tech-debt` | Record technical debt items to central log |
+| `sp-sre-output` | `/sp-sre-output` | Formatted outputs for PM, IT, and Jira |
+
+### `itiano-*` — Itiano Django Project
+
+| Skill | Invocation | Scope |
+|---|---|---|
+| `itiano-dba-postgres` | `/itiano-dba-postgres` | PostgreSQL administration and diagnostics |
+| `itiano-django-observability` | `/itiano-django-observability` | Add operational logging to Django/PostgreSQL code |
+| `itiano-scope-driven-development` | `/itiano-scope-driven-development` | Requirements analysis and scope management |
+| `itiano-scope-validation` | `/itiano-scope-validation` | Validate implementation against approved scope |
+| `itiano-test-planning` | `/itiano-test-planning` | Create validation and testing plans |
+
+### `ope-*` — Operations (Infrastructure)
+
+| Skill | Invocation | Scope |
+|---|---|---|
+| *(none yet)* | — | — |
+
+### Cross-project
+
+| Skill | Invocation | Scope |
+|---|---|---|
+| `doc-audit` | `/doc-audit` | Documentation and context integrity audit |
+
+## `loyalty/` Architecture
+
+Documentation-and-prompt project — no runnable code.
+
+- `.claude/commands/` — skills (unprefixed); source of truth for loyalty-* skills.
+- `queries/` — reference SQL for `PNSSRL` (index maintenance, blocking, resource capture).
+- `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
+- `memory/` — persistent fraud actor memory (known hubs, relays, POS actors, notes). Read at investigation start; update at close.
+- `docs/` — versioned skill reference documents.
+
+## `smartpedidos/` and `operations/` Architecture
+
+No local `.claude/commands/`. Skills live in the `bots/` root `.claude/commands/` (sf-skills) with the project prefix (`sp-*`, `ope-*`). Invoke from the `bots/` root.
+
+- `platforms-service` — inbound integration layer for delivery platforms (PedidosYa, Uber Eats, Rappi, Glovo, MercadoPago, Rapiboy). Receives webhooks, normalises orders, persists to MongoDB, pushes to AWS SQS.
+- `concentrador-service` — internal management and POS-facing backend. Serves SmartFran agents and dashboard; owns the SQS consumer path.
 
 ## Static Code Analysis Mode
 

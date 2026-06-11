@@ -18,22 +18,22 @@ Este documento cubre los proyectos **ClubSiteG2** (portal del cliente, canal WEB
 
 ---
 
-## Location attribute keys reference
+## Referencia de atributos de ubicación
 
-These keys are stored in `Sml.LocationAttributeValue` and drive the transfer and earning logic. LocationId 1 = Argentina, LocationId 9 = second country instance.
+Claves almacenadas en `Sml.LocationAttributeValue` que controlan la lógica de transferencia y acumulación de puntos. LocationId 1 = Argentina, LocationId 9 = segunda instancia de país.
 
-| AttributeCode | Used in | Purpose |
+| AttributeCode | Usado en | Propósito |
 |---|---|---|
-| `CustomerPointsMinLimit` | `Core/Domain/Domain/SaleContext/SaleService.cs:2091` | Daily cap on points **earned** per sale |
-| `CustomerPointsMidLimit` | `SaleService.cs:2092` | Weekly cap on points **earned** per sale |
-| `CustomerPointsMaxLimit` | `SaleService.cs:2093` | Monthly cap on points **earned** per sale |
-| `PointsTransferActive` | `Front/ClubSiteG2/Controllers/CustomerController.cs:255` | Master switch — value `"1"` enables the transfer feature for that location |
-| `CustomerPointsMinLimitTransfer` | `Core/Domain/Domain/CustomerContext/CustomerService.cs:568` (fallback only) | Daily cap on points **sent** by a regular customer — currently unreachable due to Hallazgo 1 |
-| `CustomerPointsMidLimitTransfer` | `CustomerService.cs:569` (fallback only) | Weekly cap on points **sent** by a regular customer — currently unreachable |
-| `CustomerPointsMaxLimitTransfer` | `CustomerService.cs:570` (fallback only) | Monthly cap on points **sent** by a regular customer — currently unreachable |
-| `ColaboratorPointsMinLimitTransfer` | `CustomerService.cs:562` | Daily cap on points **sent** by a contributor — applied to **all** customers due to Hallazgo 1 |
-| `ColaboratorPointsMidLimitTransfer` | `CustomerService.cs:561` | Weekly cap on points **sent** — same issue |
-| `ColaboratorPointsMaxLimitTransfer` | `CustomerService.cs:560` | Monthly cap on points **sent** — same issue |
+| `CustomerPointsMinLimit` | `Core/Domain/Domain/SaleContext/SaleService.cs:2091` | Límite diario de puntos **ganados** por venta |
+| `CustomerPointsMidLimit` | `SaleService.cs:2092` | Límite semanal de puntos **ganados** por venta |
+| `CustomerPointsMaxLimit` | `SaleService.cs:2093` | Límite mensual de puntos **ganados** por venta |
+| `PointsTransferActive` | `Front/ClubSiteG2/Controllers/CustomerController.cs:255` | Switch maestro — valor `"1"` habilita las transferencias para esa ubicación |
+| `CustomerPointsMinLimitTransfer` | `Core/Domain/Domain/CustomerContext/CustomerService.cs:568` (solo fallback) | Límite diario de puntos **enviados** por cliente regular — actualmente inalcanzable por Hallazgo 1 |
+| `CustomerPointsMidLimitTransfer` | `CustomerService.cs:569` (solo fallback) | Límite semanal de puntos **enviados** por cliente regular — inalcanzable |
+| `CustomerPointsMaxLimitTransfer` | `CustomerService.cs:570` (solo fallback) | Límite mensual de puntos **enviados** por cliente regular — inalcanzable |
+| `ColaboratorPointsMinLimitTransfer` | `CustomerService.cs:562` | Límite diario de puntos **enviados** por colaborador — aplicado a **todos** los clientes por Hallazgo 1 |
+| `ColaboratorPointsMidLimitTransfer` | `CustomerService.cs:561` | Límite semanal de puntos **enviados** — mismo problema |
+| `ColaboratorPointsMaxLimitTransfer` | `CustomerService.cs:560` | Límite mensual de puntos **enviados** — mismo problema |
 
 ---
 

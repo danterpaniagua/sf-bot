@@ -36,7 +36,7 @@ Investigation of database events on the SmartLoyalty SQL Server instance (`SFCG-
 - All content written to `events/` must be in **Spanish**. All other conversational output by Claude (analysis, queries, findings) in **English**. Email and ticket artifacts produced as skill outputs follow the audience's language (typically Spanish for PM/client-facing content).
 - `events/` is **write-only** — do not read files from it unless explicitly asked.
 - Each event or issue gets its own subfolder: `events/YYYYMMDD_description/`. File names inside follow `YYYYMMDD_description_audience.ext`.
-- Operations Jira tickets must include full query text saved as a `.sql` file in the event subfolder, referenced by filename in the ticket body. Source columns: `PNSSRL_AuditSysprocesses.comando_ejecutado`, `PNSSRL_TempdbProc.Query_Text`.
+- All SQL queries run during an investigation or fix (diagnostic, verification, remediation) must be saved as a `.sql` file in the event subfolder (`YYYYMMDD_description_scripts.sql`). The ticket body references the file with a brief description table (`#` | `Query` | `Propósito`) — no inline SQL blocks in the ticket. For DBA investigations, trace query text comes from `PNSSRL_AuditSysprocesses.comando_ejecutado` and `PNSSRL_TempdbProc.Query_Text`.
 - Closure reports (`_ops.md`) must include: (1) summary metrics table, (2) EventTypeCode breakdown (EventTypeCode | Eventos | Puntos), (3) participant detail (Cliente | Documento | EventTypeCode | Transacciones | Puntos) for the reported window. Actions section is titled **Acciones propuestas** — not "Acciones requeridas".
 
 ### Server timezone
