@@ -33,7 +33,9 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 
 | Skill | Invocation | Scope |
 |---|---|---|
-| *(none yet)* | — | — |
+| `ope-azure` | `/ope-azure` | Azure AD DS health/alerts, Kerberos policy, VMs, NSGs, Monitor |
+| `ope-aws` | `/ope-aws` | EC2, SQS, CloudWatch, IAM review, ECS, Fargate, ALB/NLB |
+| `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
 
 ## Global Restrictions
 

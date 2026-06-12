@@ -69,7 +69,9 @@ Skills never execute queries — output SQL blocks for the user to run and paste
 
 | Skill | Invocation | Scope |
 |---|---|---|
-| *(none yet)* | — | — |
+| `ope-azure` | `/ope-azure` | Azure AD DS health/alerts, Kerberos policy, VMs, NSGs, Monitor |
+| `ope-aws` | `/ope-aws` | EC2, SQS, CloudWatch, IAM review, ECS, Fargate, ALB/NLB |
+| `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
 
 ### Cross-project
 
