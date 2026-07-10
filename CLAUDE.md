@@ -12,6 +12,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - No sycophantic openers or closing fluff.
 - User instructions always override this file.
 
+## Destructive Cloud Commands
+
+Before presenting ANY command that modifies or deletes cloud resources (Azure, AWS, or any provider), display this ASCII banner in the response — no exceptions:
+
+```
++------------------------------------------------------------+
+|  DESTRUCTIVE COMMAND -- VERIFY ENVIRONMENT BEFORE RUNNING  |
+|  This command modifies or deletes cloud resources.         |
+|  Confirm: subscription / account / region is NOT prod      |
+|  This action may be IRREVERSIBLE                           |
++------------------------------------------------------------+
+```
+
+Applies to: `regenerate-key`, `delete`, `remove`, `reset`, `purge`, `force-delete`, `rm`, key rotation, `nsg rule delete`, IAM policy removal, resource group deletion, S3 destructive operations, and any command that writes or removes state in a cloud provider.
+
 ## Repository Purpose
 
 Monorepo of Claude Code bot configurations. Each subdirectory is an independent project with its own `.git`, `CLAUDE.md`, and `.claude/commands/` skills. Work happens inside sub-projects; the root repo tracks structure only.
@@ -23,7 +38,7 @@ Monorepo of Claude Code bot configurations. Each subdirectory is an independent 
 | `loyalty/` | Active | SmartLoyalty SQL Server — DBA investigation, fraud detection, SRE reporting |
 | `smartpedidos/` | Active | SmartPedidos delivery platform — Node.js/Express API code analysis and SRE |
 | `operations/` | Active | Infrastructure operations — software upgrades, application bugs, monitoring and automation |
-| `cloud/` | Empty | Future cloud infrastructure bot |
+| `cloud/` | Active | Azure cloud services — Service Bus, CosmosDB, event-driven messaging |
 
 Open from within the subdirectory (`cd loyalty && claude`) to load the correct CLAUDE.md and skills. Skill-level instructions override CLAUDE.md.
 
@@ -69,7 +84,7 @@ Skills never execute queries — output SQL blocks for the user to run and paste
 
 | Skill | Invocation | Scope |
 |---|---|---|
-| `ope-azure` | `/ope-azure` | Azure AD DS health/alerts, Kerberos policy, VMs, NSGs, Monitor |
+| `ope-azure` | `/ope-azure` | Azure AD DS health/alerts, Kerberos policy, VMs, NSGs, Monitor, Service Bus |
 | `ope-aws` | `/ope-aws` | EC2, SQS, CloudWatch, IAM review, ECS, Fargate, ALB/NLB |
 | `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
 

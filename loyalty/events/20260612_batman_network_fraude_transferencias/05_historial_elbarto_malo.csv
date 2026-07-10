@@ -1,0 +1,37 @@
+Fecha_ARG,EventTypeCode,Points,Note
+2026-03-07 22:19:00,PointsByTransferReceived,30000,ANOMALIA: 2 min antes del evento NewCustomer
+2026-03-07 22:21:58,NewCustomer,5000,Regalo Canje 1 kg APP — creación de cuenta
+2026-03-07 22:37:22,PointsByTransferSent,-30000,18 min después de creación — vaciado inmediato
+2026-03-07 22:39:44,PointsByTransferReceived,5500,Suma puntos por transferencia recibida
+2026-03-07 22:40:38,PointsByTransferReceived,1845,Suma puntos por transferencia recibida
+2026-03-12 02:46:10,PointsByTransferReceived,13600,Suma puntos por transferencia recibida
+2026-03-12 02:48:02,PointsByTransferReceived,3000,Suma puntos por transferencia recibida
+2026-03-12 02:48:55,PointsByTransferReceived,4000,Suma puntos por transferencia recibida
+2026-03-12 02:49:52,PointsByTransferReceived,6610,Suma puntos por transferencia recibida
+2026-03-12 02:52:59,PointsByTransferReceived,4700,Suma puntos por transferencia recibida
+2026-03-12 02:53:55,PointsByTransferReceived,5500,Suma puntos por transferencia recibida
+2026-03-12 02:55:14,PointsByTransferReceived,8115,Suma puntos por transferencia recibida
+2026-03-12 02:57:16,PointsByTransferReceived,7200,Suma puntos por transferencia recibida
+2026-03-12 02:58:33,PointsByTransferReceived,5800,Suma puntos por transferencia recibida
+2026-03-12 02:59:28,PointsByTransferReceived,9155,Suma puntos por transferencia recibida
+2026-03-12 03:00:15,PointsByTransferReceived,4100,Suma puntos por transferencia recibida
+2026-03-12 03:01:14,PointsByTransferReceived,30000,Suma puntos por transferencia recibida
+2026-03-12 03:06:39,PointsByTransferSent,-10000,5 min después última carga — → Eustacio Castro
+2026-04-19 16:12:12,PointsByTransferSent,-30000,Paralelo con El Batman (16:14) — misma sesión operador
+2026-05-14 23:10:43,PointsByTransferSent,-30000,2 min después de El Batman → Guzman (23:08)
+2026-05-21 23:11:41,PointsByTransferReceived,4700,Suma puntos por transferencia recibida
+2026-05-21 23:12:43,PointsByTransferReceived,5300,Suma puntos por transferencia recibida
+2026-05-21 23:14:08,PointsByTransferReceived,12590,Suma puntos por transferencia recibida
+2026-05-21 23:15:12,PointsByTransferReceived,3950,Suma puntos por transferencia recibida
+2026-05-25 22:01:54,PointsByTransferReceived,8000,Suma puntos por transferencia recibida
+2026-05-25 22:04:24,PointsByTransferReceived,4400,Suma puntos por transferencia recibida
+2026-05-25 22:06:34,PointsByTransferReceived,14800,Suma puntos por transferencia recibida
+2026-05-25 22:08:46,PointsByTransferReceived,1100,Suma puntos por transferencia recibida
+2026-05-25 22:24:34,PointsByTransferReceived,2390,Suma puntos por transferencia recibida
+2026-05-27 19:52:48,PointsByTransferReceived,2800,Suma puntos por transferencia recibida
+2026-05-27 19:53:32,PointsByTransferReceived,3500,Suma puntos por transferencia recibida
+2026-05-27 19:54:31,PointsByTransferReceived,6400,Suma puntos por transferencia recibida
+2026-05-27 19:57:16,PointsByTransferReceived,7298,Suma puntos por transferencia recibida
+2026-05-27 23:12:00,PointsByTransferReceived,13000,Suma puntos por transferencia recibida
+2026-05-27 23:13:03,PointsByTransferSent,-29999,1 min después última carga — vaciado inmediato → Eustacio Castro
+2026-06-02 23:39:54,PointsByTransferReceived,5000,Suma puntos por transferencia recibida

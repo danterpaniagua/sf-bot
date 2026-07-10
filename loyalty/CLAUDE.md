@@ -14,9 +14,10 @@ Investigation of database events on the SmartLoyalty SQL Server instance (`SFCG-
 
 - `.claude/commands/` — skills (unprefixed); this is the **source of truth**. Invoked as `/fraud-points`, `/fraud-pos`, `/dba-investigation`, `/sre-output`, `/azure-nsg`. When working from the `bots/` root, the same skills are available as `/loyalty-*` via the sf-skills submodule — but edits always go here first.
 - `queries/` — reference SQL for `PNSSRL`.
-- `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
+- `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`. Each event produces `_ops.md` (ticket) and `_ops-events.md` (activity log).
 - `memory/` — persistent fraud actor memory: `known_hubs.md`, `known_relays.md`, `known_pos.md`, `actor_notes.md`. Read at investigation start; update at close.
 - `docs/` — versioned skill reference documents.
+- `../docs/` — cross-project shared references. See `../docs/azure_nsg.md` for Azure NSG inventory, VNet topology, AADDS DC IPs, and CLI patterns.
 
 ## Global Restrictions
 
@@ -37,7 +38,18 @@ Investigation of database events on the SmartLoyalty SQL Server instance (`SFCG-
 - `events/` is **write-only** — do not read files from it unless explicitly asked.
 - Each event or issue gets its own subfolder: `events/YYYYMMDD_description/`. File names inside follow `YYYYMMDD_description_audience.ext`.
 - All SQL queries run during an investigation or fix (diagnostic, verification, remediation) must be saved as a `.sql` file in the event subfolder (`YYYYMMDD_description_scripts.sql`). The ticket body references the file with a brief description table (`#` | `Query` | `Propósito`) — no inline SQL blocks in the ticket. For DBA investigations, trace query text comes from `PNSSRL_AuditSysprocesses.comando_ejecutado` and `PNSSRL_TempdbProc.Query_Text`.
-- Closure reports (`_ops.md`) must include: (1) summary metrics table, (2) EventTypeCode breakdown (EventTypeCode | Eventos | Puntos), (3) participant detail (Cliente | Documento | EventTypeCode | Transacciones | Puntos) for the reported window. Actions section is titled **Acciones propuestas** — not "Acciones requeridas".
+- Ops events file (`_ops-events.md`) is append-only. One entry per meaningful action: investigation step, query result, finding, or status update:
+
+```
+# Eventos — YYYYMMDD_description
+
+## YYYY-MM-DD HH:MM — <título corto>
+
+Descripción del trabajo realizado, hallazgo o estado.
+```
+
+- Closure reports (`_ops.md`) must include: (1) summary metrics table, (2) EventTypeCode breakdown (EventTypeCode | Eventos | Puntos), (3) participant detail (Cliente | Documento | EventTypeCode | Transacciones | Puntos) for the reported window, (4) **points accounting table** (Actor | DNI | Rol | Pts Totales | Recuperable | No Recuperable). Actions section is titled **Acciones propuestas** — not "Acciones requeridas".
+- Every inline analysis (not only closure reports) must include a points accounting section with two axes per actor: (1) **account origin** — registration channel, date, branch, **email validation** (disposable domain + `SmlSt.CustomerMailing` presence); (2) **final point status** — four states: **Gastados** (spent via `DiscountPointsByExchange`, irreversible), **Transferidos** (sent to another account — trace chain), **Activos** (balance in active account — suspend + reverse), **Retenidos/Held** (account deactivated but `smlst.CustomerPointsLog` still shows balance — admin-reversible by CustomerId). All statuses must be confirmed by query — do not assume based on prior analysis. Update with each new query result.
 
 ### Server timezone
 

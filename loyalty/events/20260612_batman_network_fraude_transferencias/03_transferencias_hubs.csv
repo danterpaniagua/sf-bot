@@ -1,0 +1,32 @@
+Emisor,DNI_Emisor,Email_Emisor,Fecha_ARG,Puntos,SourceChannel,Receptor,DNI_Receptor,Violacion_Limite,Nota
+El Batman,43541208,locosdeperros3090@gmail.com,2024-11-28 22:21:41,8000,,Mabel Chauque,44348547,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2024-12-06 23:24:29,5000,,Francisco Quintana,44400926,NO,
+El Batman,43541208,locosdeperros3090@gmail.com,2025-03-20 19:55:48,8000,WEB,Carlos Barrionuevo,44679076,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2025-03-28 21:58:19,5000,APP,[DESACTIVADA 79C680B6],79C680B6,,Cuenta receptora desactivada
+El Batman,43541208,locosdeperros3090@gmail.com,2025-04-22 18:30:52,8000,APP,Carlos Barrionuevo,44679076,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2025-06-14 19:41:01,8000,APP,[DESACTIVADA 79C680B6],79C680B6,,Cuenta receptora desactivada
+El Batman,43541208,locosdeperros3090@gmail.com,2025-08-20 14:57:25,8000,APP,[DESACTIVADA 79C680B6],79C680B6,,Cuenta receptora desactivada
+El Batman,43541208,locosdeperros3090@gmail.com,2025-09-29 01:06:23,8000,WEB,Valentina Ayelen Choque,47813765,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2025-10-05 10:56:34,8000,APP,Lucas Leopoldo Castro Ortega,45253012,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2025-10-11 00:39:19,8000,APP,Angel Pereyra,48016024,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2025-10-16 15:21:43,8000,APP,Angel Pereyra,48016024,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2025-11-03 10:36:36,8000,APP,Angel Pereyra,48016024,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2025-11-03 10:36:53,8000,APP,[DESACTIVADA 79C680B6],79C680B6,,17 seg después de envío anterior — misma sesión
+El Batman,43541208,locosdeperros3090@gmail.com,2026-01-02 13:25:15,8000,APP,Carlos Barrionuevo,44679076,NO,Al límite diario
+El Batman,43541208,locosdeperros3090@gmail.com,2026-02-07 16:59:07,30000,WEB,Lucas Leopoldo Castro Ortega,45253012,SI — 3.75x,5 min después de última carga (16:54); inicio escalada
+El Batman,43541208,locosdeperros3090@gmail.com,2026-02-10 23:10:28,10000,WEB,Lucas Leopoldo Castro Ortega,45253012,SI — 1.25x,
+El Batman,43541208,locosdeperros3090@gmail.com,2026-02-22 22:16:58,20000,WEB,Lucas Leopoldo Castro Ortega,45253012,SI — 2.5x,4 min después de última carga (22:12)
+El Batman,43541208,locosdeperros3090@gmail.com,2026-04-19 16:14:52,30000,WEB,Lucas Leopoldo Castro Ortega,45253012,SI — 3.75x,Paralelo con Elbarto Malo (16:12) — misma sesión operador
+El Batman,43541208,locosdeperros3090@gmail.com,2026-05-14 23:08:57,8000,APP,Agustina Guzman,46403467,NO,Paralelo con Elbarto Malo (23:10) — 2 min diferencia
+El Batman,43541208,locosdeperros3090@gmail.com,2026-05-16 23:03:01,22000,WEB,Lucas Riquelme,44238411,SI — 2.75x,
+El Batman,43541208,locosdeperros3090@gmail.com,2026-06-07 14:48:05,8000,APP,Esteban Joel Huanca,38973061,NO,Pump coordinado a Huanca — 5 cuentas en 6 min
+El Batman,43541208,locosdeperros3090@gmail.com,2026-06-07 14:52:54,22000,WEB,Esteban Joel Huanca,38973061,SI — 2.75x,Pump coordinado a Huanca
+Bat Man,43541200,locosdeperros3030@gmail.com,2026-06-09 21:09:34,20000,WEB,Esteban Joel Huanca,38973061,SI — 2.5x,Alias de El Batman
+Elbarto Malo,43541209,josecastroo12343@gmail.com,2026-03-07 22:37:22,30000,WEB,Lucas Leopoldo Castro Ortega,45253012,SI — 3.75x,18 min después de creación de cuenta
+Elbarto Malo,43541209,josecastroo12343@gmail.com,2026-03-12 03:06:39,10000,WEB,Eustacio Cirilo Castro,92623449,SI — 1.25x,5 min después de última carga (03:01)
+Elbarto Malo,43541209,josecastroo12343@gmail.com,2026-04-19 16:12:12,30000,WEB,Angel Pereyra,48016024,SI — 3.75x,Paralelo con El Batman (16:14) — misma sesión operador
+Elbarto Malo,43541209,josecastroo12343@gmail.com,2026-05-14 23:10:43,30000,WEB,Agustina Guzman,46403467,SI — 3.75x,2 min después de El Batman → Guzman (23:08)
+Elbarto Malo,43541209,josecastroo12343@gmail.com,2026-05-27 23:13:03,29999,WEB,Eustacio Cirilo Castro,92623449,SI — 3.75x,1 min después de última carga (23:12) — vaciado inmediato
+Eustacio C. Castro,92623449,ortegacastro1234@gmail.com,2024-12-18 22:25:02,8000,,Edith Olivia Ortega,31687339,NO,
+Eustacio C. Castro,92623449,ortegacastro1234@gmail.com,2025-03-28 21:55:14,8000,,[DESACTIVADA 79C680B6],79C680B6,,Misma cuenta desactivada que El Batman
+Eustacio C. Castro,92623449,ortegacastro1234@gmail.com,2026-04-19 16:18:18,16240,,Valentina Ayelen Choque,47813765,SI — 2x,

@@ -1,0 +1,27 @@
+Fecha_ARG,EventTypeCode,Points,Note
+2024-11-29 18:30:38,PointsByTransferReceived,8000,Misma ventana founding de El Batman (nov-29)
+2024-11-29 18:35:00,PointsByTransferReceived,20000,Transfer único 2.5x límite diario
+2024-12-06 04:24:11,PointsByTransferReceived,3000,Suma puntos por transferencia recibida
+2024-12-07 00:18:57,PointsByTransferReceived,1100,Suma puntos por transferencia recibida
+2024-12-07 00:24:45,PointsByTransferReceived,870,Suma puntos por transferencia recibida
+2024-12-07 00:27:28,PointsByTransferReceived,4175,Suma puntos por transferencia recibida
+2024-12-07 00:29:54,PointsByTransferReceived,7870,Suma puntos por transferencia recibida
+2024-12-08 13:43:50,PointsByTransferReceived,3370,Suma puntos por transferencia recibida
+2024-12-08 13:53:24,PointsByTransferReceived,550,Suma puntos por transferencia recibida
+2024-12-08 13:54:22,PointsByTransferReceived,1515,Suma puntos por transferencia recibida
+2024-12-08 13:56:11,PointsByTransferReceived,5880,Suma puntos por transferencia recibida
+2024-12-08 13:57:27,PointsByTransferReceived,1225,Suma puntos por transferencia recibida
+2024-12-08 14:22:53,PointsByTransferReceived,8000,Suma puntos por transferencia recibida
+2024-12-08 14:31:05,PointsByTransferReceived,1570,Suma puntos por transferencia recibida
+2024-12-08 14:35:58,PointsByTransferReceived,3350,Suma puntos por transferencia recibida
+2024-12-18 22:25:02,PointsByTransferSent,-8000,→ Edith Olivia Ortega DNI 31687339
+2024-12-20 13:18:51,CompensationalPoints,-62475,REVERSIÓN por GSLCEBALLOS — Puntos Compensación de Calidad — cuenta no suspendida
+2025-01-15 17:31:27,PointsByTransferReceived,2750,Recarga post-reversión 3 semanas después
+2025-01-15 17:34:32,PointsByTransferReceived,8000,Suma puntos por transferencia recibida
+2025-01-17 08:13:57,PointsByTransferReceived,1880,Suma puntos por transferencia recibida
+2025-01-17 08:26:00,PointsByTransferReceived,1610,Suma puntos por transferencia recibida
+2025-03-28 21:55:14,PointsByTransferSent,-8000,→ Cuenta desactivada 79C680B6 — misma que El Batman
+2026-03-12 03:06:39,PointsByTransferReceived,10000,De Elbarto Malo — timestamp exacto confirmado
+2026-04-19 16:18:18,PointsByTransferSent,-16240,→ Valentina Choque — vaciado completo de saldo
+2026-05-27 19:56:26,PointsByTransferReceived,2500,Suma puntos por transferencia recibida
+2026-05-27 23:13:03,PointsByTransferReceived,29999,De Elbarto Malo — timestamp exacto confirmado

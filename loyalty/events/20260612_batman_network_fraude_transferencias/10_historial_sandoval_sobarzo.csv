@@ -1,0 +1,22 @@
+Fecha_ARG,EventTypeCode,Points,Note
+2026-05-20 09:31:34,PointsByTransferReceived,5000,FEEDER NO IDENTIFICADO
+2026-05-20 09:34:36,PointsByTransferReceived,3000,FEEDER NO IDENTIFICADO
+2026-05-20 18:17:07,PointsByTransferReceived,3000,FEEDER NO IDENTIFICADO
+2026-05-22 18:04:00,EarnPointsByBuying,150,Actividad POS legítima
+2026-05-22 18:04:00,EarnPointsByBuying,150,Actividad POS legítima
+2026-05-22 18:04:00,EarnPointsByBuying,150,Actividad POS legítima
+2026-05-22 18:04:00,EarnPointsByBuying,70,Actividad POS legítima
+2026-05-22 18:04:00,EarnPointsByBuying,15,Actividad POS legítima
+2026-05-22 18:04:00,EarnPointsByBuying,15,Actividad POS legítima
+2026-05-22 21:48:10,DiscountPointsByExchange,-5000,Canje Punto Dinero
+2026-05-23 15:21:28,PointsByTransferReceived,8000,De Agustina Guzman — confirmado
+2026-05-23 15:23:46,DiscountPointsByExchange,-5000,Canje 2 min después de receive
+2026-05-23 15:23:46,DiscountPointsByExchange,-4500,Canje 2 min después de receive
+2026-05-23 22:20:01,PointsByTransferSent,-5000,DESTINO NO IDENTIFICADO — pendiente trazado
+2026-06-01 22:22:14,PointsByTransferReceived,3000,FEEDER NO IDENTIFICADO
+2026-06-01 22:24:31,DiscountPointsByExchange,-2000,Canje 2 min después de receive
+2026-06-04 23:14:32,DiscountPointsByExchange,-350,Descuenta puntos por canje Punto Dinero
+2026-06-04 23:14:32,DiscountPointsByExchange,-350,Descuenta puntos por canje Punto Dinero
+2026-06-10 17:33:19,PointsByTransferReceived,8000,De Agustina Guzman — confirmado — RECIENTE
+2026-06-10 17:35:00,DiscountPointsByExchange,-5000,Canje 101 seg después de receive — cashout inmediato
+2026-06-10 17:35:00,DiscountPointsByExchange,-500,Canje 101 seg después de receive

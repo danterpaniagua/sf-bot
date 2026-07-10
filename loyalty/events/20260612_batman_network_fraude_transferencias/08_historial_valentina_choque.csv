@@ -1,0 +1,39 @@
+Fecha_ARG,EventTypeCode,Points,Note
+2025-09-11 20:17:01,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO
+2025-09-11 20:33:56,DiscountPointsByExchange,-1500,Canje mismo día (16 min después)
+2025-09-11 20:33:56,DiscountPointsByExchange,-1500,Canje mismo día
+2025-09-28 15:09:17,EarnPointsByPromotion,0,Suma de puntos por promoción
+2025-09-28 15:09:17,EarnPointsByBuying,700,Actividad POS legítima
+2025-09-29 01:06:23,PointsByTransferReceived,8000,De El Batman — confirmado
+2025-10-12 14:53:05,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2025-10-12 14:53:05,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2025-10-22 13:37:54,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO
+2025-10-23 12:28:52,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2025-10-23 12:28:52,DiscountPointsByExchange,-3000,Descuenta puntos por canje Punto Dinero
+2025-10-26 11:28:01,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO — 3 transfers en 110 seg
+2025-10-26 11:29:31,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO — pendiente trazado
+2025-10-26 11:29:51,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO — pendiente trazado
+2025-11-12 19:19:18,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2025-11-12 19:19:18,DiscountPointsByExchange,-3300,Descuenta puntos por canje Punto Dinero
+2025-11-23 19:39:43,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO
+2025-11-23 20:01:12,DiscountPointsByExchange,-5000,Canje 22 min después de receive
+2025-11-23 20:01:12,DiscountPointsByExchange,-250,Descuenta puntos por canje Punto Dinero
+2025-11-23 20:01:12,DiscountPointsByExchange,-250,Descuenta puntos por canje Punto Dinero
+2025-11-23 20:01:12,DiscountPointsByExchange,-250,Descuenta puntos por canje Punto Dinero
+2025-11-23 20:01:12,DiscountPointsByExchange,-250,Descuenta puntos por canje Punto Dinero
+2025-12-10 23:31:36,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2025-12-10 23:31:36,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2025-12-10 23:31:36,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2025-12-17 11:10:25,DiscountPointsByExchange,-1500,Descuenta puntos por canje Punto Dinero
+2025-12-17 11:10:25,DiscountPointsByExchange,-1500,Descuenta puntos por canje Punto Dinero
+2025-12-17 11:10:25,DiscountPointsByExchange,-3000,Descuenta puntos por canje Punto Dinero
+2026-01-10 13:22:55,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2026-01-10 13:22:55,DiscountPointsByExchange,-2000,Descuenta puntos por canje Punto Dinero
+2026-01-10 13:22:55,DiscountPointsByExchange,-2000,Descuenta puntos por canje Punto Dinero
+2026-01-15 14:07:31,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO
+2026-01-15 21:13:24,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2026-01-15 21:13:24,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2026-01-15 21:13:24,DiscountPointsByExchange,-3000,Descuenta puntos por canje Punto Dinero
+2026-01-15 21:15:14,DiscountPointsByExchange,-3000,Descuenta puntos por canje Punto Dinero
+2026-02-10 23:08:10,PointsByTransferReceived,22500,FEEDER NO IDENTIFICADO — 2.8x límite diario; pendiente trazado urgente
+2026-04-19 16:18:18,PointsByTransferReceived,16240,De Eustacio Cirilo Castro — confirmado

@@ -1,0 +1,20 @@
+Rol,Cuenta,DNI,Email,Pts_Recibidos,Pts_Canjeados,Pts_Redistribuidos,Saldo_Estimado,Flags
+HUB,El Batman,43541208,locosdeperros3090@gmail.com,127214,0,256000,41385,Nombre ficticio; 0 actividad POS; patrón email locosdeperros; activo 18 meses
+HUB_ALIAS,Bat Man,43541200,locosdeperros3030@gmail.com,,0,20000,37149,DNI secuencial -8 de El Batman; mismo patrón email; alias confirmado
+HUB,Elbarto Malo,43541209,josecastroo12343@gmail.com,,0,129999,109354,DNI +1 de El Batman; nombre ficticio Bart Simpson; pre-registro transfer; 0 actividad legítima
+HUB_RELAY,Eustacio Cirilo Castro,92623449,ortegacastro1234@gmail.com,,0,32240,32499,DNI imposible 92M+; email combina apellidos de Castro Ortega; reversión previa dic-2024
+HUB_ALIAS,Juana De Torres,13883289,locosdeperros3080@gmail.com,,,, 3690,Tercer email familia locosdeperros30XX; pendiente investigación completa
+RELAY,Lucas L. Castro Ortega,45253012,castroortegalecas@gmail.com,128000,,, ,Relay confirmado El Batman→Elbarto→Eustacio → Huanca
+RECEPTOR,Esteban J. Huanca,38973061,,74000,0,0,74000,74.000 pts sin ningún canje — RECUPERABLE 100%; recibió de 3 cuentas en 6 min el Jun 7
+RECEPTOR,Angel Pereyra,48016024,angeldavidpereyra3@gmail.com,94000,45800,0,~48500,Cashout mismo día de receive (26 min); feeders adicionales no trazados (Dic 7 / Mar 30)
+RECEPTOR,Valentina A. Choque,47813765,choquevalentina13@gmail.com,102740,61300,0,~42140,Mayor volumen de canje en red; feeder Feb 10 22.500 pts no identificado
+RECEPTOR,Agustina Guzman,46403467,agustinaguzmanchml@gmail.com,45000,14500,16000,~2000,Cliente real con historial POS desde may-2024; relay activa Jun 10 2026
+RECEPTOR,Agustina Sandoval Sobarzo,45978514,Aniisandovall1989@gmail.com,30000,22700,5000,~2850,Cashout inmediato (101 seg tras receive Jun 10); send -5.000 destino no trazado May 23
+RECEPTOR,Lucas Riquelme,44238411,,22000,,,, Pendiente investigación
+RECEPTOR,Carlos Barrionuevo,44679076,,24000,,,, Pendiente investigación
+RECEPTOR_DESACTIVADO,[Cuenta desactivada],79C680B6-5EAC-C58D-D81E-08DD68DA7039,,37000,,,Congelados,Desactivada — 5 transferencias recibidas de El Batman y Eustacio Castro
+RECEPTOR,Edith Olivia Ortega,31687339,armandok12@hotmail.com,8000,,,, Email mismatch armandok ≠ Edith; recibió de Eustacio Castro dic-2024
+RECEPTOR,Mabel Chauque,44348547,,8000,,,, Pendiente
+RECEPTOR,Francisco Quintana,44400926,,5000,,,, Pendiente
+FEEDER,Diego Ciraco,23223694,diegociraco@gmail.com,,,,0,Transfer único 19.000 pts a El Batman may-2026; email coincide nombre
+FEEDER,Christian Diaz,36449166,nahuelazo21@gmail.com,,,,0,Transfer único 24.000 pts a El Batman may-2026; email nahuel ≠ Christian

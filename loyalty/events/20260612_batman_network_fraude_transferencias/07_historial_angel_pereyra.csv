@@ -1,0 +1,32 @@
+Fecha_ARG,EventTypeCode,Points,Note
+2025-10-11 00:39:19,PointsByTransferReceived,8000,De El Batman — confirmado
+2025-10-11 17:27:57,DiscountPointsByExchange,-5000,Canje mismo día (17 hs después)
+2025-10-11 17:27:57,DiscountPointsByExchange,-1000,Canje mismo día
+2025-10-16 15:21:43,PointsByTransferReceived,8000,De El Batman — confirmado
+2025-10-16 15:47:40,DiscountPointsByExchange,-3000,Canje 26 min después de receive
+2025-10-16 15:47:40,DiscountPointsByExchange,-3000,Canje 26 min después de receive
+2025-10-19 12:04:00,DiscountPointsByExchange,-4000,Descuenta puntos por canje Punto Dinero
+2025-11-03 10:36:36,PointsByTransferReceived,8000,De El Batman — confirmado
+2025-12-07 16:23:00,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO — 2 transfers en 71 seg
+2025-12-07 16:24:11,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO — pendiente trazado
+2025-12-08 16:29:05,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2025-12-11 20:41:52,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2025-12-11 20:41:52,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2025-12-11 20:41:52,DiscountPointsByExchange,-500,Descuenta puntos por canje Punto Dinero
+2025-12-13 13:40:54,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2026-01-13 19:35:18,DiscountPointsByExchange,-3000,Descuenta puntos por canje Punto Dinero
+2026-01-13 19:35:18,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2026-01-13 19:35:18,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2026-01-15 16:19:14,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2026-03-30 18:21:09,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO — 3 transfers en 27 seg
+2026-03-30 18:21:21,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO — pendiente trazado
+2026-03-30 18:21:36,PointsByTransferReceived,8000,FEEDER NO IDENTIFICADO — pendiente trazado
+2026-04-01 13:58:37,DiscountPointsByExchange,-5000,Descuenta puntos por canje Punto Dinero
+2026-04-01 13:58:37,DiscountPointsByExchange,-300,Descuenta puntos por canje Punto Dinero
+2026-04-19 16:12:12,PointsByTransferReceived,30000,De Elbarto Malo — confirmado; 3.75x límite diario
+2026-04-26 18:07:11,EarnPointsByPromotion,0,Suma de puntos por promoción
+2026-04-26 18:07:11,EarnPointsByBuying,100,Actividad POS legítima
+2026-04-26 18:07:11,EarnPointsByBuying,100,Actividad POS legítima
+2026-04-26 18:07:11,EarnPointsByBuying,100,Actividad POS legítima
+2026-05-03 18:56:39,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero
+2026-05-03 18:56:39,DiscountPointsByExchange,-1000,Descuenta puntos por canje Punto Dinero

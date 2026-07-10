@@ -24,6 +24,7 @@ The Operations area covers all non-database platform concerns: monitoring, deplo
 ## Directory Layout
 
 - `docs/` — versioned reference documents: runbooks, tool configuration notes, upgrade procedures.
+- `../docs/` — cross-project shared references. See `../docs/azure_nsg.md` for Azure NSG inventory, VNet topology, AADDS DC IPs, and CLI patterns.
 - `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
 - `memory/` — persistent operational memory: known recurring issues, infrastructure state, service notes. Read at investigation start; update at close.
 
@@ -47,7 +48,7 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 ### Query / Command constraints
 
 - Never generate destructive shell commands (`rm -rf`, `docker system prune`, force-stop services) unless explicitly requested.
-- Always output commands as copy-paste blocks. The user runs them and pastes results back.
+- Always output commands as copy-paste blocks. The user runs them and pastes results back. Never tell the user to run a command — only provide the block.
 
 ### Output
 
@@ -55,7 +56,31 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 - `events/` is **write-only** — do not read files from it unless explicitly asked.
 - Each event gets its own subfolder: `events/YYYYMMDD_description/`. File names follow `YYYYMMDD_description_audience.ext`.
 - All scripts or commands run during an investigation or fix must be saved as a script file in the event subfolder (`YYYYMMDD_description_scripts.sh` / `.py` / `.ps1` / `.sql`). The ticket body references the file with a brief description table (`#` | `Comando/Script` | `Propósito`) — no inline code blocks in the ticket body.
-- Closure reports (`_ops.md`) must include: (1) summary table, (2) root cause, (3) actions taken with outcome. Actions section is titled **Acciones propuestas** — not "Acciones requeridas".
+- Closure reports (`_ops.md`) are **Jira tickets describing work to be done** — write in future or imperative tense. Findings describe current state; actions describe what must happen. Never write as if remediation is already complete. Sections in order: **Resumen**, **Tabla resumen**, **Causa raíz**, **Hallazgos**, **Recursos afectados**, **Comandos ejecutados**, **Acciones propuestas**, **Hallazgos secundarios** (optional). Actions section is titled **Acciones propuestas** — not "Acciones requeridas".
+- Ops events file (`_ops-events.md`) entries use **pretérito perfecto impersonal, first person**: "se ha verificado", "se ha identificado", "se ha confirmado". Yo soy quien ejecuta — never refer to the author as "el usuario", "el operador", or any third-person subject.
+
+### Ops Events File (`_ops-events.md`)
+
+Every event produces a `_ops-events.md` file alongside the ticket. Append-only work journal — each entry records what was run, when, and what it returned. Never edit past entries.
+
+**Before writing any command output or new finding to any file, ask the user:**
+> ¿Lo registro como actividad (`_ops-events.md`) o actualizo el ticket (`_ops.md`)?
+
+Entry format (`YYYYMMDD_description_ops-events.md`):
+
+```
+# Eventos — <event description>
+
+## YYYY-MM-DD HH:MM — <short label>
+
+**Comando:** CX — <name>
+**Resultado:**
+<output>
+
+**Observación:** <one-line interpretation>
+```
+
+Command output results are also recorded as commented `# OUTPUT (YYYY-MM-DD):` blocks in the scripts file immediately below the executed command.
 
 ## Behavioral Guidelines
 

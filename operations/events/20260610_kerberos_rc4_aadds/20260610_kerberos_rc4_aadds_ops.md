@@ -2,7 +2,7 @@
 
 ## Resumen
 
-El equipo de Azure AD Domain Services emitió la alerta crítica AADDS123 el 10 de junio de 2026, indicando que el cifrado RC4 de Kerberos está habilitado en el dominio administrado `smartit.azure`. El cifrado RC4 (Kerberos etype 23, RC4-HMAC) es un algoritmo deprecado, vulnerable a ataques de Kerberoasting que permiten el descifrado offline de tickets Kerberos. La configuración no fue establecida explícitamente; el dominio opera con el valor predeterminado de AADDS que habilita RC4. Se realizó auditoría completa de cuentas. Se identificó que la cuenta `itservices` opera como identidad de grupos de aplicaciones IIS en Windows Server 2019 en todos los servidores web de producción — esto eleva el impacto de la remediación a Alto. Se requiere un plan de pruebas de compatibilidad AES en entorno aislado antes de aplicar cambios en producción.
+El equipo de Azure AD Domain Services emitió la alerta crítica AADDS123 el 10 de junio de 2026 por cifrado RC4 de Kerberos habilitado en el dominio administrado `smartit.azure`. La alerta en sí es una configuración de dominio por defecto, pero la auditoría de cuentas expuso el riesgo operacional real: la cuenta `itservices` es la identidad de todos los grupos de aplicaciones IIS en los servidores Windows Server 2019 de producción de SmartLoyalty. Esta cuenta no tiene declaración explícita de tipo de cifrado — depende del valor por defecto del dominio. Si RC4 se deshabilita sin validar previamente que IIS sobre WS2019 negocia AES correctamente con esta clase de cuenta, todos los servicios web de SmartLoyalty perderían autenticación contra el dominio simultáneamente: WebService, WebServiceV2, Website, Mobile, Club, CG y TaskOperatorService. El impacto es total e inmediato. Por este motivo la remediación está bloqueada hasta completar el plan de pruebas en entorno aislado.
 
 ## Tabla resumen
 
@@ -21,7 +21,7 @@ El equipo de Azure AD Domain Services emitió la alerta crítica AADDS123 el 10 
 
 ## Causa raíz
 
-El atributo `kerberosRc4Encryption` nunca fue configurado explícitamente en la sección `domainSecuritySettings` del dominio administrado. El valor predeterminado de Azure AD Domain Services habilita RC4, lo que activa la alerta AADDS123. No existe una política de grupo (GPO) que restrinja los tipos de cifrado Kerberos permitidos, y ninguna cuenta tiene el tipo de cifrado configurado de forma explícita que fuerce AES.
+El atributo `kerberosRc4Encryption` nunca fue configurado explícitamente en `domainSecuritySettings` del dominio administrado — el valor predeterminado de AADDS habilita RC4. Ninguna GPO restringe los tipos de cifrado permitidos. La cuenta `itservices`, que actúa como identidad transversal de IIS en toda la flota de servidores web, tampoco tiene `msDS-SupportedEncryptionTypes` declarado: hereda el default del dominio. Esta combinación crea una dependencia oculta: la autenticación Kerberos de todos los app pools de IIS en WS2019 funciona hoy únicamente porque RC4 está disponible. Al deshabilitarlo sin declarar AES explícitamente en `itservices` primero, el KDC no podría emitir tickets válidos para esa cuenta bajo el nuevo régimen de cifrado.
 
 ## Hallazgos
 
@@ -31,29 +31,42 @@ El atributo `kerberosRc4Encryption` nunca fue configurado explícitamente en la 
 | H2 | `ntlmV1: Enabled` — NTLMv1 habilitado en el dominio | Alto |
 | H3 | 38 cuentas de equipo con `msDS-SupportedEncryptionTypes: 28` (RC4 + AES-128 + AES-256) | Bajo — soporte AES confirmado |
 | H4 | 1 cuenta de equipo sin atributo: `SFCG-DEVO-TEST` | Bajo — máquina de desarrollo/prueba |
-| H5 | 7 cuentas de usuario sin atributo: `Guest`, `dcaasadmin`, `claudioa`, `gastona`, `dantep`, `itservices`, `rubenf` | Medio |
-| H6 | Cuenta `itservices` sin atributo — usada por todos los servidores de aplicación para autenticación Kerberos | Medio — cuenta de servicio crítica |
+| H5 | 6 cuentas de usuario sin atributo (no críticas): `Guest`, `dcaasadmin`, `claudioa`, `gastona`, `dantep`, `rubenf` — heredan default del dominio | Bajo |
+| H6 | **`itservices` sin `msDS-SupportedEncryptionTypes` — identidad IIS (app pool) en WS2019 para la totalidad de los servidores web de SmartLoyalty. Sin declaración AES explícita, deshabilitar RC4 en el dominio interrumpe la autenticación Kerberos de todos los app pools simultáneamente: WebService (SFCG-WEBS-01/02/03), WebServiceV2 (SFCG-WSV2-01/02), Website (SFCG-WSIT-01), Mobile (SFCG-MOBI-01/02), Club (SFCG-CLUB-01/02), CG (SFCG-WSCG-01), TaskOperator (SFCG-TO-01)** | **Crítico — bloqueante de remediación** |
 | H7 | `kerberosArmoring` ausente — FAST (Flexible Authentication Secure Tunneling) deshabilitado | Medio |
 | H8 | LDAPS deshabilitado — LDAP sin cifrado en tránsito | Medio |
-| H9 | `itservices` opera como identidad de app pool IIS en Windows Server 2019 — la autenticación Kerberos hacia `SFCG-DB01` (SQL Server) depende de este canal en todos los servidores web | **Alto — requiere prueba de compatibilidad AES antes de remediación** |
 
 ## Recursos afectados
 
-| Recurso | Tipo | `msDS-SupportedEncryptionTypes` | Observación |
+### Cuenta crítica
+
+| Recurso | Rol | `msDS-SupportedEncryptionTypes` | Impacto si RC4 se deshabilita sin AES declarado |
 |---|---|---|---|
-| SFCG-WEBS-01, 02, 03 | Servidor web (SmartLoyalty WebService) | 28 (RC4+AES) | AES confirmado |
-| SFCG-WSV2-01, 02 | Servidor web v2 | 28 (RC4+AES) | AES confirmado |
-| SFCG-WSIT-01 | Website | 28 (RC4+AES) | AES confirmado |
-| SFCG-MOBI-01, 02 | Servicio mobile | 28 (RC4+AES) | AES confirmado |
-| SFCG-WSCG-01 | CG web service | 28 (RC4+AES) | AES confirmado |
-| SFCG-CLUB-01, 02 | Club Grido website | 28 (RC4+AES) | AES confirmado |
-| SFCG-TO-01 | TaskOperatorService | 28 (RC4+AES) | AES confirmado |
+| **itservices** | Identidad de app pool IIS en **todos** los servidores web WS2019 de SmartLoyalty | **Sin atributo** — hereda default del dominio | **Caída total de autenticación en todos los servicios web de SmartLoyalty** |
+
+### Servidores dependientes de itservices
+
+Todos los servidores listados a continuación ejecutan uno o más app pools IIS bajo la identidad `SMARTIT\itservices`. Un fallo de autenticación Kerberos en esta cuenta afecta a todos simultáneamente.
+
+| Servidor | Servicio | `msDS-SupportedEncryptionTypes` | Estado AES |
+|---|---|---|---|
+| SFCG-WEBS-01, 02, 03 | SmartLoyalty WebService | 28 (RC4+AES) | ✓ Confirmado |
+| SFCG-WSV2-01, 02 | SmartLoyalty WebServiceV2 | 28 (RC4+AES) | ✓ Confirmado |
+| SFCG-WSIT-01 | SmartLoyalty Website | 28 (RC4+AES) | ✓ Confirmado |
+| SFCG-MOBI-01, 02 | Mobile service | 28 (RC4+AES) | ✓ Confirmado |
+| SFCG-WSCG-01 | CG web service | 28 (RC4+AES) | ✓ Confirmado |
+| SFCG-CLUB-01, 02 | Club Grido website | 28 (RC4+AES) | ✓ Confirmado |
+| SFCG-TO-01 | TaskOperatorService | 28 (RC4+AES) | ✓ Confirmado |
+
+### Otros recursos del dominio
+
+| Servidor | Tipo | `msDS-SupportedEncryptionTypes` | Observación |
+|---|---|---|---|
 | SFCG-DB01 / SFCG-DB-01 | SQL Server (producción) | 28 (RC4+AES) | AES confirmado — dos entradas en dominio |
 | SFCG-JENKINS-01 | CI/CD | 28 (RC4+AES) | AES confirmado |
 | SFCG-SMTP-01, 02 | SMTP | 28 (RC4+AES) | AES confirmado |
 | SFCG-SP-PROD | SmartPedidos producción | 28 (RC4+AES) | AES confirmado |
-| SFCG-DEVO-TEST | Desarrollo/prueba | Sin atributo | Hereda default del dominio |
-| itservices | Cuenta de servicio IIS (app pool identity, WS2019) | Sin atributo | ⚠️ Alta criticidad — requiere prueba de compatibilidad AES/WS2019 antes de remediación |
+| SFCG-DEVO-TEST | Desarrollo/prueba | Sin atributo | Hereda default — máquina de pruebas del plan |
 
 ## Comandos ejecutados
 
@@ -90,7 +103,7 @@ El atributo `kerberosRc4Encryption` nunca fue configurado explícitamente en la 
 
 2. **Limpiar entorno de pruebas (T8)** — eliminar `svc-aestest` de Entra ID y el app pool `AESTestPool` de `SFCG-DEVO-TEST` tras confirmar resultados. *(Pendiente de T1–T7)*
 
-3. **Actualizar `itservices` a AES-only (C10)** — ejecutar `ldapmodify` para establecer `msDS-SupportedEncryptionTypes: 24` en `CN=appaccess`. Requiere aprobación post-pruebas. *(Pendiente)*
+3. **Declarar AES explícito en `itservices` (C10)** — establecer `msDS-SupportedEncryptionTypes: 24` (AES-128 + AES-256) en `CN=appaccess` vía `ldapmodify`. Este paso es el más crítico de la secuencia: declara formalmente al KDC que `itservices` soporta AES antes de que RC4 sea deshabilitado a nivel de dominio. Sin este paso previo, el KDC no emitiría tickets válidos para los app pools de IIS al cambiar el régimen de cifrado. Requiere aprobación post-pruebas. *(Pendiente)*
 
 4. **Deshabilitar RC4 en AADDS (C11)** — ejecutar `az ad ds update` con `kerberosRc4Encryption=Disabled`. El cambio toma efecto en minutos; no requiere reinicio de controladores de dominio ni servidores de aplicación. *(Pendiente)*
 
