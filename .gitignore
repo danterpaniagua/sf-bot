@@ -1,1 +1,5 @@
 .git/
+
+# Local read-only clone of SmartFran.Cloud (cloud/CLAUDE.md) — its git history
+# contains live-looking credentials, never let this land in the monorepo
+**/repo/

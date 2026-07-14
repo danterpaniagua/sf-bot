@@ -8,3 +8,4 @@
 - [Fraud points accounting](feedback_fraud_points_accounting.md) — every fraud analysis must report Total Points, Recoverable, and Non-Recoverable
 - [Fraud coverage & point status](feedback_fraud_coverage_point_status.md) — analysis covers account origin + four point statuses: Gastados / Transferidos / Activos / Retenidos (held = deactivated account with balance in smlst)
 - [Activity vs ticket update](feedback_activity_vs_ticket.md) — before writing test results or findings to an event file, ask if it's an activity or a ticket update
+- [No Co-Authored-By](feedback_no_coauthored.md) — never add Co-Authored-By to commit messages; all commits authored solely by the user

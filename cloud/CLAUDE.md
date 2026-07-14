@@ -6,18 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working in this
 
 Cloud area — tracking and resolving events related to Azure cloud services: Service Bus, CosmosDB, event-driven messaging, and cross-service integrations.
 
-Skills are defined in the `bots/` root `.claude/commands/` (sf-skills submodule) with the `ope-` prefix. **Skill-level instructions override this file.**
+Skills are defined in the `bots/` root `.claude/commands/` (sf-skills submodule) with the `cloud-` prefix. **Skill-level instructions override this file.**
 
 ## Directory Layout
 
+- `docs/infrastructure.md` — versioned reference: resource groups, multi-tenant App Service architecture, tenant resolution mechanism, per-franchise hostname/DB pattern, shared services inventory. Update whenever an investigation confirms new infrastructure facts.
+- `repo/SmartFran.Cloud/` — local read-only clone of the application codebase (`.gitignore`d from this monorepo). Use for architecture/config-pattern lookups (tenant resolution, HttpClient naming, service structure) — never as a deploy target, and never quote connection strings, keys, or passwords from it into any output or doc. `Services/Business/SmartFran.Cloud.Business.API/appsettings.json` specifically has live-looking credentials in its git history — do not read secret *values* from it, patterns only.
 - `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
 
 ## Skills
 
 | Skill | Invocation | Scope |
 |---|---|---|
-| `ope-azure` | `/ope-azure` | Azure Monitor, Service Bus, NSGs, VMs, Action Groups |
+| `cloud-azure` | `/cloud-azure` | SmartFran Cloud multi-tenant App Services, Service Bus, franchise onboarding diagnostics, CosmosDB |
 | `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
+
+For Azure AD Domain Services, VMs, and NSGs (not SmartFran Cloud-specific), use `/ope-azure` from the `operations/` project scope.
 
 ## Global Restrictions
 
@@ -33,7 +37,7 @@ Skills are defined in the `bots/` root `.claude/commands/` (sf-skills submodule)
 - Each event gets its own subfolder: `events/YYYYMMDD_description/`. File names follow `YYYYMMDD_description_audience.ext`.
 - All scripts or commands run during an investigation must be saved as a script file in the event subfolder (`YYYYMMDD_description_scripts.sh`). The ticket body references the file with a brief description table (`#` | `Comando/Script` | `Propósito`) — no inline code blocks in the ticket body.
 - Closure reports (`_ops.md`) are **Jira tickets describing work to be done** — write in future or imperative tense. Sections in order: **Resumen**, **Tabla resumen**, **Causa raíz**, **Hallazgos**, **Recursos afectados**, **Comandos ejecutados**, **Acciones propuestas**.
-- Ops events file (`_ops-events.md`) entries use **pretérito perfecto impersonal, first person**: "se ha verificado", "se ha identificado". Never "el usuario" or "el operador".
+- Ops events file (`_ops-events.md`) entries use **pretérito perfecto, true first person**: "he verificado", "he identificado". Never "el usuario", "el operador", or the impersonal "se ha..." construction.
 
 ## Behavioral Guidelines
 

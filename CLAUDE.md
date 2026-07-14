@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Be concise in output, thorough in reasoning.
 - No sycophantic openers or closing fluff.
 - User instructions always override this file.
+- Never add `Co-Authored-By` to commit messages. All commits must be authored solely by the user.
+- Never write a developer's name into `events/` files or ticket bodies (e.g. from `git blame`) — commit id and date only. Names are fine spoken in conversation, not in the written record.
 
 ## Destructive Cloud Commands
 
@@ -38,7 +40,7 @@ Monorepo of Claude Code bot configurations. Each subdirectory is an independent 
 | `loyalty/` | Active | SmartLoyalty SQL Server — DBA investigation, fraud detection, SRE reporting |
 | `smartpedidos/` | Active | SmartPedidos delivery platform — Node.js/Express API code analysis and SRE |
 | `operations/` | Active | Infrastructure operations — software upgrades, application bugs, monitoring and automation |
-| `cloud/` | Active | Azure cloud services — Service Bus, CosmosDB, event-driven messaging |
+| `cloud/` | Active | SmartFran Cloud platform on Azure — multi-tenant App Services, Service Bus, CosmosDB, franchise onboarding |
 
 Open from within the subdirectory (`cd loyalty && claude`) to load the correct CLAUDE.md and skills. Skill-level instructions override CLAUDE.md.
 
@@ -69,6 +71,7 @@ Skills never execute queries — output SQL blocks for the user to run and paste
 | `sp-static-analysis` | `/sp-static-analysis` | Static analysis for critical defects and vulnerabilities |
 | `sp-tech-debt` | `/sp-tech-debt` | Record technical debt items to central log |
 | `sp-sre-output` | `/sp-sre-output` | Formatted outputs for PM, IT, and Jira |
+| `ops-aws` | `/ops-aws` | AWS/SQS operational triage — platforms-service and concentrador-service (naming predates the `sp-` convention) |
 
 ### `itiano-*` — Itiano Django Project
 
@@ -84,9 +87,16 @@ Skills never execute queries — output SQL blocks for the user to run and paste
 
 | Skill | Invocation | Scope |
 |---|---|---|
-| `ope-azure` | `/ope-azure` | Azure AD DS health/alerts, Kerberos policy, VMs, NSGs, Monitor, Service Bus |
+| `ope-azure` | `/ope-azure` | Azure AD DS health/alerts, Kerberos policy, VMs, NSGs, Monitor |
 | `ope-aws` | `/ope-aws` | EC2, SQS, CloudWatch, IAM review, ECS, Fargate, ALB/NLB |
+| `ope-zabbix` | `/ope-zabbix` | Custom healthcheck-to-Zabbix integration: UserParameter items, macros, triggers, alert routing |
 | `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
+
+### `cloud-*` — Cloud Infrastructure (Azure, SmartFran Cloud)
+
+| Skill | Invocation | Scope |
+|---|---|---|
+| `cloud-azure` | `/cloud-azure` | SmartFran Cloud multi-tenant App Services, Service Bus, franchise onboarding diagnostics, CosmosDB |
 
 ### Cross-project
 
@@ -108,8 +118,7 @@ Documentation-and-prompt project — no runnable code.
 
 No local `.claude/commands/`. Skills live in the `bots/` root `.claude/commands/` (sf-skills) with the project prefix (`sp-*`, `ope-*`). Invoke from the `bots/` root.
 
-- `platforms-service` — inbound integration layer for delivery platforms (PedidosYa, Uber Eats, Rappi, Glovo, MercadoPago, Rapiboy). Receives webhooks, normalises orders, persists to MongoDB, pushes to AWS SQS.
-- `concentrador-service` — internal management and POS-facing backend. Serves SmartFran agents and dashboard; owns the SQS consumer path.
+`smartpedidos/` holds **no local code clone** — it's reference/SRE tooling only, working from documented architecture knowledge and MongoDB/AWS queries the user runs and pastes back. `platforms-service` (inbound delivery-platform integration, webhooks → MongoDB → AWS SQS) and `concentrador-service` (management/POS backend, SQS consumer path) are documented services, not local directories. For source-level work against the actual codebase, use the separate `smartfran/sp-logs` project (its own repo, own `sp-logs-*` skills — do not confuse with this monorepo). See `smartpedidos/CLAUDE.md` for detail.
 
 ## Static Code Analysis Mode
 

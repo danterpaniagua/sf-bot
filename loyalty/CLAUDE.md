@@ -16,7 +16,7 @@ Investigation of database events on the SmartLoyalty SQL Server instance (`SFCG-
 - `queries/` — reference SQL for `PNSSRL`.
 - `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`. Each event produces `_ops.md` (ticket) and `_ops-events.md` (activity log).
 - `memory/` — persistent fraud actor memory: `known_hubs.md`, `known_relays.md`, `known_pos.md`, `actor_notes.md`. Read at investigation start; update at close.
-- `docs/` — versioned skill reference documents.
+- `docs/` — versioned skill reference documents. `docs/infrastructure.md` — DB server, database scope, and network placement reference; update when an investigation confirms new infrastructure facts.
 - `../docs/` — cross-project shared references. See `../docs/azure_nsg.md` for Azure NSG inventory, VNet topology, AADDS DC IPs, and CLI patterns.
 
 ## Global Restrictions
@@ -61,3 +61,4 @@ SQL Server runs on **GMT (UTC+0)**. Captured timestamps (`hora_captura`, `fecha_
 - Always respond in English. Spanish only for content written to `events/`.
 - Always propose a concrete next step — never end a response with only information and an open question.
 - User instructions always override this file.
+- Never add `Co-Authored-By` to commit messages. All commits must be authored solely by the user.

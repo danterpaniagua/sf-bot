@@ -36,6 +36,7 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 |---|---|---|
 | `ope-azure` | `/ope-azure` | Azure AD DS health/alerts, Kerberos policy, VMs, NSGs, Monitor |
 | `ope-aws` | `/ope-aws` | EC2, SQS, CloudWatch, IAM review, ECS, Fargate, ALB/NLB |
+| `ope-zabbix` | `/ope-zabbix` | Custom healthcheck-to-Zabbix integration: UserParameter items, macros, triggers, alert routing |
 | `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
 
 ## Global Restrictions
@@ -57,7 +58,7 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 - Each event gets its own subfolder: `events/YYYYMMDD_description/`. File names follow `YYYYMMDD_description_audience.ext`.
 - All scripts or commands run during an investigation or fix must be saved as a script file in the event subfolder (`YYYYMMDD_description_scripts.sh` / `.py` / `.ps1` / `.sql`). The ticket body references the file with a brief description table (`#` | `Comando/Script` | `Propósito`) — no inline code blocks in the ticket body.
 - Closure reports (`_ops.md`) are **Jira tickets describing work to be done** — write in future or imperative tense. Findings describe current state; actions describe what must happen. Never write as if remediation is already complete. Sections in order: **Resumen**, **Tabla resumen**, **Causa raíz**, **Hallazgos**, **Recursos afectados**, **Comandos ejecutados**, **Acciones propuestas**, **Hallazgos secundarios** (optional). Actions section is titled **Acciones propuestas** — not "Acciones requeridas".
-- Ops events file (`_ops-events.md`) entries use **pretérito perfecto impersonal, first person**: "se ha verificado", "se ha identificado", "se ha confirmado". Yo soy quien ejecuta — never refer to the author as "el usuario", "el operador", or any third-person subject.
+- Ops events file (`_ops-events.md`) entries use **pretérito perfecto, first person**: "he verificado", "he identificado", "he confirmado". Yo soy quien ejecuta — never refer to the author as "el usuario", "el operador", or any third-person subject, and never use the impersonal "se ha..." construction.
 
 ### Ops Events File (`_ops-events.md`)
 
@@ -77,8 +78,10 @@ Entry format (`YYYYMMDD_description_ops-events.md`):
 **Resultado:**
 <output>
 
-**Observación:** <one-line interpretation>
+<paragraph, first-person pretérito perfecto, no bold label — interpretation of the result>
 ```
+
+Omit the `**Comando:**` line when the entry documents a manual step (frontend configuration, UI walkthrough) rather than an actual command or script run — go straight from the heading to `**Resultado:**`. Only include `**Comando:**` when a real command/script was executed. The interpretation paragraph is plain text, not labeled `**Observación:**` — a normal paragraph, not necessarily one line.
 
 Command output results are also recorded as commented `# OUTPUT (YYYY-MM-DD):` blocks in the scripts file immediately below the executed command.
 
@@ -88,3 +91,4 @@ Command output results are also recorded as commented `# OUTPUT (YYYY-MM-DD):` b
 - Always respond in English. Spanish only for content written to `events/`.
 - Always propose a concrete next step — never end a response with only information and an open question.
 - User instructions always override this file.
+- Never add `Co-Authored-By` to commit messages. All commits must be authored solely by the user.

@@ -9,7 +9,7 @@
 
 ## Resumen
 
-La VM de desarrollo `sfdev02` (RG `SFCG-REGR-DEV`, IP `10.2.0.4`) tiene conectividad total hacia la red de producción `192.168.50.0/24`. El acceso fue confirmado por el operador vía RDP a `192.168.50.121`. La causa es la combinación de un VNet Peering activo entre la VNet de dev y la VNet de prod, junto con una regla NSG en el entorno dev que permite todo el tráfico saliente sin restricción de destino. Adicionalmente se detectaron dos Private Endpoints desde sfdev02 hacia IPs específicas de producción.
+La VM de desarrollo `sfdev02` (RG `SFCG-REGR-DEV`, IP `10.2.0.4`) tiene conectividad total hacia la red de producción `192.168.50.0/24`. El acceso fue confirmado por mi vía RDP a `192.168.50.121`. La causa es la combinación de un VNet Peering activo entre la VNet de dev y la VNet de prod, junto con una regla NSG en el entorno dev que permite todo el tráfico saliente sin restricción de destino. Adicionalmente se detectaron dos Private Endpoints desde sfdev02 hacia IPs específicas de producción.
 
 ---
 
