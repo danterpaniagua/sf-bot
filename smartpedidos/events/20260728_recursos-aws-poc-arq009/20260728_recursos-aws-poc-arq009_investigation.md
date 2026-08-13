@@ -1,0 +1,32 @@
+# Investigation — 20260728_recursos-aws-poc-arq009
+
+**Status:** in progress — cleanup pending
+
+## Purpose
+
+Registration/audit ticket for real AWS resources created in account `382381053403` during the ARQ-009 PoC (source ticket [20260720_ocultar-account-id-sqs-urls](../20260720_ocultar-account-id-sqs-urls/20260720_ocultar-account-id-sqs-urls.md)). That ticket is an analysis/design ticket — this one exists purely to track the actual cloud state written during the PoC build, so cleanup isn't lost and isn't buried inside an analysis document.
+
+## Confirmed facts — resources created (all `382381053403`, `us-west-2` unless noted)
+
+- **SQS FIFO queue** `poc-arq009-branchA.fifo` — `https://sqs.us-west-2.amazonaws.com/382381053403/poc-arq009-branchA.fifo`, `ContentBasedDeduplication=true`. Contains test-message backlog from the PoC session (not drained).
+- **SQS FIFO queue** `poc-arq009-branchB.fifo` — `https://sqs.us-west-2.amazonaws.com/382381053403/poc-arq009-branchB.fifo`, same config. Contains at least one test message.
+- **IAM role** `poc-arq009-apigw-sqs-role` (`arn:aws:iam::382381053403:role/poc-arq009-apigw-sqs-role`, created `2026-07-28T14:52:36Z`) — trust: `apigateway.amazonaws.com`; inline policy `poc-arq009-sqs-sendmessage` scoped to `["sqs:SendMessage", "sqs:ReceiveMessage"]` (extended same-day to add `ReceiveMessage` for the `GET` endpoint below) on exactly the two queue ARNs above (not `Resource:*`).
+- **REST API** `o0o4lrn2hg` ("poc-arq009-hide-account-id", created `2026-07-28T11:54:05-03:00`) — **the working one**. Resource `/{branchId}` (id `468mau`), methods `POST` (SendMessage) and `GET` (ReceiveMessage, added same day), both `authorizationType: NONE` — no authorizer in this phase by design, ARQ-002's Lambda authorizer deferred. Stage `poc`, final deployment `2z26gd` (`2026-07-28T14:02:07-03:00`). Invoke URL: `https://o0o4lrn2hg.execute-api.us-west-2.amazonaws.com/poc/{branchId}`.
+- **REST API** `5t5c2si3s3` ("poc-arq009-hide-account-id", created `2026-07-28T12:00:54-03:00`) — **stray duplicate**, created by an accidental double-run of `create-rest-api` during the session. Has a `/{branchId}` resource but **no method attached** — functionally empty, safe to delete.
+- **IAM role** `apigateway-cloudwatch-logs-poc` (`arn:aws:iam::382381053403:role/apigateway-cloudwatch-logs-poc`, created `2026-07-28T15:22:12Z`) — trust: `apigateway.amazonaws.com`; managed policy `AmazonAPIGatewayPushToCloudWatchLogs` attached. Created solely to diagnose an `Internal server error` during the PoC (needed real execution traces, not just symptom text).
+- **Account-level API Gateway setting**: `cloudwatchRoleArn` on the account (region `us-west-2`) now points to `apigateway-cloudwatch-logs-poc`. **Note: this is an account-wide setting**, not scoped to just this API — it enables the *capability* to log for any API Gateway REST API in this account/region that has stage-level logging turned on. It does not itself expose data; only the stage-level `poc` change below actually turns logging on.
+- **CloudWatch Log Group** `API-Gateway-Execution-Logs_o0o4lrn2hg/poc` (auto-created when stage logging was enabled) — contains full request/response execution traces for the PoC, including `dataTraceEnabled: true` (full body content) and a redacted-but-partially-visible `Authorization`/`X-Amz-Security-Token` header (STS session token belonging to the API Gateway service role assumption, not a long-lived credential — low sensitivity, but real header bytes, not fully masked by AWS's own truncation).
+- **Stage `poc`** on `o0o4lrn2hg`: `loggingLevel: INFO`, `dataTraceEnabled: true` — appropriate for PoC debugging, **not appropriate to carry into a production stage** (full body logging).
+- **Secrets Manager secret** `poc-arq009/jwt-secret` — **holds the real production JWT signing secret** (`concentrador-service`/`platforms-service` shared `token.secret`, see `20260720_credenciales-mongodb-hardcodeadas.md`), by explicit user decision 2026-07-28, to validate the Lambda authorizer against real tokens. **Must not be left behind** — highest-priority item in teardown, independent of whether the rest of the PoC is kept alive for reference.
+- **IAM role** `poc-arq009-authorizer-lambda-role` (`arn:aws:iam::382381053403:role/poc-arq009-authorizer-lambda-role`, created `2026-07-28T17:45:52Z`) — trust: `lambda.amazonaws.com`; `AWSLambdaBasicExecutionRole` (managed) + inline policy `poc-arq009-secrets-read` scoped to `secretsmanager:GetSecretValue` on only the secret above.
+- **Lambda function** `poc-arq009-jwt-authorizer` (`arn:aws:lambda:us-west-2:382381053403:function:poc-arq009-jwt-authorizer`, `nodejs20.x`) — TOKEN authorizer, code at `smartpedidos/repos/ocultar-accountid/authorizer/index.js`. Has an `apigateway.amazonaws.com` invoke permission statement (`apigw-invoke-authorizer`) scoped to authorizer `1arn20` on `o0o4lrn2hg`.
+- **API Gateway authorizer** `1arn20` ("poc-arq009-jwt-authorizer", type `TOKEN`) on REST API `o0o4lrn2hg` — wired into both `GET` and `POST` methods on `/{branchId}` (`authorizationType: CUSTOM`), replacing the earlier `NONE`. Not a separately deletable resource from the queues/API above — goes with `o0o4lrn2hg` at teardown, but worth listing since it's a distinct API Gateway sub-resource.
+
+## Open questions / next steps — cleanup, none executed yet
+
+- [ ] Delete stray empty REST API `5t5c2si3s3`.
+- [ ] Drain/purge debug-message backlog in both queues (or just leave them — they're disposable PoC queues, low priority).
+- [ ] Decide whether to keep the working API (`o0o4lrn2hg`) + queues + roles alive as a reference while ARQ-001/ARQ-008 are still being written up, or tear down now that the mechanism is proven and documented in `20260720_ocultar-account-id-sqs-urls_investigation.md`.
+- [ ] If kept alive: turn off `dataTraceEnabled` on stage `poc` (no longer needed now that the bug is found — full-body logging has no ongoing purpose and is unnecessary exposure).
+- [ ] Full teardown (when decided): delete both REST APIs, both queues, both IAM roles. All destructive — needs the banner + explicit go-ahead per session, not to be run speculatively.
+- Not evaluated: whether `apigateway-cloudwatch-logs-poc` / the account's `cloudwatchRoleArn` should be left in place for future API Gateway work in this account, or removed as part of PoC teardown. Low-risk either way (it's a logging capability, not a data-plane grant) — defer to whoever owns broader AWS account hygiene, out of scope for this ticket.

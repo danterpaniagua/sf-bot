@@ -7,7 +7,7 @@ metadata:
 
 When a ticket (events/ artifact) involves SQL queries that were executed during the investigation or fix:
 
-- Save all queries to a separate `.sql` file in the same event subfolder, named `YYYYMMDD_description_scripts.sql`
+- Save all queries to a separate `.sql` file in the same event subfolder, named `scripts.sql`
 - In the ticket, include a reference table with columns: `#`, `Query` (short name), `Propósito` (one-line description of what the query does)
 - Do NOT embed full SQL blocks in the ticket body
 

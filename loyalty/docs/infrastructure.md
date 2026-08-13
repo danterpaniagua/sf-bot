@@ -1,6 +1,6 @@
 # SmartLoyalty — Infrastructure Reference
 
-**Last updated:** 2026-07-11
+**Last updated:** 2026-08-07
 **Subscription:** Smart IT - Grido (`0190fa7d-4ccf-4e3d-beb1-323b5780bfc8`)
 
 ---
@@ -21,13 +21,15 @@
 | Host | Role |
 |---|---|
 | `SFCG-WEBS-01/02/03` | WebService (`C:\SmartFran\SmartLoyalty.WebService\`) |
-| `SFCG-WSV2-01` | WebServiceV2 (`D:\SmartLoyalty.WebServiceV2\`) |
-| `SFCG-WSIT-01` | WebSite (`D:\SmartLoyalty.WebSite\`) |
-| `SFCG-MOBI-01/02` | Mobile service |
+| `SFCG-WSV2-01` | WebServiceV2 (`D:\SmartLoyalty.WebServiceV2\`) — `Standard_D8as_v5`, `eastus` |
+| `SFCG-WSV2-02` | WebServiceV2 (`D:\SmartLoyalty.WebServiceV2\`, assumed same path — not yet verified) — `Standard_D2ds_v4`, `eastus`. **Confirmed live 2026-07-27** via `az vm show`, was missing from this doc entirely. Was powered on for ~3 days before being deallocated 2026-07-27 — not "never on". Currently **deallocated**, no confirmed real use during that window. In practice WebServiceV2 has run on a single actively-used server (`-01`) — same single-point-of-failure pattern as `SFCG-WSIT-01`; `-02` never provided real redundancy despite billing compute the whole time. |
+| `SFCG-WSIT-01` | WebSite (`D:\SmartLoyalty.WebSite\`) — public ingress via Application Gateway WAF `WAF_APPs` (`DefaultGroup01`), single backend server, no redundancy. See `/loyalty-azure-waf` skill for listener/pool detail |
+| `SFCG-MOBI-01/02` | MobileAppService — ASP.NET MVC/WebApi on .NET Framework 4.x, IIS (requires VM, not App Service PaaS). `SFCG-MOBI-01` confirmed **Running**, `Standard_B2as_v2`, `eastus`, public IP `20.121.19.174`, DMZ subnet, resource group `DEFAULTGROUP01`, subscription **Smart IT - Grido**. `SFCG-MOBI-02` exists but status/IP not yet confirmed. |
 | `SFCG-WSCG-01` | CG web service |
-| `SFCG-CLUB-01/02` | Club Grido website |
+| `SFCG-CLUB-01/02` | Club Grido website — `192.168.50.121`/`.122` (confirmed via `az network nic list`, 2026-08-07). Public ingress via Application Gateway WAF `WAF_APPs` (`DefaultGroup01`), backend pool `Back_ClubSite` (`www.clubgrido.com.ar`) — same two servers also back `Back_ClubSite_PY` (`www.clubgrido.com.py`), no separate PY-specific backend. `WAF_APPs` has no `urlPathMaps` — host-based routing only. See `operations/docs/waf_apps_cert_automation_runbook.md` for the cert-automation work in progress on this gateway. |
 | `SFCG-TO-01` | TaskOperatorService (`E:\SmartLoyalty.TaskOperatorService\`) |
 | `SFCG-DB01` | SQL Server host (see Database Server below) |
+| `SFCG-SMTP-01`/`SFCG-SMTP-02` | hMailServer outbound mail relay — `192.168.50.161`/`.162`. WebServiceCG's `AccountRecovery` endpoint (and other app-triggered emails) go app → hMailServer (these hosts) → `smtp.sendgrid.net` → recipient. Confirmed 2026-08-11/12 during `GITIN-1816`. NXLog on both ships delivery logs (tag `SF-SMTPRL`) to the Graylog stack shared with SmartPedidos — see `../../docs/graylog_infrastructure.md`. |
 | `LUCAS-KIUVI` | QA workstation — must not connect to production |
 
 ### Database accounts
@@ -38,6 +40,28 @@
 | `sfsqlusr` | SQL login | TaskOperatorService (SFCG-TO-01) | `db_owner`, `db_securityadmin` ⚠️ over-privileged |
 | `sfsqlusrit` | SQL login | QA / SSMS (LUCAS-KIUVI) | `db_owner`, `db_securityadmin` ⚠️ over-privileged |
 | `NT SERVICE\SQLSERVERAGENT` | Windows service | SQL Agent jobs | system |
+
+---
+
+## Scheduled Tasks (`SFCG-TO-01`)
+
+**Correction 2026-08-03:** originally documented against `SFCG-DB01` — wrong host. All `Get-ScheduledTask`/`logman` output collected during `GITIN-1749` carried `\\SFCG-TO-01\...` counter/computer prefixes, confirming these commands ran on the TaskOperatorService app server, not the DB engine host. Makes sense in hindsight: application-level report/export scheduled tasks belong on the app server, not the raw SQL Server box.
+
+Besides SQL Agent jobs on `SFCG-DB01`, `SFCG-TO-01` runs a Windows Task Scheduler folder **`\SmartFran\`** with ~50 custom application-level jobs (daily reports, surveys, promotion vigency checks, blob-storage exports, cleanup) — not previously documented. Discovered 2026-08-03 during `GITIN-1749` (`20260803_cpu_peaks_loadtest`) while investigating unexplained CPU peaks on `SFCG-DB01`; the peaks-2/3 root cause is **still unconfirmed** — these findings describe `SFCG-TO-01`'s own scheduled activity and the SQL traffic it generates against `SFCG-DB01`, not a direct OS-level cause on the DB host itself.
+
+**Known clustering issue:** a group of tasks — `ReportUpdateCustomer` (~monthly), `ReportErrorSurveyNoResponse` (daily), `NotSamplesSurveyActivated` (daily), `Promotion Vigency Advisor B` (weekly), `Promotion Vigency Advisor C` (every 2 days) — happened to fire within a 30-minute window (12:00-12:30 GMT) on 2026-08-03, overlapping the chronic TaskOperatorService/`CustomerPointsLog` sync job (SPID 114/151, `sfsqlusr`@`SFCG-TO-01`, active ~12:06-13:06 GMT, itself running on the same host). Only 2 of the 5 are actually daily — the overlap that day was partly coincidental. Contributed to a routine CPU peak at local business-day-start (~09:00 UTC-3), which shows up in two consecutive load-test CPU investigations (`GITIN-1669`, `GITIN-1749`) even though unrelated to the load test itself. Reschedule tracked in `GITIN-1753` (`20260804_reschedule_smartfran_tasks`).
+
+**Also on `SFCG-TO-01`:** `Check_list_SF` (checks TaskOperatorService is running, fires every 5 min anchored at :00 — lands exactly on :15/:45 past the hour), `Clean Mistery` (`ServicesAndTaskStatus.ps1` + `FreeMistery.ps1`, every 30 min), `RunExportsCustomersFails` (hourly), `SendCanjesSocioCortesiaToBlobStorage`/`SendDetalleCanjesSocioCortesiaToBlobStorage` (every 30 min, blob uploads). These run locally on `SFCG-TO-01` — their own script CPU cost lands there, not on `SFCG-DB01`, so they can't directly explain `SFCG-DB01`'s OS-level CPU graph unless they drive heavy query load on the DB engine (already measured as low, ~6% max — see `GITIN-1749`).
+
+To re-check current schedule (times drift as tasks get rescheduled — don't rely on this doc for exact current times):
+```powershell
+Get-ScheduledTask -TaskPath '\SmartFran\' | ForEach-Object {
+    $info = $_ | Get-ScheduledTaskInfo
+    [PSCustomObject]@{ TaskName = $_.TaskName; LastRunTime = $info.LastRunTime; NextRunTime = $info.NextRunTime }
+} | Sort-Object LastRunTime
+```
+
+Full task list and timing snapshot as of 2026-08-03: see `events/20260803_cpu_peaks_loadtest/20260803_cpu_peaks_loadtest_investigation.md`.
 
 ---
 
@@ -81,8 +105,15 @@ SmartLoyalty hosts multiple franchise brands on the same DB instance:
 
 ---
 
+## Source Code Reference
+
+A local read-only clone of the SmartLoyalty WebSite/WebService application source is available at `loyalty/repo/dev-src-sol-smartloyalty/` (`.gitignore`d via the repo-root `**/repo/` pattern — present locally, not committed). Use for architecture/root-cause lookups only, never as a deploy target.
+
+**Confirmed relevant path (2026-07-21):** `Front/WebSite/Controllers/CatalogController.cs` — `SetListCatalog` action and its call into `Core/Domain/Domain/CustomerContext/CustomerService.cs` (`GetCustomerAvailable`) were traced to a confirmed N+1 query root cause during a WAF/backend-timeout investigation. See `operations/events/20260721_gestion_clubgrido_waf_504/` for the full trace.
+
 ## Related
 
-- Skills: `/loyalty-dba-investigation`, `/loyalty-fraud-points`, `/loyalty-fraud-pos`, `/loyalty-azure-nsg` — investigation workflow and query patterns for this infrastructure.
+- Skills: `/loyalty-dba-investigation`, `/loyalty-fraud-points`, `/loyalty-fraud-pos`, `/loyalty-azure-nsg`, `/loyalty-azure-waf` — investigation workflow and query patterns for this infrastructure.
 - `../docs/azure_nsg.md` — NSG/VNet/AADDS detail, shared across projects on this subscription.
+- `../docs/graylog_infrastructure.md` — the Docker Graylog/OpenSearch stack shared with SmartPedidos, including the `SFCG-SMTP-01`/`-02` mail relay hop.
 - `memory/` — persistent fraud actor memory (known hubs, relays, POS actors), not infrastructure.

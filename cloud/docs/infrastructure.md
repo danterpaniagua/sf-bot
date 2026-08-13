@@ -1,7 +1,9 @@
 # SmartFran Cloud — Infrastructure Reference
 
-**Last updated:** 2026-07-12
-**Subscription:** SmartIT Cloud (`85c76dea-3304-4310-8656-bf21b28e4f4b`)
+**Last updated:** 2026-08-10
+**Subscription:** SmartIT Cloud (`85c76dea-3304-4310-8656-bf21b28e4f4b`) — production/shared services, everything in this doc unless noted otherwise.
+
+**Non-prod environments exist in a different subscription** — discovered 2026-08-10 in the separate `cloud-graylog` project (ticket GITIN-1794, log-ingestion onboarding, not app diagnostics): RG `SmartFran.Cloud` (no suffix) under subscription **Smart IT - Grido** (`0190fa7d-4ccf-4e3d-beb1-323b5780bfc8` — same subscription used for SmartLoyalty prod VMs/NSGs, see `docs/azure_nsg.md` note below) holds 33 App Services across DEV, DEV2, STG, TEST, and POC tiers for the same 8 domains listed below. Out of scope for this project; full inventory documented in `cloud-graylog/CLAUDE.md` → "App Services — DEV" (separate repo, not part of this monorepo).
 
 ---
 
@@ -11,6 +13,7 @@
 |---|---|
 | `SmartFran.Cloud.PRO` | Shared services — all App Services, Key Vault, App Configuration, Redis, SignalR, Cosmos, networking, logging |
 | `SmartFran.Cloud.PRO.<TENANT>` | Per-franchise persistent data — dedicated SQL Server, elastic pool, `<Domain>_<TENANT>` databases. One RG per onboarded franchise. Confirmed: `GRIDO`, `WEISS`. |
+| `SmartFran.Cloud` (different subscription — Smart IT - Grido) | Non-prod: DEV/DEV2/STG/TEST/POC App Services for the same 8 domains. Out of scope for this project — see note above. |
 
 ---
 
@@ -97,6 +100,8 @@ Each tenant's databases live in its own RG, named `SmartFran.Cloud.PRO.<TENANT>`
 | `t102-smartfran-cloud-weiss/SmartFranCloudFabric_WEISS` | Database |
 | `cloudstoragekt76igzny9q` | Storage account (tenant-scoped, name = `cloudstorage<tenantId>`) |
 
+**Note (confirmed 2026-08-02, `20260802_promocion-invalida-weiss-franui`):** `Business_<TENANT>` and `Catalog_<TENANT>` are separate **Azure SQL Database** databases on the same elastic pool — not separate databases on a single classic SQL Server instance. A `USE [OtherDatabase];` statement inside a query is a silent no-op in Azure SQL (each database is its own connection scope); switching between them requires reconnecting/changing the database in the query tool itself, not issuing `USE`. See `/cloud-invalid-sale` for the full table/column reference for both databases.
+
 ### Client Applications (source: `repo/SmartFran.Cloud/Source/`)
 
 | Project | Type | Notes |
@@ -121,6 +126,37 @@ Every service registers internal service-to-service `HttpClient`s under an `SFC.
 
 `SFC.Loyalty` on the POS front-end confirms a direct integration point with SmartLoyalty's `WebServiceV2` (see `loyalty/docs/infrastructure.md`) — cross-project incidents touching POS + points should consider this call path.
 
+### Logging (GSFC-LOG-1) — broken by design for Windows apps, not a config bug
+
+All services share one Serilog pipeline (`SmartFran.Cloud.Provider.Logger.Core.SerilogBootstrap`, in `repo/SmartFran.Cloud/Source/Common/Providers/`): single `Console` sink writing CLEF-style JSON → stdout → `AppServiceConsoleLogs` (Diagnostic Settings) → Event Hub → Graylog (see `cloud-graylog` repo, separate project). No file/blob/heterogeneous sinks by design.
+
+**This pipeline structurally cannot work for Windows App Services (Sales, Pos) — confirmed 2026-08-11 (GITIN-1811).** `AppServiceConsoleLogs`, the Diagnostic Settings category the whole pipeline exports through, **is not supported for .NET applications on Windows at all** (Microsoft only supports it for JavaSE/Tomcat there). No amount of correct configuration fixes this — it's a platform limitation, not a bug. **Linux** App Services (Business, Platform, Person, Admin, Catalog, Orders — container-hosted) work fine, because that category *is* supported for containers.
+
+Three real, legitimate config gates were found and fixed along the way for `Sales-DEV` — worth knowing about since they're genuine prerequisites even though they don't solve the actual problem on their own:
+- `stdoutLogEnabled="false"` in the SDK's default-generated `web.config` (no `web.config` is checked into `SmartFran.Cloud.Sales.API`) — IIS/ANCM silently discards stdout unless this is `"true"`, with `stdoutLogFile` pointed outside `wwwroot` (`\\?\%home%\LogFiles\stdout`, the platform-managed directory — confirmed to pre-exist, no folder-creation code needed).
+- `applicationLogs.fileSystem` was `"Off"` — the platform won't collect the redirected stdout file's content unless this is enabled (`az webapp log config --application-logging filesystem`).
+- ANCM's `hostingModel="inprocess"` had a stdout buffering quirk — the redirect file was created but stayed at 0 bytes until an `az webapp restart` forced a fresh flush.
+
+All three fixed and confirmed — real CLEF JSON is now visible live via Kudu Log Stream. It still never reaches Graylog, even after an hour of real business traffic, because `AppServiceConsoleLogs` itself never ships data off a Windows/.NET App Service, regardless of how correctly everything upstream is configured.
+
+**Resolution requires a dev/architecture decision**, not further SRE config work: most likely a direct GELF sink added to Serilog (bypassing Diagnostic Settings/Event Hub entirely — the exact thing GSFC-LOG-1 removed), or the documented `AppServiceAppLogs` + `AzureMonitorTraceListener` + `System.Diagnostics.Trace` path (explicitly marked unsupported for ASP.NET Core in the source found, unconfirmed either way), or something else. See `ops.md` in the event folder for the options as presented to dev.
+
+**"Works on my machine" is not evidence against any of this** — running via Visual Studio (F5/IIS Express/Kestrel debug profile) attaches directly to the process and captures `Console.Out` live; it never goes through IIS/ANCM's stdout redirection at all.
+
+Confirmed for `Sales-DEV` specifically. `Pos-DEV` shares the same CI/CD build pattern (`windows-latest` runner, `dotnet publish`, no `web.config` override) and is almost certainly affected the same way, unconfirmed. Both were onboarded to Graylog in GITIN-1794 (Event Hub/Diagnostic Settings confirmed working there for `AppServiceHTTPLogs`, which is platform-generated and unaffected by any of this). **`Sales-PRO`/`Pos-PRO` status is entirely separate and unverified** — same platform limitation would apply if checked (both are also Windows/.NET), but nothing has actually confirmed it there.
+
+Diagnostic command (read-only, Kudu VFS via short-lived AAD token — avoids exposing publishing-credentials passwords) if checking whether ANCM is capturing stdout on another app:
+```bash
+APP=SmartFran-Cloud-Sales-DEV   # or -Pos-DEV, or the -PRO equivalents if checking those separately
+TOKEN=$(az account get-access-token --resource https://management.azure.com/ --query accessToken -o tsv)
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://$(echo "$APP" | tr '[:upper:]' '[:lower:]').scm.azurewebsites.net/api/vfs/site/wwwroot/web.config"
+```
+
+Full investigation: `events/20260810_sales-serilog-console-logs/`.
+
+Sources: [Azure Web app (Windows) console logs not showing in AppServiceConsoleLogs — Microsoft Q&A](https://learn.microsoft.com/en-us/answers/questions/2147544/azure-web-app-(window)-asp-net-api-console-logs-ar), [AppServiceAppLogs is now available for ASP .NET apps on Windows](https://azure.github.io/AppService/2020/08/31/AzMon-AppServiceAppLogs.html).
+
 ---
 
 ## Core Shared Services
@@ -132,11 +168,13 @@ Every service registers internal service-to-service `HttpClient`s under an `SFC.
 | Redis | `SmartFran-Cloud-Platform-Cache-PRO` | |
 | SignalR | `SmartFran-Cloud-SignalR-PRO` | |
 | CosmosDB (platform) | `smartfran-cloud-cosmos-platform-pro` | eastus |
-| CosmosDB (shared, per-tenant storage listed separately) | `smartfran-cloud-cosmos-pro-kt76igzny9q` | eastus2 — appears in tenant RG (WEISS) |
+| CosmosDB (shared, per-tenant storage listed separately) | `smartfran-cloud-cosmos-pro-kt76igzny9q` | eastus2 — appears in tenant RG (WEISS). **Check this table for the account name before guessing** — the naming isn't the plain `smartfran-cloud-cosmos-<tenantId>` pattern implied by the "Tenant resolution mechanism" section above: it has an extra `-pro-` segment and the tenant ID is truncated to 11 chars (`kt76igzny9q`, not the full 12-char `kt76igzny9ql`). |
 | Logging VM (Graylog) | `smartfran-graylog-pro` | eastus2, own VNet/NSG/disks |
 | SendGrid | `sf-cloud-sendgrid` | Email delivery |
 | VNets | `sfc_vnet`, `vnet_smartfrancloud` | eastus |
 | NAT Gateways | `sfc_nat_ngw`, `sfc_nat_fabric`, `sfc_nat_appservice_pro` | Outbound egress per workload tier |
+
+**Sales CosmosDB layout (confirmed 2026-08-03, `20260802_promocion-invalida-weiss-franui`), WEISS:** SQL API databases per tenant follow `<Domain>-<TENANT>` (confirmed: `Sales-WEISS`, `Orders-WEISS`, `Business-WEISS`, `PersonsDB-WEISS`, `Audit-WEISS` — note these Cosmos "Business"/"Orders" databases are separate from the same-named SQL Server databases, don't conflate). `Sales-WEISS` containers: `Sales`, `SaleOrders`, `Shifts`, `Movements`, `MovementCurrentAccount`, `PaymentMethods`, `KdsOrders`, `DeliveryRoutes`, `WalletNotifications`. `Sales` container partition key confirmed via `az cosmosdb sql container show`: `MultiHash` on `[/FranchiseeCode, /FranchiseCode, /PosCode]`. No `az` CLI command exists for ad-hoc SQL API queries against document content — use Data Explorer in the Azure Portal (or the SDK) for that; `az cosmosdb sql *` commands only manage account/database/container *metadata*.
 
 ---
 
@@ -179,5 +217,5 @@ Source/
 ## Related
 
 - Skill: `/cloud-azure` — investigation workflow and CLI commands for this infrastructure.
-- `docs/azure_nsg.md` (repo root `docs/`) — separate subscription (Smart IT - Grido, `0190fa7d...`), covers SmartLoyalty prod VMs/NSGs — do not confuse with this subscription.
+- `docs/azure_nsg.md` (repo root `docs/`) — separate subscription (Smart IT - Grido, `0190fa7d...`), covers SmartLoyalty prod VMs/NSGs — do not confuse with this subscription. That same subscription also hosts the `SmartFran.Cloud` DEV/DEV2/STG/TEST/POC App Services (see note at top of this file) — two unrelated workloads sharing one subscription, not a sign either belongs to the other's project.
 - `loyalty/docs/infrastructure.md` — SmartLoyalty side of the `SFC.Loyalty` / WebServiceV2 integration point.

@@ -1,0 +1,28 @@
+# Investigation — DEV environment onboarding to Graylog (GITIN-1794)
+
+## Objective
+
+Onboard SmartFran Cloud's DEV-tier App Services into the existing Graylog log-ingestion pipeline (owned by the separate `cloud-graylog` repo, `~/Documentos/git/cloud-graylog/` — not part of this monorepo). Same pattern already used for PRO: Diagnostic Settings → shared Event Hub (`app-logs`) → Logstash → Graylog.
+
+## Key facts established
+
+- **The target RG is not `SmartFran.Cloud.TEST`.** Early in scoping, "existing TEST resource group" was picked as the closest match to "DEV environment" from a multiple-choice clarification — that was wrong. The user then supplied the real target directly: RG `SmartFran.Cloud` (no suffix), subscription **Smart IT - Grido** (`0190fa7d-4ccf-4e3d-beb1-323b5780bfc8`). This is a completely different RG and subscription than anything previously documented in `cloud-graylog` (which only knew about `SmartFran.Cloud.PRO` and `.TEST`, both under subscription `SmartIT Cloud`, `85c76dea...`). Don't conflate `SmartFran.Cloud.TEST` (out of scope, 2 stopped apps, `SmartIT Cloud` subscription) with `SmartFran.Cloud` (this ticket's actual target, `Smart IT - Grido` subscription) — same-sounding names, unrelated resources.
+- **The RG is much bigger than "DEV".** `az webapp list` against `SmartFran.Cloud` returned 33 App Services across 5 non-prod tiers (DEV, DEV2, STG, TEST, POC) for 8 domains (Sales, Pos, Catalog, Platform, Admin, Person, Business, Orders), plus a `Cosmos-API` app and two apps with no environment suffix at all (`SmartFran-Cloud-Admin`, `SmartFran-Cloud-Catalog` — naming anomaly, not yet explained, not investigated further since out of scope).
+- **Scope confirmed with the user: `DEV` tier only, explicitly excluding `DEV2`.** 8 apps: `SmartFran-Cloud-{Sales,Pos,Catalog,Platform,Admin,Person,Business,Orders}-DEV`.
+- **None of the 8 in-scope apps had any Diagnostic Settings configured** (`az monitor diagnostic-settings list`, empty for all 8) — unlike PRO, there's no existing Log Analytics destination to preserve alongside the new Event Hub one. Simpler than the PRO onboarding.
+- **Cross-subscription Terraform requires a second provider.** `cloud-graylog/terraform/main.tf`'s `azurerm` provider is hardcoded to subscription `SmartIT Cloud`. The DEV apps live in `Smart IT - Grido` — added an aliased provider (`azurerm.development`) plus a `dev_resource_group_name` variable and a new `app_services_dev.tf` file (8 `data` source + `azurerm_monitor_diagnostic_setting` pairs, same read-only-reference pattern already used for PRO — Terraform never manages/imports the App Services themselves, only the Diagnostic Setting).
+- **The user wanted all 8 apps done together, not a staged single-app pilot** — initial plan was to validate cross-subscription routing with `Sales-DEV` alone first; user overrode that, all 8 were added to `app_services_dev.tf` at once.
+- **Provider alias renamed from `grido` to `development`** at the user's request (naming preference, not technical).
+- **`terraform plan -target=<8 diagnostic settings>` succeeded**: "8 to add, 0 to change, 0 to destroy" — confirms the plan is structurally valid (no rejection of the cross-subscription reference at plan time) and that nothing in existing state (VM, Event Hub, PRO apps) is touched. This does **not** yet prove data actually flows end-to-end — that requires `apply` + checking the Event Hub `IncomingMessages` metric or the Graylog Input.
+- **Separately, the Graylog VM's `ssh_public_key` Terraform variable had no known value** (required, no default, blocks any *untargeted* plan/apply in that directory). Not related to DEV work — pre-existing gap. Recommended fetching the real value read-only via `az vm show ... --query osProfile.linuxConfiguration.ssh.publicKeys[0].keyData` rather than guessing, since a wrong value would show as a forced replacement of the live production Graylog VM (`admin_ssh_key` is immutable on `azurerm_linux_virtual_machine`). Using `-target` scoped to just the diagnostic settings sidesteps this variable's real value entirely (Terraform still prompts for it due to variable declaration, but a placeholder is safe since it's never used in that scoped graph).
+
+## Where the actual infrastructure code lives
+
+All Terraform and pipeline code for this work is in the **separate `cloud-graylog` repo** (`~/Documentos/git/cloud-graylog/`), not in this monorepo. This `bots/cloud/` event folder exists per the user's explicit request to keep ticket/event tracking here instead of in `cloud-graylog`'s own `operations/events/` — the technical work (Terraform files, `CLAUDE.md`, `docs/architecture.md`) stays in `cloud-graylog`. `cloud-graylog/CLAUDE.md` → "App Services — DEV" section and `docs/architecture.md` → "Ambiente DEV" section carry the durable technical reference; this folder carries the ticket-shaped narrative for GITIN-1794.
+
+## Open items for the next session
+
+1. Full `terraform apply` (targeted or untargeted, pending `ssh_public_key` resolution) has not run yet — the 8 diagnostic settings are still only planned, not created.
+2. Post-apply verification that data actually reaches Graylog for the 8 DEV apps is unconfirmed.
+3. Graylog stream creation for DEV (mirroring `PROD-Sales-AppServicePlan`) is not started.
+4. The naming anomaly (`SmartFran-Cloud-Admin`/`SmartFran-Cloud-Catalog` with no environment suffix) and the `DEV2`/`STG`/`TEST`/`POC` tiers remain undocumented beyond the inventory table — out of scope for GITIN-1794 but worth a separate ticket if the app team confirms they're real environments needing observability too.
