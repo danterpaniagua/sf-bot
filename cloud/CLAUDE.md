@@ -20,6 +20,7 @@ Skills are defined in the `bots/` root `.claude/commands/` (sf-skills submodule)
 |---|---|---|
 | `cloud-azure` | `/cloud-azure` | SmartFran Cloud multi-tenant App Services, Service Bus, franchise onboarding diagnostics, CosmosDB |
 | `cloud-invalid-sale` | `/cloud-invalid-sale` | POS "invalid sale" rejections tied to discounts/promotions/combos — Business & Catalog DB diagnostics |
+| `cloud-static-analysis` | `/cloud-static-analysis` | Static analysis for critical defects and vulnerabilities (.NET multi-tenant) |
 | `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
 
 For Azure AD Domain Services, VMs, and NSGs (not SmartFran Cloud-specific), use `/ope-azure` from the `operations/` project scope.
@@ -35,10 +36,9 @@ For Azure AD Domain Services, VMs, and NSGs (not SmartFran Cloud-specific), use 
 
 - All content written to `events/` must be in **Spanish**. All other conversational output in **English**.
 - `events/` is **write-only** — do not read files from it unless explicitly asked.
-- Each event gets its own subfolder: `events/YYYYMMDD_description/`. File names inside are the suffix only — no `YYYYMMDD_description_` prefix, the folder already disambiguates (`investigation.md`, `ops.md`, `ops-events.md`, `scripts.sh`, etc.).
+- Folder/file naming: see root `CLAUDE.md` → "Investigation Files (cross-project)".
 - All scripts or commands run during an investigation must be saved as a script file in the event subfolder (`scripts.sh`). The ticket body references the file with a brief description table (`#` | `Comando/Script` | `Propósito`) — no inline code blocks in the ticket body.
-- Closure reports (`ops.md`) are **Jira tickets describing work to be done** — write in future or imperative tense. Sections in order: **Resumen**, **Tabla resumen**, **Causa raíz**, **Hallazgos**, **Recursos afectados**, **Comandos ejecutados**, **Acciones propuestas**.
-- Ops events file (`ops-events.md`) entries use **pretérito perfecto, true first person**: "he verificado", "he identificado". Never "el usuario", "el operador", or the impersonal "se ha..." construction. Also never frame a decision/pivot as receiving an order from an external party ("he recibido la indicación de...", "a pedido de...") — that still implies a commander/executor hierarchy even without naming "el usuario". State the decision as a direct fact/action instead: "No toco el stream por ahora" / "He retomado X", not "He recibido la indicación de no tocar/retomar X".
+- `ops.md` section format/tense and `ops-events.md` voice rules: full spec lives in the `ope-sre-output` skill — not duplicated here.
 
 ## Behavioral Guidelines
 

@@ -61,7 +61,8 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 | `ope-aws` | `/ope-aws` | EC2, SQS, CloudWatch, IAM review, ECS, Fargate, ALB/NLB |
 | `ope-zabbix` | `/ope-zabbix` | Custom healthcheck-to-Zabbix integration: UserParameter items, macros, triggers, alert routing |
 | `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
-| `ope-job-description` | `/ope-job-description` | Keep the three role job-description docs (`docs/job_description_*.md`) in sync with real capability evidence from `.claude/commands/` across `bots/`, `cloud-graylog/`, `smartfran/sp-logs/` |
+| `ope-static-analysis` | `/ope-static-analysis` | Static analysis for critical defects and vulnerabilities (Bash/Python/PowerShell) |
+| `ope-job-description` | `/ope-job-description` | Keep the four role job-description docs (`docs/job_description_*.md`) in sync with real capability evidence from `.claude/commands/` across `bots/`, `cloud-graylog/`, `smartfran/sp-logs/`, `smartfran/sf-devops/` |
 
 ## Global Restrictions
 
@@ -79,10 +80,9 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 
 - All content written to `events/` must be in **Spanish**. All other conversational output in **English**.
 - `events/` is **write-only** — do not read files from it unless explicitly asked.
-- Each event gets its own subfolder: `events/YYYYMMDD_description/`. File names inside are the suffix only — no `YYYYMMDD_description_` prefix, the folder already disambiguates (`investigation.md`, `ops.md`, `ops-events.md`, `scripts.sh`, `email_ops.md`, etc.).
+- Folder/file naming: see root `CLAUDE.md` → "Investigation Files (cross-project)".
 - All scripts or commands run during an investigation or fix must be saved as a script file in the event subfolder (`scripts.sh` / `.py` / `.ps1` / `.sql`). The ticket body references the file with a brief description table (`#` | `Comando/Script` | `Propósito`) — no inline code blocks in the ticket body.
-- Closure reports (`ops.md`) are **Jira tickets describing work to be done** — write in future or imperative tense. Findings describe current state; actions describe what must happen. Never write as if remediation is already complete. Sections in order: **Resumen**, **Tabla resumen**, **Causa raíz**, **Hallazgos**, **Recursos afectados**, **Comandos ejecutados**, **Acciones propuestas**, **Hallazgos secundarios** (optional). Actions section is titled **Acciones propuestas** — not "Acciones requeridas".
-- Ops events file (`ops-events.md`) entries use **pretérito perfecto, first person**: "he verificado", "he identificado", "he confirmado". Yo soy quien ejecuta — never refer to the author as "el usuario", "el operador", or any third-person subject, and never use the impersonal "se ha..." construction. Also never frame a decision/pivot as receiving an order from an external party ("he recibido la indicación de...", "a pedido de...") — that still implies a commander/executor hierarchy even without naming "el usuario". State the decision as a direct fact/action instead: "No toco el stream por ahora" / "He retomado X", not "He recibido la indicación de no tocar/retomar X".
+- `ops.md` section format/tense and `ops-events.md` voice rules: full spec lives in the `ope-sre-output` skill — not duplicated here.
 
 ### Ops Events File (`ops-events.md`)
 
@@ -95,6 +95,7 @@ Command output results are also recorded as commented `# OUTPUT (YYYY-MM-DD):` b
 
 ## Behavioral Guidelines
 
+- **Graylog stream-routing claims must be verified against the stream's own rules (`GET /api/streams/{id}/rules`), never inferred from a source-code match alone.** A pipeline attached to the "right-sounding" stream (e.g. one matching the confirmed source file/service) can still miss the actual traffic if that stream's routing rules don't cover it — the Stream Router evaluates before any pipeline runs, so an unverified stream assumption invalidates the whole mitigation silently. Confirmed gap: GITIN-1854, `msg_rest_status` mitigation passed in the simulator but continued failing on live traffic because the `SP_Concentrador` stream attachment was never checked against its actual routing rules. Same failure mode as the general "always validate claims" rule, specific enough to Graylog work to call out here.
 - No sycophantic openers or closing fluff.
 - Always respond in English. Spanish only for content written to `events/`.
 - Always propose a concrete next step — never end a response with only information and an open question.

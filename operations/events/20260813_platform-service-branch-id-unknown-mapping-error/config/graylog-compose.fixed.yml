@@ -1,0 +1,137 @@
+# PROPOSED fix — not yet applied to production as of 2026-08-13.
+# Diff from graylog-compose.yml (current/live, same directory):
+#   - opensearch/mongo: `deploy.resources.limits` removed (silently ignored under
+#     plain `docker compose up` — Swarm-only — so it was never actually enforced)
+#   - opensearch/mongo: replaced with `mem_limit`/`mem_reservation`, which DO apply
+#     under plain `docker compose up`
+#   - opensearch: added `ulimits.memlock` (soft/hard: -1, i.e. unlimited) so that
+#     `bootstrap.memory_lock: true` (already present, previously a no-op) actually
+#     takes effect
+# Applying this requires recreating opensearch/mongo (`docker compose up -d
+# opensearch mongo`) — brief OpenSearch unavailability while it restarts and
+# recovers shards. Do this in a planned window, not casually — confirm with
+# `docker compose config | grep -A3 -E "mem_limit|ulimits"` that the new limits
+# actually took effect before considering this done.
+
+networks:
+  graynet:
+    driver: bridge
+# This is how you persist data between container restarts
+volumes:
+  mongo_data:
+    driver: local
+  log_data:
+    driver: local
+  graylog_data:
+    driver: local
+services:
+  # Graylog stores configuration in MongoDB
+  mongo:
+    image: mongo:6.0.5-jammy
+    container_name: mongodb
+    mem_limit: 4g
+    healthcheck:
+      test: mongosh --eval 'db.runCommand("ping").ok' --quiet
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+      start_interval: 5s
+    volumes:
+      - "mongo_data:/data/db"
+    networks:
+      - graynet
+    restart: unless-stopped
+  # The logs themselves are stored in Opensearch
+  opensearch:
+    image: opensearchproject/opensearch:2
+    container_name: opensearch
+    mem_limit: 6g
+    mem_reservation: 4g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://opensearch:9200"]
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+      start_interval: 5s
+    environment:
+      OPENSEARCH_JAVA_OPTS: -Xms2g -Xmx2g
+      bootstrap.memory_lock: true
+      discovery.type: single-node
+      action.auto_create_index: false
+      plugins.security.ssl.http.enabled: false
+      plugins.security.disabled: true
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: "${OPENSEARCH_INITIAL_ADMIN_PASSWORD}"
+    volumes:
+      - "log_data:/usr/share/opensearch/data"
+    ports:
+      - 9200:9200/tcp
+    networks:
+      - graynet
+    restart: unless-stopped
+  graylog:
+    image: graylog/graylog:5.2.12
+    container_name: graylog
+    healthcheck:
+      test: curl -f http://sf-monitoreo.smartfran.com:9000/
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+      start_interval: 5s
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
+    environment:
+      # CHANGE ME (must be at least 16 characters)!
+      GRAYLOG_PASSWORD_SECRET: "${GRAYLOG_PASSWORD_SECRET}"
+      # Password: admin
+      GRAYLOG_ROOT_PASSWORD_SHA2: "${GRAYLOG_ROOT_PASSWORD_SHA2}"
+      GRAYLOG_HTTP_BIND_ADDRESS: "0.0.0.0:9000"
+      GRAYLOG_HTTP_EXTERNAL_URI: "http://sf-monitoreo.smartfran.com:9000/"
+      GRAYLOG_ELASTICSEARCH_HOSTS: "http://opensearch:9200"
+      GRAYLOG_MONGODB_URI: "mongodb://mongodb:27017/graylog"
+      GRAYLOG_TIMEZONE: "America/Argentina/Cordoba"
+      TZ: "America/Argentina/Cordoba"
+      #GRAYLOG_TRANSPORT_EMAIL_PROTOCOL: "smtp"
+      #GRAYLOG_TRANSPORT_EMAIL_WEB_INTERFACE_URL: "http://3.214.234.76:9000/"
+      GRAYLOG_TRANSPORT_EMAIL_HOSTNAME: "aspmx.l.google.com"
+      GRAYLOG_TRANSPORT_EMAIL_ENABLED: "true"
+      GRAYLOG_TRANSPORT_EMAIL_PORT: "25"
+      GRAYLOG_TRANSPORT_EMAIL_USE_AUTH: "false"
+      #GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME: "dantep@smartfran.com"
+      #GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD: "NOPASSWD!"
+      GRAYLOG_TRANSPORT_EMAIL_USE_TLS: "false"
+      GRAYLOG_TRANSPORT_EMAIL_USE_SSL: "false"
+      GRAYLOG_TRANSPORT_FROM_EMAIL: "graylog-alerts@smartfran.com"
+      GRAYLOG_TRANSPORT_SUBJECT_PREFIX: "[graylog]"
+      GRAYLOG_TRANSPORT_EMAIL_FROM_EMAIL: "graylog-alerts@smartfran.com"
+    entrypoint: /usr/bin/tini -- wait-for-it opensearch:9200 -- /docker-entrypoint.sh
+    volumes:
+      - "${PWD}/config/graylog/graylog.conf:/usr/share/graylog/config/graylog.conf"
+      - "${PWD}/ip_dbs/GeoLite2-City.mmdb:/usr/share/graylog/config/GeoLite2-City.mmdb"
+      - "${PWD}/ip_dbs/GeoLite2-ASN.mmdb:/usr/share/graylog/config/GeoLite2-ASN.mmdb"
+      - "graylog_data:/usr/share/graylog/data"
+    networks:
+      - graynet
+    restart: always
+    depends_on:
+      opensearch:
+        condition: "service_healthy"
+      mongo:
+        condition: "service_healthy"
+    ports:
+      - 9000:9000/tcp   # Graylog web interface and REST API
+      - 1514:1514/tcp   # Syslog
+      - 1514:1514/udp   # Syslog
+      - 11514:11514/tcp   # Syslog
+      - 11514:11514/udp   # Syslog
+      - 12201:12201/tcp # GELF
+      - 12201:12201/udp # GELF
+      - 12202:12202/tcp # GELF
+      - 12202:12202/udp # GELF

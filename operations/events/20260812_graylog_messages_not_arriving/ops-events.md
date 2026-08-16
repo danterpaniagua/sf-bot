@@ -95,3 +95,39 @@ He corregido `$Cardinaluty` a `$Cardinality` en la configuración de NXLog de `S
 ## 2026-08-12 — Apertura de ticket
 
 He abierto este ticket (GITIN-1827, relacionado con GITIN-1821) para documentar la causa raíz real y las acciones pendientes — en particular, determinar el disparador exacto del reinicio de OpenSearch y decidir si se levanta el límite de campos de mapeo.
+
+## 2026-08-13 — Regla NXLog adicional para detección temprana
+
+He agregado una regla adicional a la configuración de NXLog en `SFCG-SMTP-01`/`SFCG-SMTP-02`: `if $raw_event =~ /SMTPDeliverer - Message\s(\d+): (.*)/ { $DeliveryStatus = $2; }`, sin modificar la extracción de `$MessageId` (queda a cargo de la regla genérica ya existente). El objetivo es poder comparar a futuro el volumen de eventos de estado de SMTPDeliverer que genera hMailServer contra lo que efectivamente llega a Graylog, para detectar más rápido una eventual repetición de la pérdida silenciosa de UDP durante indisponibilidad del cluster de OpenSearch que causó este incidente. Pendiente de despliegue en ambas VM.
+
+## 2026-08-13 — Confirmación del despliegue en ambas VM y hallazgo de bug menor
+
+He confirmado, con documentos reales de Graylog, que la regla `$DeliveryStatus` está desplegada y funcionando en ambas VM (`SFCG-SMTP-01`, `Cardinality "01"`, `192.168.50.161`, y `SFCG-SMTP-02`, `Cardinality "02"`, `192.168.50.162`) — `MessageId` y `DeliveryStatus` se capturan de forma independiente y correcta (mismo `MessageId` a lo largo del ciclo de vida de un mensaje, con distintos valores de `DeliveryStatus`).
+
+He encontrado un bug menor en la expresión regular: `$DeliveryStatus` incluye una comilla doble sobrante al final (ej. `Message delivery thread completed."`), porque `(.*)` captura de forma voraz la comilla de cierre del campo en el log crudo de hMailServer. Fix identificado: reemplazar `(.*)` por `([^"]*)`, que se detiene naturalmente antes de esa comilla. Pendiente de desplegar en ambas VM.
+
+## 2026-08-13 — Fix del bug de comilla sobrante confirmado resuelto
+
+He confirmado, con documentos reales de Graylog desde `SFCG-SMTP-02` (`Cardinality "02"`), que el fix (`(.*)` → `([^"]*)`) resuelve el problema: `DeliveryStatus` llega limpio, sin la comilla sobrante, tanto en `"Message delivery thread completed."` como en rutas de archivo (`...{GUID}.eml`). He confirmado el mismo resultado en `SFCG-SMTP-01` (`Cardinality "01"`) con datos reales de Graylog — `DeliveryStatus` limpio en ambas VM, sin comilla sobrante.
+
+## 2026-08-13 — Nuevo tipo de fallo de indexado detectado y separado a ticket propio
+
+He detectado un cuarto tipo de fallo de indexado (mismo mecanismo que `msg_rest_status`, campo distinto): `msg_branch_id` mapeado como `long`, rechazando documentos que envían el literal `"unknown"`. Afecta simultáneamente a `sp_platform__50` y `graylog_299`, mismos IDs de documento en ambos. Al identificar la causa raíz como un bug de aplicación en `platforms-service` — no relacionado con el reinicio de OpenSearch que es el alcance de este ticket — lo separé a un ticket propio: `operations/events/20260813_platform-service-branch-id-unknown-mapping-error/` (GITIN-1854).
+
+## 2026-08-13 — Revisión del docker-compose real y fortalecimiento de la teoría de OOM
+
+He revisado el `docker-compose.yml` real del stack y confirmé dos cosas: `bootstrap.memory_lock: true` está seteado en `opensearch` sin el bloque `ulimits: memlock` correspondiente (el lock de memoria no toma efecto realmente), y los límites `deploy.resources.limits` (`6G` en `opensearch`, `4G` en `mongo`) no aplican fuera de Docker Swarm — confirmé que este stack corre con `docker compose up` simple, no `docker stack deploy`, por lo que esos límites nunca estuvieron realmente en efecto. Esto fortalece la teoría de un OOM a nivel de host (no de cgroup, lo cual explicaría `OOMKilled: false`) como causa del reinicio, y explicaría por qué el `systemctl reboot` inicial quedó colgado. Pendiente confirmar de forma definitiva revisando `dmesg`/`journalctl -k` alrededor de las 01:24 UTC del 2026-08-12.
+
+## 2026-08-13 — Secuencia exacta de apagado encontrada en syslog/kern.log del host real
+
+He encontrado en `/var/log/syslog` y `/var/log/kern.log.1` del host real que a las 01:15:43 UTC comenzó un apagado ordenado por `systemctl reboot` — decenas de servicios se detuvieron en secuencia normal, incluyendo el inicio de la detención de `dockerd` (`Processing signal 'terminated'`). Confirmé, extrayendo el rango completo con `sed`, que no hay **ningún** registro de log — de ningún subsistema — entre `Stopping PackageKit Daemon...` (01:15:43) y la primera línea de kernel del boot nuevo (01:24:51), un silencio total de ~9 minutos. Esto apunta a que todo el sistema se congeló en ese instante, coincidiendo con el paso de detención de Docker (que tiene que cerrar de forma prolija el índice de OpenSearch de 472.8GB, sin límite real de memoria y con el heap de la JVM sin lock) — un mecanismo preciso, no solo evidencia circunstancial, aunque sigue sin existir una línea literal de `oom-killer` (nada se logueó durante el congelamiento en sí).
+
+**Discrepancia sin resolver:** lo ya registrado anteriormente en este archivo dice que el `systemctl reboot` "quedó colgado más de una hora" antes del reinicio forzado desde la consola de AWS. Eso no coincide con la ventana de silencio técnico de ~9 minutos encontrada ahora (01:15:43 → 01:24:46/51). No he confirmado el origen de la cifra de "más de una hora" — pendiente de aclarar antes de dar por cerrado este punto.
+
+## 2026-08-13 — Corrección: la cifra de "más de una hora" no se sostiene, confirmado vía CloudTrail
+
+He confirmado vía `aws cloudtrail lookup-events` que la cifra de "más de una hora" que había registrado antes para el colgado del `systemctl reboot` es incorrecta. `StopInstances` (`i-0d38e3a088f7c4893`, usuario `dpaniagua`, consola) se ejecutó a las 01:20:17 UTC con `skipOsShutdown: true` (fuerza el apagado, sin esperar el shutdown ordenado del SO) — solo ~4,5 minutos después del congelamiento (01:15:43). `StartInstances` completó exitosamente a las 01:24:39 UTC (`previousState: stopped`), consistente con la línea de kernel del boot nuevo a las 01:24:51. Tiempo total desde el congelamiento hasta el boot nuevo: ~9 minutos, confirmado por dos fuentes independientes (timestamps de boot en syslog/journald, y timestamps de CloudTrail) — no "más de una hora". No existe ningún evento `RebootInstances` — la recuperación fue un ciclo de stop/start forzado por consola, no un reinicio.
+
+## 2026-08-13 — Identificado archivo compose incorrecto durante validación, corregido
+
+Al validar el compose del stack (`docker compose config`) encontré un error de YAML (`healthcheck` mal ubicado dentro de `depends_on.mongo`) en `/home/ubuntu/scritps/graylog/graylog/docker-compose.yml`. Tras revisar ese archivo en detalle (heap de OpenSearch en `1g`, límite de memoria intentado en `2G`, un secreto de `OPENSEARCH_INITIAL_ADMIN_PASSWORD` hardcodeado en texto plano) noté que no coincidía con los números ya documentados en este ticket (`2g`/`6G`). Confirmé vía `docker inspect opensearch --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}'` que el archivo real que creó los contenedores en ejecución es `graylog-compose.yml`, no `docker-compose.yml` — este último está sin uso, es una versión vieja/divergente. Verifiqué `graylog-compose.yml` directamente y confirmé que coincide exactamente con lo ya documentado (heap `2g`, límite `6G`/`4G`, `deploy:` ignorado bajo `docker compose up`) — sin necesidad de corregir nada de lo ya registrado. El archivo `docker-compose.yml` sin uso queda como hallazgo secundario — recomendado eliminarlo o limpiar sus secretos hardcodeados, dado que su nombre casi idéntico causó esta confusión.

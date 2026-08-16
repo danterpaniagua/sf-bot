@@ -18,6 +18,8 @@ Distinct from the SmartCloud-dedicated Graylog instance (separate `cloud-graylog
 
 Compose file and related scripts live locally on the host under `~/scritps/graylog/` — **not version-controlled in any repo** (not `bots/`, not `cloud-graylog/`). `opensearch` is single-node (`discovery.type: single-node`), `bootstrap.memory_lock: true` with no matching `ulimits: memlock` block (known risk, unresolved as of 2026-08-12), heap `-Xms2g -Xmx2g` inside a 6GB container memory limit.
 
+**No cold/warm index storage tiering** — confirmed 2026-08-14: this stack runs the open-source `graylog/graylog:5.2.12` image (not `graylog/graylog-enterprise`), no license key or Data Tiering config anywhere in the compose environment. Data Tiering (S3-backed cold storage) is a Graylog Enterprise/Cloud feature, unlike `cloud-graylog` (SmartCloud-dedicated instance). Practical effect: the only levers on an oversized index like `graylog_299` are the field-limit fix, retention (`max_number_of_indices`), and raw disk capacity — no "move old data to cheap storage" option exists on this instance.
+
 ## Ports / Inputs
 
 | Port | Purpose |
@@ -44,4 +46,5 @@ Compose file and related scripts live locally on the host under `~/scritps/grayl
 
 - `loyalty/docs/infrastructure.md` — SmartLoyalty application server inventory, including the mail relay hosts.
 - `loyalty/events/20260811_webservicecg_recuperacion_cuenta_email/` (`GITIN-1816`) — the recovery-email ticket that led to this investigation.
-- `operations/events/20260812_graylog_messages_not_arriving/` (`GITIN-1827`) — full investigation, commands, and findings for the outage described above.
+- `operations/events/20260812_graylog_messages_not_arriving/` (`GITIN-1827`, **closed**) — original investigation, commands, and findings for the outage described above.
+- `operations/events/20260813_platform-service-branch-id-unknown-mapping-error/` (`GITIN-1854`, **active**) — carries forward all continuing work from GITIN-1827 (OpenSearch memory-config fix, `msg_rest_status`/`msg_branch_id` indexer-failure root causes). Reference this one for current status.
