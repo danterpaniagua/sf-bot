@@ -1,0 +1,21 @@
+--- a/azure-eventhub-to-graylog.conf
++++ b/azure-eventhub-to-graylog.conf
+@@ -183,6 +183,18 @@
+         rescue JSON::ParserError
+         end
+       end
++
++      # --- Sales direct-GELF: Properties is a top-level Hash on the event ---
++      top_props = event.get("Properties")
++      if top_props.is_a?(Hash)
++        event.set("TraceKey", top_props["TraceKey"]) if top_props["TraceKey"].is_a?(String) && !top_props["TraceKey"].empty?
++        event.set("TenantId", top_props["TenantId"]) if top_props["TenantId"].is_a?(String) && !top_props["TenantId"].empty?
++        event.set("Service", top_props["Service"]) if top_props["Service"].is_a?(String) && !top_props["Service"].empty?
++        event.set("Environment", top_props["Environment"]) if top_props["Environment"].is_a?(String) && !top_props["Environment"].empty?
++        # Stringify so GELF/Graylog does not auto-flatten this into
++        # Properties_* duplicates on the way out — see comment block above.
++        event.set("Properties", top_props.to_json)
++      end
+     '
+   }
+   # properties varies in shape across log categories (string vs nested object)

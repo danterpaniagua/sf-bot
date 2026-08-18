@@ -1,0 +1,10 @@
+--- a/azure-eventhub-to-graylog.conf
++++ b/azure-eventhub-to-graylog.conf
+@@ -186,6 +186,7 @@
+             event.set("TraceKey", props["TraceKey"]) if props["TraceKey"].is_a?(String) && !props["TraceKey"].empty?
+             event.set("TenantId", props["TenantId"]) if props["TenantId"].is_a?(String) && !props["TenantId"].empty?
+             event.set("Service", props["Service"]) if props["Service"].is_a?(String) && !props["Service"].empty?
++            event.set("Environment", props["Environment"]) if props["Environment"].is_a?(String) && !props["Environment"].empty?
+           end
+         rescue JSON::ParserError
+         end

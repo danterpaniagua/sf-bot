@@ -1,0 +1,95 @@
+[
+  {
+    "eventHubAuthorizationRuleId": "/subscriptions/85c76dea-3304-4310-8656-bf21b28e4f4b/resourceGroups/SmartFran.Cloud.PRO/providers/Microsoft.EventHub/namespaces/smartfran-graylog-evhns-pro/authorizationRules/diagnostic-settings-send",
+    "eventHubName": "app-logs",
+    "id": "/subscriptions/85c76dea-3304-4310-8656-bf21b28e4f4b/resourcegroups/smartfran.cloud.pro/providers/microsoft.web/sites/smartfran-cloud-pos-pro/providers/microsoft.insights/diagnosticSettings/SmartFran.Cloud.PRO.Pos_DiagnosticSettings",
+    "logs": [
+      {
+        "category": "AppServiceConsoleLogs",
+        "enabled": true,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      },
+      {
+        "category": "AppServiceAntivirusScanAuditLogs",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      },
+      {
+        "category": "AppServiceHTTPLogs",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      },
+      {
+        "category": "AppServiceAppLogs",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      },
+      {
+        "category": "AppServiceFileAuditLogs",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      },
+      {
+        "category": "AppServiceAuditLogs",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      },
+      {
+        "category": "AppServiceIPSecAuditLogs",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      },
+      {
+        "category": "AppServicePlatformLogs",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      },
+      {
+        "category": "AppServiceAuthenticationLogs",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "category": "AllMetrics",
+        "enabled": false,
+        "retentionPolicy": {
+          "days": 0,
+          "enabled": false
+        }
+      }
+    ],
+    "name": "SmartFran.Cloud.PRO.Pos_DiagnosticSettings",
+    "resourceGroup": "smartfran.cloud.pro",
+    "type": "Microsoft.Insights/diagnosticSettings",
+    "workspaceId": "/subscriptions/85c76dea-3304-4310-8656-bf21b28e4f4b/resourceGroups/SmartFran.Cloud.PRO/providers/Microsoft.OperationalInsights/workspaces/SmartFranCloudPro"
+  }
+]

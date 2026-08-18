@@ -1,0 +1,36 @@
+--- a/azure-eventhub-to-graylog.conf
++++ b/azure-eventhub-to-graylog.conf
+@@ -156,6 +156,33 @@
+       event.set("AppLevel", app_level)
+     '
+   }
++  # GITIN-1883: TraceKey / TenantId — promote from Properties.TraceKey and
++  # Properties.TenantId, the same Serilog CLEF payload nested inside
++  # resultDescription that the AppLevel block above already parses (one
++  # JSON-string layer deeper than Sales direct-GELF messages, whose top-level
++  # Properties GELF already auto-flattens on its own — see GITIN-1835).
++  # Confirmed present in 6/6 sampled AppServiceConsoleLogs messages (Business/
++  # Admin/Platform/Person/Catalog/Orders); Sales/Pos emit 0 messages in this
++  # category at all (GITIN-1811, unsupported on Windows/.NET), out of scope.
++  # TenantId is legitimately empty on system/background messages with no
++  # active tenant context (confirmed on 3 of 6 sampled apps) — leave the field
++  # unset rather than promote an empty string.
++  ruby {
++    code => '
++      result_desc = event.get("resultDescription")
++      if result_desc.is_a?(String) && result_desc.strip.start_with?("{")
++        begin
++          parsed = JSON.parse(result_desc)
++          if parsed.is_a?(Hash) && parsed["Properties"].is_a?(Hash)
++            props = parsed["Properties"]
++            event.set("TraceKey", props["TraceKey"]) if props["TraceKey"].is_a?(String) && !props["TraceKey"].empty?
++            event.set("TenantId", props["TenantId"]) if props["TenantId"].is_a?(String) && !props["TenantId"].empty?
++          end
++        rescue JSON::ParserError
++        end
++      end
++    '
++  }
+   # properties varies in shape across log categories (string vs nested object)
+   # — force to a consistent JSON string to avoid OpenSearch mapping conflicts.
+   # Runs last: message-building above needs properties as a live Hash.

@@ -1,0 +1,30 @@
+# Investigation — 20260818_disk-flood-watermark
+
+**Status:** closed
+
+## Confirmed facts
+
+- OpenSearch single node `sfcloud-monitoreo` (Graylog SmartCloud) crossed the flood-stage disk watermark (~95% used), triggering Elasticsearch/OpenSearch's automatic `index.blocks.read_only_allow_delete` on all 12 indices with shards on that node — confirmed via the pasted alert set (uncommitted-messages-deleted, journal-utilization-high, index-rotation-failure on `dev__3`, indices-blocked).
+- At first live check (`df -h`, `_cat/allocation`), usage was 91% — above high watermark (90%) but already below flood-stage (95%). The `read_only_allow_delete` block does not auto-clear when usage drops; it persists until removed. Lifting it was safe at that point without freeing space first.
+- Lifted the block via `PUT _all/_settings {"index.blocks.read_only_allow_delete": null}` — `{"acknowledged":true}`. Confirmed writes resumed via doc-count growth on `catalog__0` and `business__9` between two consecutive `_cat/indices` checks.
+- Disk pressure driver: `sales__1`–`__4` (42.5gb) and `business__6`–`__9` (48.4gb) together are 80% of the 114.3gb of indices — not Catalog, despite Catalog dominating message *rate* (87% of a sampled window, per `cloud-graylog/CLAUDE.md`, already attributed there to `AppServiceConsoleLogs` verbosity, not real traffic). Catalog is a single 14.9gb index, onboarded 2026-08-12, too new to be the disk driver.
+- Retention config (`GET /system/indices/index_sets`, confirmed live): both `SFC-Sales-prod` and `SFC-Business-prod` use `DeletionRetentionStrategy` (`max_number_of_indices: 20`) + `TimeBasedSizeOptimizingStrategy` (`P30D`–`P40D`). With only 4 indices per set, automatic retention would not prune anything for roughly 2 years at the current rotation cadence — retention is not misconfigured, it's just irrelevant at this index count.
+- Structural root cause: `max_number_of_indices: 20` at current per-index sizes (5–27gb) implies a theoretical footprint of hundreds of GB per index set — far beyond the 128gb `phase=pilot` disk that was actually deployed (`terraform.tfstate` confirmed `phase="pilot"`, 128gb). The retention cap appears sized for the `phase=full` disk (1024gb) that was never applied.
+- Manual cleanup executed as a stopgap ahead of what retention would eventually do: deleted `sales__1` (5gb, ends 2026-07-23), `sales__2` (7.8gb, ends 2026-08-02), `business__6` (5.2gb, ends 2026-07-31) — all confirmed via `/api/system/indices/ranges` to be fully closed indices with real end-dates before the 15-day cutoff (2026-08-03). Correct endpoint for deletion is `/api/system/indexer/indices/{index}` (`DELETE`, returns 204) — `/api/system/indices/{index}` 404s, that path is for index *sets*, not individual indices.
+- Disk dropped from 92% to 80% (118gb→102gb used, 11gb→27gb free) after the delete — confirmed via `df -h`/`_cat/allocation`/`_cat/indices`.
+- User separately resized the underlying Azure managed disk from 128gb to 512gb (outside Terraform, no VM deallocate needed for the resize itself). Confirmed via `lsblk`: physical disk `nvme0n3` showed 512G but partition `nvme0n3p1` was still 127.9G — needed `growpart` + filesystem grow. Filesystem confirmed XFS (`lsblk -f`). Ran `growpart /dev/nvme0n3 1` + `xfs_growfs /var/lib/opensearch` — partition grew from 268,304,384 to 1,073,676,255 sectors, XFS data blocks grew from 33,538,048 to 134,209,531 (4x, matches 128→512gb). Online resize, no OpenSearch downtime.
+
+## Ruled out
+
+- **Catalog full-fleet onboarding (2026-08-12) as the disk-pressure driver** — initial working hypothesis before live data. Catalog's single index is only 14.9gb; Sales/Business's accumulated rotated indices (90.9gb combined) are the actual driver. Ruled out once `_cat/indices` was checked.
+- **Sales/Business retention policy misconfigured with too generous a cap** — checked directly via API; `max_number_of_indices: 20` is the value, not unusually high in isolation. The real issue is the cap being sized for a disk that isn't the one deployed, not the cap itself being wrong in the abstract.
+- **Naive 15-day age filter treating `business__9`/`sales__4` as deletion candidates** — both show `begin`/`end` epoch (`1970-01-01`) in `/api/system/indices/ranges` because they're the currently active, not-yet-rotated write indices for their sets, not because they're old. A string comparison (`'1970...' < '2026-08-03...'`) is lexicographically true but semantically wrong. Caught before generating the `DELETE` command — would have deleted live, actively-ingesting indices.
+
+## Open questions / next steps
+
+- **H10 — resolved:** `dev__3` confirmed created and `green` (31,866 docs, 152.7mb) after the block lift. `GET /api/system/notifications` returned empty — no alerts actively firing. Rotation was never actually stuck once the block was lifted.
+- **Cluster `yellow` / unassigned shards — checked, not a regression:** later cluster-health check showed 40 active / 12 unassigned. Confirmed this is the pre-existing `replicas: 1` on a single-node cluster issue (already documented in `cloud-graylog/CLAUDE.md`), not a return of disk pressure — disk itself confirmed healthy (`df -h`: 512G total, 113G used, 400G free, 23%).
+- **Terraform drift (still open):** the 512gb resize was done manually outside Terraform. `terraform.tfstate`/`main.tf` (`cloud-graylog` repo) still declare `phase="pilot"`/128gb. Needs reconciling `local.phase_config` (or the `opensearch_disk_size` value directly) before any future `terraform apply` risks conflicting with the live 512gb disk. Not executed — this project's convention is Claude never runs `terraform` itself.
+- Whether `max_number_of_indices: 20` on Sales/Business is still appropriate now that the disk is 512gb instead of 128gb — likely yes given the new headroom, not independently re-verified.
+- Optional cleanup, not requested yet: set `replicas: 0` on Sales'/Business' index sets to clear the permanent `yellow` cluster status, matching every other index set in this deployment.
+- Jira ticket ID for this incident — not yet provided.

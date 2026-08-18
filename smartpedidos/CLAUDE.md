@@ -15,6 +15,8 @@ Reference and SRE tooling for **SmartPedidos** (franchise food delivery order ma
 
 Same pattern as `loyalty/repo/` and `cloud/repo/` — `.gitignore`d, read-only lookups only (root-cause/architecture checks, e.g. tracing where a JWT is issued or a middleware bug lives), never a deploy target and never edited from a smartpedidos/ session. `smartfran/sp-logs` remains the place for actual source changes.
 
+**Production branch is `develop`, not `main`** — opposite convention from `cloud/repo/SmartFran.Cloud` (where `main` is the PRO release branch and `dev` is unreleased). Both clones here are checked out on `develop` with `origin/HEAD -> origin/develop`; a `main`/`master` branch exists in each repo's remotes but is not what's deployed to production. Don't apply the SmartFran.Cloud "diff against main" pattern here — `develop` is already the production reference. Confirmed 2026-08-17 during `cloud/events/20260816_clasica-dijon-invalid-sale-weiss/`.
+
 ## Directory Layout
 
 - `docs/` — reference documents (architecture, infrastructure). Write analysis/report files here, never to the project root.
