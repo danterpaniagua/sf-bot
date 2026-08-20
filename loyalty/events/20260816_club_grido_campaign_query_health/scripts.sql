@@ -98,3 +98,39 @@ FROM (
 ) x
 GROUP BY hostname, program_name
 ORDER BY total_cpu_delta_ms DESC;
+
+-- Follow-up: 2026-08-19 21:00-22:00 UTC-3 MobileAppService spike (= 2026-08-20 00:00-01:00 UTC)
+
+-- Q7: Data availability check, spike window
+SELECT
+    MIN(fecha_hora_captura) AS primera_captura,
+    MAX(fecha_hora_captura) AS ultima_captura,
+    COUNT(DISTINCT fecha_hora_captura) AS snapshots_disponibles
+FROM PNSSRL_AuditSysprocesses
+WHERE fecha_hora_captura BETWEEN '2026-08-20 00:00:00' AND '2026-08-20 01:00:00';
+
+-- Q8: Blocking check, spike window
+SELECT
+    fecha_hora_captura, spid, blocked, lastwaittype, waitresource,
+    hostname, program_name, DB_NAME(dbid) AS db_name, comando_ejecutado
+FROM PNSSRL_AuditSysprocesses
+WHERE fecha_hora_captura BETWEEN '2026-08-20 00:00:00' AND '2026-08-20 01:00:00'
+  AND blocked <> 0
+ORDER BY fecha_hora_captura;
+
+-- Q9: Hostname CPU breakdown, spike window (MobileAppService = SFCG-MOBI-01/02)
+SELECT
+    hostname,
+    program_name,
+    COUNT(*) AS snapshot_rows,
+    SUM(CASE WHEN cpu_delta > 0 THEN cpu_delta ELSE 0 END) AS total_cpu_delta_ms
+FROM (
+    SELECT
+        hostname,
+        program_name,
+        cpu - LAG(cpu) OVER (PARTITION BY spid ORDER BY fecha_hora_captura) AS cpu_delta
+    FROM PNSSRL_AuditSysprocesses
+    WHERE fecha_hora_captura BETWEEN '2026-08-20 00:00:00' AND '2026-08-20 01:00:00'
+) x
+GROUP BY hostname, program_name
+ORDER BY total_cpu_delta_ms DESC;
