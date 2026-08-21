@@ -1,0 +1,38 @@
+--- azure-eventhub-to-graylog.conf
++++ azure-eventhub-to-graylog.conf
+@@ -259,12 +259,12 @@
+             event.set("RequestId", props["RequestId"]) if props["RequestId"].is_a?(String) && !props["RequestId"].empty?
+             event.set("Category", props["Category"]) if props["Category"].is_a?(String) && !props["Category"].empty?
+             event.set("SourceContext", props["SourceContext"]) if props["SourceContext"].is_a?(String) && !props["SourceContext"].empty?
+-            event.set("ErrorCode", props["ErrorCode"]) if props["ErrorCode"].is_a?(String) && !props["ErrorCode"].empty?
++            event.set("ErrorCode", props["_error_code"]) if props["_error_code"].is_a?(String) && !props["_error_code"].empty?
+             event.set("Operation", props["Operation"]) if props["Operation"].is_a?(String) && !props["Operation"].empty?
+-            event.set("Recovered", props["Recovered"]) if [true, false].include?(props["Recovered"])
+-            event.set("Handled", props["Handled"]) if [true, false].include?(props["Handled"])
+-            event.set("AuditAction", props["AuditAction"]) if props["AuditAction"].is_a?(String) && !props["AuditAction"].empty?
+-            event.set("AuditOutcome", props["AuditOutcome"]) if props["AuditOutcome"].is_a?(String) && !props["AuditOutcome"].empty?
++            event.set("Recovered", props["_recovered"]) if [true, false].include?(props["_recovered"])
++            event.set("Handled", props["_handled"]) if [true, false].include?(props["_handled"])
++            event.set("AuditAction", props["_audit_action"]) if props["_audit_action"].is_a?(String) && !props["_audit_action"].empty?
++            event.set("AuditOutcome", props["_audit_outcome"]) if props["_audit_outcome"].is_a?(String) && !props["_audit_outcome"].empty?
+           end
+         rescue JSON::ParserError
+         end
+@@ -282,12 +282,12 @@
+             event.set("RequestId", top_props["RequestId"]) if top_props["RequestId"].is_a?(String) && !top_props["RequestId"].empty?
+             event.set("Category", top_props["Category"]) if top_props["Category"].is_a?(String) && !top_props["Category"].empty?
+             event.set("SourceContext", top_props["SourceContext"]) if top_props["SourceContext"].is_a?(String) && !top_props["SourceContext"].empty?
+-            event.set("ErrorCode", top_props["ErrorCode"]) if top_props["ErrorCode"].is_a?(String) && !top_props["ErrorCode"].empty?
++            event.set("ErrorCode", top_props["_error_code"]) if top_props["_error_code"].is_a?(String) && !top_props["_error_code"].empty?
+             event.set("Operation", top_props["Operation"]) if top_props["Operation"].is_a?(String) && !top_props["Operation"].empty?
+-            event.set("Recovered", top_props["Recovered"]) if [true, false].include?(top_props["Recovered"])
+-            event.set("Handled", top_props["Handled"]) if [true, false].include?(top_props["Handled"])
+-            event.set("AuditAction", top_props["AuditAction"]) if top_props["AuditAction"].is_a?(String) && !top_props["AuditAction"].empty?
+-            event.set("AuditOutcome", top_props["AuditOutcome"]) if top_props["AuditOutcome"].is_a?(String) && !top_props["AuditOutcome"].empty?
++            event.set("Recovered", top_props["_recovered"]) if [true, false].include?(top_props["_recovered"])
++            event.set("Handled", top_props["_handled"]) if [true, false].include?(top_props["_handled"])
++            event.set("AuditAction", top_props["_audit_action"]) if top_props["_audit_action"].is_a?(String) && !top_props["_audit_action"].empty?
++            event.set("AuditOutcome", top_props["_audit_outcome"]) if top_props["_audit_outcome"].is_a?(String) && !top_props["_audit_outcome"].empty?
+           end
+         rescue JSON::ParserError
+         end

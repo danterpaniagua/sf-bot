@@ -15,6 +15,15 @@
 > pipeline en ejecución: `Serilog.Sinks.Console` con `Serilog.Formatting.Json.JsonFormatter`
 > por default (claves `Timestamp / Level / MessageTemplate / Exception / Properties`,
 > `Exception` como string plano).
+>
+> **Corrección 2026-08-19 (GITIN-1892):** §3.3/§3.6/§6.3/§6.4/§6.6/§6.7/§9
+> tenían nombres de clave incorrectos para 5 propiedades del scope de los
+> helpers (`ErrorCode`/`Recovered`/`Handled`/`AuditAction`/`AuditOutcome`
+> documentados como PascalCase; el código real en `SmartFranLogExtensions.cs`
+> usa `_error_code`/`_recovered`/`_handled`/`_audit_action`/`_audit_outcome`
+> con prefijo `_`). Corregido tras validar directamente contra el código
+> fuente — ver detalle en cada sección afectada y en
+> `cloud/events/20260819_promote-remaining-clef-fields/`.
 
 ---
 
@@ -106,6 +115,25 @@ request HTTP (e.g. logs de arranque, eventos de Kestrel Hosting).
 `ILogger.BeginScope` con este diccionario, que está activo durante toda la
 ejecución del request:
 
+> **Verificado 2026-08-19 (GITIN-1892):** esta sección coincide exactamente
+> con el código real (`EnrichmentMiddleware.cs`, confirmado en `dev` y en
+> `main`) — a diferencia de §3.3, acá no hubo que corregir nada. Los 8
+> llamados a `UseSmartFranLogEnrichment` (Business/Catalog/Orders/Person/
+> Platform/Sales/Security/Client.Web) pasan el nombre real de dominio de
+> negocio como `component` (ej. `component: "Business"`), igual que el
+> ejemplo de la fila `Component` de abajo.
+>
+> Dato sin resolver, no una corrección de este doc: muestras reales de
+> tráfico tomadas el mismo día (ver GITIN-1892, hallazgo H2) mostraron
+> `Component: "Api"` (5/6 servicios) o `Component: "Web"` (Admin) en vez del
+> nombre de dominio esperado. El commit que introdujo `component: "<dominio>"`
+> es de 2026-08-05 (`311862afb7`, GSFC-LOG-1) — reciente, lo que sugiere que
+> el binario corriendo en producción podría ser anterior a ese cambio, pero
+> **no se confirmó** eso como causa (el middleware legacy que reemplaza,
+> `TracingMiddleware`, tampoco setea `Component` en el código que sí se
+> pudo inspeccionar — no explica el valor observado). Queda para que Dev
+> confirme qué versión/build está efectivamente desplegada.
+
 | Clave          | Origen                                                                  | Valor típico                                |
 |----------------|-------------------------------------------------------------------------|---------------------------------------------|
 | `Service`      | `env.ApplicationName` / parámetro explícito                            | `"SmartFran.Cloud.Sales.API"`               |
@@ -126,17 +154,33 @@ ejecución del request:
 ### 3.3 Scopes (`BeginScope`) puestos por los helpers
 
 Cada helper de `SmartFranLogExtensions` abre un scope ambient que añade
-**al menos** `Category`. Algunos añaden más. **Todo en PascalCase**, sin
-prefijo `_` (la convención GELF queda descartada en runtime):
+**al menos** `Category`. Algunos añaden más.
 
-| Helper                          | Claves añadidas al scope                                     |
-|---------------------------------|--------------------------------------------------------------|
-| `LogBusinessEvent`              | `Category = "Business"`                                      |
-| `LogSystemEvent`                | `Category = "System"`                                        |
-| `LogDomainError`                | `Category = "Error"`, `ErrorCode = code`                     |
-| `LogTransientFailure`           | `Category = "Error"`, `Operation = op`, `Attempt = N`, `Recovered = bool` |
-| `LogUnrecoverableFailure`       | `Category = "Error"`, `Operation = op`, `Handled = false`    |
-| `LogSecurityAudit`              | `Category = "Security"`, `AuditAction = ...`, `AuditOutcome = ...` |
+> **Corrección 2026-08-19 (GITIN-1892):** la afirmación previa de esta
+> sección ("todo en PascalCase, sin prefijo `_`") es **falsa** para 5 de
+> estas claves — verificado leyendo `SmartFranLogExtensions.cs` directamente
+> (`cloud/repo/SmartFran.Cloud`, rama `dev`). El código real agrega
+> `_error_code`/`_operation`/`_attempt`/`_recovered`/`_handled`/
+> `_audit_action`/`_audit_outcome` al diccionario de `BeginScope` — con
+> prefijo `_`, pese a que §3.6 (más abajo) documenta la convención opuesta.
+> Es una inconsistencia real del propio código, no un error de este doc que
+> se esté corrigiendo — GITIN-1892 promovió estos campos a Graylog leyendo
+> primero los nombres PascalCase equivocados (según la versión anterior de
+> esta tabla), lo cual no producía ningún dato porque esas claves
+> simplemente no existen en el `Properties` real.
+
+| Helper                          | Claves de scope (`BeginScope`, nombre real en código)         | Claves adicionales vía placeholder de mensaje |
+|----------------------------------|-----------------------------------------------------------------|------------------------------------------------|
+| `LogBusinessEvent`              | `Category = "Business"`                                        | —                                                |
+| `LogSystemEvent`                | `Category = "System"`                                          | —                                                |
+| `LogDomainError`                | `Category = "Error"`, `_error_code = code`                     | — (`message` es libre, `code` no se referencia como placeholder) |
+| `LogTransientFailure`           | `Category = "Error"`, `_operation = op`, `_attempt = N`, `_recovered = bool` | `Operation`, `Attempt` (placeholders `{Operation}`/`{Attempt}`, ambas líneas) — `_recovered` no tiene equivalente PascalCase, solo existe con prefijo `_` |
+| `LogUnrecoverableFailure`       | `Category = "Error"`, `_operation = op`, `_handled = false`    | `Operation` (placeholder `{Operation}`, ambas líneas) — `_handled` no tiene equivalente PascalCase |
+| `LogSecurityAudit`              | `Category = "Security"`, `_audit_action = ...`, `_audit_outcome = ...` | `Action`, `Outcome` (placeholders `{Action}`/`{Outcome}`, ambas líneas — valor del enum, ej. `"Login"`/`"Success"`) — **no existen** `AuditAction`/`AuditOutcome` como tales en `Properties`, solo `_audit_action`/`_audit_outcome` (scope) y `Action`/`Outcome` (placeholder) |
+
+`Operation` y `Category` son las únicas dos claves de esta sección que
+coinciden exactamente con lo que un consumer esperaría en PascalCase sin
+prefijo. Las otras 5 requieren leer la clave con `_` desde `Properties`.
 
 ### 3.4 Propiedades del call site (las que vos pasás)
 
@@ -176,19 +220,33 @@ Cuando el log proviene de un evento del framework (no de un controller),
 > (3.1–3.4). El consumer las ignora salvo que las necesite (e.g.
 > correlacionar logs por `RequestId`).
 
-### 3.6 Convención de nombres (regla única)
+### 3.6 Convención de nombres (regla pretendida, con una inconsistencia real conocida)
 
-**Toda propiedad se emite en PascalCase**, sin prefijo `_` ni separadores:
+**La intención** es que toda propiedad se emita en PascalCase, sin prefijo
+`_` ni separadores. Eso es cierto para:
 
 - `Service`, `Environment`, `Version`, `TraceKey`, `TenantId`, `UserId`,
-  `ProcessType`, `Component` — los canónicos.
-- `Category`, `ErrorCode`, `Operation`, `Attempt`, `Recovered`, `Handled`,
-  `AuditAction`, `AuditOutcome` — los del scope de los helpers.
+  `ProcessType`, `Component` — los canónicos (§3.1/§3.2).
+- `Category`, `Operation` — del scope de los helpers (§3.3). Correctos en
+  PascalCase.
 - `SourceContext`, `ActionId`, `ActionName`, `RequestId`, `RequestPath`,
-  `ConnectionId` — los automáticos del framework.
+  `ConnectionId` — los automáticos del framework (§3.5).
 
-Si en algún momento aparece una clave nueva para un helper, va en
-PascalCase (e.g. `RetryCount`, no `_retry_count`).
+**No es cierto**, verificado contra `SmartFranLogExtensions.cs` (GITIN-1892,
+2026-08-19), para 5 claves del scope de los helpers: `_error_code`,
+`_attempt`, `_recovered`, `_handled`, `_audit_action`, `_audit_outcome`
+existen **con prefijo `_`** en el código real, no como `ErrorCode`/
+`Attempt`/`Recovered`/`Handled`/`AuditAction`/`AuditOutcome`. Es una
+inconsistencia real dentro del propio código de `SmartFranLogExtensions.cs`
+respecto a la convención que el resto del archivo sí sigue — no algo que
+dependa de este doc. Cualquier consumer, pipeline, o código nuevo que
+necesite leer estas 5 claves debe usar el nombre real con `_`, no el
+PascalCase que esta sección documentaba antes.
+
+Si en algún momento aparece una clave nueva para un helper, la intención
+sigue siendo PascalCase (e.g. `RetryCount`, no `_retry_count`) — pero
+verificar contra el código real antes de asumirlo, dado el precedente de
+esta sección.
 
 ---
 
@@ -348,7 +406,7 @@ logger.LogDomainError(ex,
     "ProcessType": "Api",
     "Component": "Sales",
     "Category": "Error",
-    "ErrorCode": "PAYMENT_PROVIDER_FAILED",
+    "_error_code": "PAYMENT_PROVIDER_FAILED",
 
     "SourceContext": "SmartFran.Cloud.Sales.Infrastructure.Repositories.Domain.Entities.Sale",
     "ActionId": "0093d63d-0e22-4ef6-9816-dc21c30ffa6d",
@@ -394,7 +452,7 @@ Emite **dos líneas** con el mismo scope (mismo `Category = "Error"`).
     "ProcessType": "Api",
     "Component": "Sales",
     "Category": "Error",
-    "Recovered": true,
+    "_recovered": true,
 
     "SourceContext": "SmartFran.Cloud.Catalog.Sync.SyncCatalogService",
     "RequestId": "400076ec-0000-a400-b63f-84710c7967bb",
@@ -426,7 +484,7 @@ Emite **dos líneas** con el mismo scope (mismo `Category = "Error"`).
     "ProcessType": "Api",
     "Component": "Sales",
     "Category": "Error",
-    "Recovered": true,
+    "_recovered": true,
 
     "SourceContext": "SmartFran.Cloud.Catalog.Sync.SyncCatalogService",
     "RequestId": "400076ec-0000-a400-b63f-84710c7967bb",
@@ -490,8 +548,9 @@ Dos líneas con `Category = "Error"`. La primera con la excepción
 (`"Level": "Error"`, `MessageTemplate` = `"Unrecoverable failure on {Operation}: {Message}"`),
 la segunda con `"Level": "Information"`, `MessageTemplate` =
 `"{Operation} {@Properties}"`, `Exception: null`. Comparten el scope del
-controller más `Category = "Error"`, `Handled = false`,
-`Account = "ACC-0001"`.
+controller más `Category = "Error"`, `_handled = false` (no `Handled` —
+ver §3.3/§3.6), `Account = "ACC-0001"`. `Operation` sí aparece en
+PascalCase, vía el placeholder `{Operation}` de ambas líneas.
 
 ### 6.7 `LogSecurityAudit`
 
@@ -511,9 +570,12 @@ Dos líneas con `Category = "Security"`:
 - **Línea 2**: `"Level": "Information"`,
   `"MessageTemplate" = "{Action} {Outcome} {@Properties}"`.
 
-Comparten: scope HTTP, `Category = "Security"`, `AuditAction = "Login"`,
-`AuditOutcome = "Success"` (o `Failure`/`Blocked`), más las props del
-call site (`ClientIp`, etc.).
+Comparten: scope HTTP, `Category = "Security"`, `_audit_action = "Login"`,
+`_audit_outcome = "Success"` (o `Failure`/`Blocked`) — no `AuditAction`/
+`AuditOutcome`, ver §3.3/§3.6. Los placeholders `{Action}`/`{Outcome}` de
+ambas líneas sí producen `Action = "Login"`/`Outcome = "Success"` en
+PascalCase (nombres genéricos, no confundir con `AuditAction`/
+`AuditOutcome`, que no existen). Más las props del call site (`ClientIp`, etc.).
 
 ---
 
@@ -570,24 +632,43 @@ y el consumer recibe el envelope sin distinguir origen.
 // (no usa LogEnvelope.Parse en runtime, porque el top-level es
 // Timestamp/Level/MessageTemplate/Exception/Properties, no @t/@l/@m/@x/@p).
 // Pero el consumer Graylog indexa los campos de Properties, así que las búsquedas
-// son por nombre canónico (PascalCase, sin prefijo "_"):
+// son por nombre canónico — PascalCase sin prefijo "_" para la mayoría,
+// salvo 5 claves del scope de los helpers que existen con prefijo "_" en el
+// código real (corrección 2026-08-19, GITIN-1892 — ver §3.3/§3.6). Lista
+// completa (corrección 2026-08-19, GITIN-1892): faltaba "Version" — el
+// mismo campo que nunca se había promovido a nivel superior en Graylog
+// hasta ese ticket (ver graylog-log-fields.md H10) — y las 3 claves que
+// llegan vía placeholder de mensaje junto a sus pares de scope (§3.3):
 
+// --- Enrichers de proceso (§3.1) ---
 log.Properties["Service"];        // "SmartFran.Cloud.Sales.API"
 log.Properties["Environment"];    // "Production"
+log.Properties["Version"];        // "1.0.0.0" — faltaba en esta lista hasta 2026-08-19
+
+// --- Scope del EnrichmentMiddleware (§3.2) ---
 log.Properties["TenantId"];       // "d3186bc6d7b2"
-log.Properties["UserId"];         // "auth0|..."
+log.Properties["UserId"];         // "auth0|..." — vacío en casi toda muestra real vista hasta ahora
 log.Properties["TraceKey"];       // header HTTP TraceKey o W3C TraceId
-log.Properties["Component"];      // "Sales", "Catalog", ...
+log.Properties["Component"];      // "Sales", "Catalog", ... según el código — valores reales observados (Api/Web) no coinciden, ver §3.2
 log.Properties["ProcessType"];    // "Api" / "Web"
+
+// --- Scope de los helpers (§3.3) — Category y Operation en PascalCase correcto ---
 log.Properties["Category"];       // "Business" / "System" / "Error" / "Security"
-log.Properties["ErrorCode"];      // "PAYMENT_PROVIDER_FAILED", etc.
-log.Properties["Operation"];      // "SyncCatalog", "ReconcileAccount", etc.
-log.Properties["Recovered"];      // bool (LogTransientFailure)
-log.Properties["Handled"];        // bool (LogUnrecoverableFailure)
-log.Properties["AuditAction"];    // "Login", "TokenRefresh", ...
-log.Properties["AuditOutcome"];   // "Success" / "Failure" / "Blocked"
+log.Properties["Operation"];      // "SyncCatalog", "ReconcileAccount", etc. — PascalCase correcto (placeholder de mensaje)
+log.Properties["Attempt"];        // int (LogTransientFailure) — PascalCase correcto (placeholder de mensaje), sin equivalente promovido a nivel superior en Graylog aún
+log.Properties["Action"];         // "Login", etc. (LogSecurityAudit) — PascalCase correcto (placeholder de mensaje), nombre genérico, no confundir con _audit_action
+log.Properties["Outcome"];        // "Success" / "Failure" / "Blocked" (LogSecurityAudit) — ídem, no confundir con _audit_outcome
+
+// --- Scope de los helpers (§3.3) — con prefijo "_", NO el nombre PascalCase esperado ---
+log.Properties["_error_code"];    // "PAYMENT_PROVIDER_FAILED", etc. — NO "ErrorCode"
+log.Properties["_recovered"];     // bool (LogTransientFailure) — NO "Recovered"
+log.Properties["_handled"];       // bool (LogUnrecoverableFailure) — NO "Handled"
+log.Properties["_audit_action"];  // "Login", "TokenRefresh", ... — NO "AuditAction"
+log.Properties["_audit_outcome"]; // "Success" / "Failure" / "Blocked" — NO "AuditOutcome"
+
+// --- Automáticas de Hosting/MEL (§3.5) — solo las dos más consultadas, ver §3.5 para el resto ---
 log.Properties["RequestId"];      // ASP.NET Core TraceIdentifier
-log.Properties["SourceContext"];  // nombre del ILogger<T>
+log.Properties["SourceContext"];  // nombre del ILogger<T> — presencia varía según el call site, ver §3.5
 
 log.Exception;                   // string plano (no objeto)
 ```

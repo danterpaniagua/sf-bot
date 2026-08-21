@@ -1,0 +1,27 @@
+--- azure-eventhub-to-graylog.conf
++++ azure-eventhub-to-graylog.conf
+@@ -197,7 +197,7 @@
+       end
+     '
+   }
+-  # GITIN-1892: UserId / ProcessType / Component / RequestId / Category /
++  # GITIN-1892: Version / UserId / ProcessType / Component / RequestId / Category /
+   # SourceContext / ErrorCode / Operation / Recovered / Handled / AuditAction
+   # / AuditOutcome — promote to bare top-level fields for ALL services with
+   # this data available: the 6 Event Hub apps from GITIN-1883
+@@ -253,6 +253,7 @@
+           parsed = JSON.parse(result_desc)
+           if parsed.is_a?(Hash) && parsed["Properties"].is_a?(Hash)
+             props = parsed["Properties"]
++            event.set("Version", props["Version"]) if props["Version"].is_a?(String) && !props["Version"].empty?
+             event.set("UserId", props["UserId"]) if props["UserId"].is_a?(String) && !props["UserId"].empty?
+             event.set("ProcessType", props["ProcessType"]) if props["ProcessType"].is_a?(String) && !props["ProcessType"].empty?
+             event.set("Component", props["Component"]) if props["Component"].is_a?(String) && !props["Component"].empty?
+@@ -276,6 +277,7 @@
+         begin
+           top_props = JSON.parse(props_str)
+           if top_props.is_a?(Hash)
++            event.set("Version", top_props["Version"]) if top_props["Version"].is_a?(String) && !top_props["Version"].empty?
+             event.set("UserId", top_props["UserId"]) if top_props["UserId"].is_a?(String) && !top_props["UserId"].empty?
+             event.set("ProcessType", top_props["ProcessType"]) if top_props["ProcessType"].is_a?(String) && !top_props["ProcessType"].empty?
+             event.set("Component", top_props["Component"]) if top_props["Component"].is_a?(String) && !top_props["Component"].empty?

@@ -1,0 +1,106 @@
+--- azure-eventhub-to-graylog.conf
++++ azure-eventhub-to-graylog.conf
+@@ -197,6 +197,103 @@
+       end
+     '
+   }
++  # GITIN-1892: UserId / ProcessType / Component / RequestId / Category /
++  # SourceContext / ErrorCode / Operation / Recovered / Handled / AuditAction
++  # / AuditOutcome — promote to bare top-level fields for ALL services with
++  # this data available: the 6 Event Hub apps from GITIN-1883
++  # (Business/Admin/Platform/Person/Catalog/Orders) AND Sales (direct-GELF).
++  # Pos stays out of scope — emits 0 AppServiceConsoleLogs messages at all
++  # (GITIN-1811, unsupported on Windows/.NET), same as GITIN-1883.
++  #
++  # Two source branches, same split as GITIN-1883's block above:
++  #   1. Event Hub apps: Properties nested inside resultDescription (same
++  #      parse as GITIN-1883).
++  #   2. Sales: by the time this block runs, GITIN-1883's block above has
++  #      ALREADY stringified the event's top-level "Properties" field (to
++  #      stop GELF auto-flatten) — it is a JSON string here, not a live Hash
++  #      like it still is inside GITIN-1883's own block. Re-parse it rather
++  #      than reading a Hash directly. First draft of this ticket omitted
++  #      Sales entirely; caught before deploy.
++  #
++  # `props["X"].is_a?(String)` is already nil-safe (a missing key returns
++  # nil, and nil.is_a?(String) is false), so it naturally skips fields that
++  # are absent entirely, not just empty, with no extra key-presence check
++  # needed. Recovered/Handled are booleans in the CLEF payload (see
++  # cloud/docs/devs-log-structure.md §6.4/§6.6), not strings — guarded
++  # against a boolean-or-nil check instead.
++  #
++  # UserId/ProcessType/Component/RequestId confirmed present on every sampled
++  # message regardless of which helper emitted it (2026-08-19, 8 real
++  # AppServiceConsoleLogs samples across Business/Admin/Platform/Person/
++  # Catalog/Orders — Sales not independently sampled for this ticket, relies
++  # on the same canonical field set documented in devs-log-structure.md
++  # §3.2, already exercised live by GITIN-1883 for TraceKey/TenantId/Service/
++  # Environment on Sales). Category/SourceContext/ErrorCode/Operation/
++  # Recovered/Handled/AuditAction/AuditOutcome only appear when the log was
++  # raised through one of the 6 canonical SmartFranLogExtensions helpers (see
++  # devs-log-structure.md §3.3) — confirmed absent on all sampled plain
++  # framework/middleware messages, and not independently confirmed present
++  # anywhere in this cluster's 7-day window (resultDescription turned out to
++  # be keyword-mapped, not tokenized — pre-deploy substring search needed a
++  # regex query form only worked out after several rounds of debugging).
++  # Shapes for these 8 are sourced directly from devs-log-structure.md's
++  # worked examples (§6.3 LogDomainError, §6.4 LogTransientFailure, §6.6
++  # LogUnrecoverableFailure, §6.7 LogSecurityAudit) rather than a live
++  # sample. No risk either way: the guard means a field that never actually
++  # fires simply never promotes. Live confirmation via the same
++  # resultDescription:/.*X.*/ regex query (Event Hub apps) or a plain
++  # _exists_:<field> check (Sales, once flat) is a post-deploy verification
++  # step, not a pre-deploy blocker — same as GITIN-1883's _exists_:<field>.
++  ruby {
++    code => '
++      # --- Event Hub apps: Properties nested inside resultDescription ---
++      result_desc = event.get("resultDescription")
++      if result_desc.is_a?(String) && result_desc.strip.start_with?("{")
++        begin
++          parsed = JSON.parse(result_desc)
++          if parsed.is_a?(Hash) && parsed["Properties"].is_a?(Hash)
++            props = parsed["Properties"]
++            event.set("UserId", props["UserId"]) if props["UserId"].is_a?(String) && !props["UserId"].empty?
++            event.set("ProcessType", props["ProcessType"]) if props["ProcessType"].is_a?(String) && !props["ProcessType"].empty?
++            event.set("Component", props["Component"]) if props["Component"].is_a?(String) && !props["Component"].empty?
++            event.set("RequestId", props["RequestId"]) if props["RequestId"].is_a?(String) && !props["RequestId"].empty?
++            event.set("Category", props["Category"]) if props["Category"].is_a?(String) && !props["Category"].empty?
++            event.set("SourceContext", props["SourceContext"]) if props["SourceContext"].is_a?(String) && !props["SourceContext"].empty?
++            event.set("ErrorCode", props["ErrorCode"]) if props["ErrorCode"].is_a?(String) && !props["ErrorCode"].empty?
++            event.set("Operation", props["Operation"]) if props["Operation"].is_a?(String) && !props["Operation"].empty?
++            event.set("Recovered", props["Recovered"]) if [true, false].include?(props["Recovered"])
++            event.set("Handled", props["Handled"]) if [true, false].include?(props["Handled"])
++            event.set("AuditAction", props["AuditAction"]) if props["AuditAction"].is_a?(String) && !props["AuditAction"].empty?
++            event.set("AuditOutcome", props["AuditOutcome"]) if props["AuditOutcome"].is_a?(String) && !props["AuditOutcome"].empty?
++          end
++        rescue JSON::ParserError
++        end
++      end
++
++      # --- Sales direct-GELF: Properties already stringified by the GITIN-1883 block above ---
++      props_str = event.get("Properties")
++      if props_str.is_a?(String) && props_str.strip.start_with?("{")
++        begin
++          top_props = JSON.parse(props_str)
++          if top_props.is_a?(Hash)
++            event.set("UserId", top_props["UserId"]) if top_props["UserId"].is_a?(String) && !top_props["UserId"].empty?
++            event.set("ProcessType", top_props["ProcessType"]) if top_props["ProcessType"].is_a?(String) && !top_props["ProcessType"].empty?
++            event.set("Component", top_props["Component"]) if top_props["Component"].is_a?(String) && !top_props["Component"].empty?
++            event.set("RequestId", top_props["RequestId"]) if top_props["RequestId"].is_a?(String) && !top_props["RequestId"].empty?
++            event.set("Category", top_props["Category"]) if top_props["Category"].is_a?(String) && !top_props["Category"].empty?
++            event.set("SourceContext", top_props["SourceContext"]) if top_props["SourceContext"].is_a?(String) && !top_props["SourceContext"].empty?
++            event.set("ErrorCode", top_props["ErrorCode"]) if top_props["ErrorCode"].is_a?(String) && !top_props["ErrorCode"].empty?
++            event.set("Operation", top_props["Operation"]) if top_props["Operation"].is_a?(String) && !top_props["Operation"].empty?
++            event.set("Recovered", top_props["Recovered"]) if [true, false].include?(top_props["Recovered"])
++            event.set("Handled", top_props["Handled"]) if [true, false].include?(top_props["Handled"])
++            event.set("AuditAction", top_props["AuditAction"]) if top_props["AuditAction"].is_a?(String) && !top_props["AuditAction"].empty?
++            event.set("AuditOutcome", top_props["AuditOutcome"]) if top_props["AuditOutcome"].is_a?(String) && !top_props["AuditOutcome"].empty?
++          end
++        rescue JSON::ParserError
++        end
++      end
++    '
++  }
+   # properties varies in shape across log categories (string vs nested object)
+   # — force to a consistent JSON string to avoid OpenSearch mapping conflicts.
+   # Runs last: message-building above needs properties as a live Hash.
