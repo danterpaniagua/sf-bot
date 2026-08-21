@@ -87,6 +87,7 @@ All skills live in `.claude/commands/` (the **sf-skills** submodule). Prefixed b
 | `loyalty-sre-output` | `/loyalty-sre-output` | None |
 | `loyalty-azure-nsg` | `/loyalty-azure-nsg` | None |
 | `loyalty-azure-waf` | `/loyalty-azure-waf` | None |
+| `loyalty-azure-lb` | `/loyalty-azure-lb` | None |
 | `loyalty-static-analysis` | `/loyalty-static-analysis` | None |
 
 > When working from `loyalty/`, skills are also available unprefixed (e.g. `/fraud-points`). `loyalty/.claude/commands/` is the source of truth — sf-skills is synced from it.
@@ -138,6 +139,7 @@ Skills never execute queries — output SQL blocks for the user to run and paste
 |---|---|---|
 | `doc-audit` | `/doc-audit` | Documentation and context integrity audit |
 | `context-sync` | `/context-sync` | Post-session audit and update of context files (accuracy, redundancy, token efficiency, completeness) |
+| `voice-check` | `/voice-check` | Mechanized first-person/tense audit of `ops-events.md` files |
 
 ## `loyalty/` Architecture
 
