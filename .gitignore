@@ -3,6 +3,13 @@
 # Local read-only clone of SmartFran.Cloud (cloud/CLAUDE.md) — its git history
 # contains live-looking credentials, never let this land in the monorepo
 **/repo/
+.claude/
+
+# Raw paste-back data in events/ folders — findings belong in investigation.md
+# / ticket files, not raw exports; keep these local-only, never in git history
 **.json
 **.csv
-.claude/
+**.tsv
+**.tbl
+**.table
+**.cer
