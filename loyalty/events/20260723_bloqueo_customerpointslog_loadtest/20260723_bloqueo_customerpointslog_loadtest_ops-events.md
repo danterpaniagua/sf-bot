@@ -33,3 +33,7 @@ Al cierre de la sesión de trabajo, la CPU había bajado a ~14% y Zabbix reporta
 ## 2026-07-23 — Confirmación de normalización (Zabbix, últimas 3h)
 
 Verifiqué los tiempos de espera de Zabbix de las últimas 3 horas: Locks (wait time) avg 45ms / max 5.746ms; Waits avg 7ms / max 1.244ms. Son órdenes de magnitud menores que los valores del incidente (avg 8.272 / max 30.078 en la ventana inicial, avg 55.683 durante el rebuild) — confirma que SPID 87 terminó y la situación está normalizada. Cierro la verificación pendiente de H7.
+
+## 2026-09-09 — Ticket Jira confirmado: GITIN-1669
+
+He confirmado, contra el contenido real del ticket (coincide palabra por palabra con este `ops.md`), que este evento corresponde a `GITIN-1669`. He agregado la fila `Ticket Jira` a la tabla resumen y actualizado el título de `[TAREA]` a `GITIN-1669`. Esto contradice la cita de `GITIN-1669` en `20260727_cpu_peaks_loadtest` y `20260803_cpu_peaks_loadtest` (contenido no relacionado, sobre picos de CPU) — queda pendiente como corrección separada, no resuelta en esta sesión.

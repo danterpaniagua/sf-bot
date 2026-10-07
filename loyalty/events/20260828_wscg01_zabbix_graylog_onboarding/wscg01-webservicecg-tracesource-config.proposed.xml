@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<system.diagnostics>
+  <trace autoflush="true" />
+  <sources>
+    <source name="SmartLoyalty.WebServiceCG" switchName="SourceSwitch" switchType="System.Diagnostics.SourceSwitch">
+      <listeners>
+        <add name="XmlListener" />
+        <add
+            name="delimitedListener"
+            type="System.Diagnostics.DelimitedListTraceListener"
+            delimiter=","
+            initializeData="E:\Logs\SmartLoyalty.WebServiceCG\csv\SmartLoyalty.WebServiceCG.csv"
+            maxTraceFileSizeKb="10240"
+        />
+      </listeners>
+    </source>
+  </sources>
+  <sharedListeners>
+    <add name="XmlListener" type="SmartFran.Seed.Logging.TraceSource.SegmentedXmlTraceListener, SmartFran.Seed.Extend.Logging.TraceSource.Fw"
+         initializeData="E:\Logs\SmartLoyalty.WebServiceCG\SmartLoyalty.WebServiceCG.svclog" MaxTraceFileSizeKb="10240" />
+  </sharedListeners>
+  <switches>
+    <add name="SourceSwitch" value="All" />
+  </switches>
+</system.diagnostics>

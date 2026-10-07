@@ -1,5 +1,6 @@
 # [JIRA] Incidente: Picos de CPU en SFCG-DB01 — 30/05/2026
 
+**Ticket Jira:** [GITIN-1270](https://smartit-ar.atlassian.net/browse/GITIN-1270)
 **Tipo:** Incidente de rendimiento  
 **Severidad:** Alta  
 **Servidor:** SFCG-DB01 — SQL Server 2022 Standard 16.0.4075.1  

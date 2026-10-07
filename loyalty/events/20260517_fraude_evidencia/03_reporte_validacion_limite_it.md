@@ -1,4 +1,5 @@
 # Reporte Técnico — Ausencia de validación de límite diario de transferencia de puntos
+**Ticket Jira:** sin confirmar (verificado 2026-09-09, sin ticket asociado en el repo)
 **Fecha del evento:** 2026-05-17
 **Hora del evento:** 09:26 UTC-3 (12:26 GMT)
 **Investigador:** Dante Paniagua, SRE

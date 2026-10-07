@@ -14,7 +14,7 @@ He relevado la única regla activa del LB (`SFCG-MOBI-LB-lbrule02`, TCP 8043→8
 
 ## 2026-08-21 — Detección de caída de Health Probe Status
 
-Extraje la métrica `DipAvailability` del LB para la ventana de la prueba de carga (11:00–12:44 GMT) y detecté una caída puntual a 56.52%/62.5% entre las 12:07 y 12:08 GMT, coincidente con el arranque de `SFCG-MOBI-02`.
+He extraído la métrica `DipAvailability` del LB para la ventana de la prueba de carga (11:00–12:44 GMT) y he detectado una caída puntual a 56.52%/62.5% entre las 12:07 y 12:08 GMT, coincidente con el arranque de `SFCG-MOBI-02`.
 
 ## 2026-08-21 — httperr.log y eventos WAS de `SFCG-MOBI-02`
 
@@ -52,4 +52,4 @@ He detectado además una diferencia entre las IPs en vivo de ambas reglas (`Allo
 
 ## 2026-08-21 — Cierre del ticket
 
-He cerrado el ticket. La prueba de carga posterior se completó sin cambios de infraestructura de nuestro lado (`connectionTimeout` sin modificar, sin cambios en el LB/probe). No confirmé si esa corrida tuvo cero resets de conexión o sólo un volumen tolerado. He actualizado el campo `Resuelto` de `ops.md` y el estado de `investigation.md` a cerrado, dejando la acción propuesta 1 (coordinación con Grido) como seguimiento abierto no bloqueante.
+He cerrado el ticket. La prueba de carga posterior se completó sin cambios de infraestructura de nuestro lado (`connectionTimeout` sin modificar, sin cambios en el LB/probe). No he confirmado si esa corrida tuvo cero resets de conexión o sólo un volumen tolerado. He actualizado el campo `Resuelto` de `ops.md` y el estado de `investigation.md` a cerrado, dejando la acción propuesta 1 (coordinación con Grido) como seguimiento abierto no bloqueante.

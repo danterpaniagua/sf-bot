@@ -1,5 +1,7 @@
 # [Fraude Puntos] Actividad irregular de transferencias — 21/05/2026
 
+**Ticket Jira:** [GITIN-1269](https://smartit-ar.atlassian.net/browse/GITIN-1269)
+
 ## Resumen
 
 Actividad fraudulenta de transferencias de puntos detectada entre las 23:00 y las 02:00 (hora local) del 21 de mayo de 2026. Canal predominante: APP.

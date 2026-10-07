@@ -1,5 +1,6 @@
 # Clúster de Fraude "Brainrot" — Transferencias y Abuso de Bono de Bienvenida
 
+**Ticket Jira:** [GITIN-1374](https://smartit-ar.atlassian.net/browse/GITIN-1374)
 **Fecha de detección:** 2026-06-12
 **Período investigado:** Febrero 2026 – Junio 2026
 **Base de datos:** `SmartFran.Solution.SmartLoyalty`

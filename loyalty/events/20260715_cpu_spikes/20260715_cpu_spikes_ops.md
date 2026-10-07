@@ -1,5 +1,6 @@
 # [JIRA] Incidente: Pico de CPU en SFCG-DB01 — Corrida ETL retrasada tras reinicio de VM (15/07/2026)
 
+**Ticket Jira:** sin confirmar (verificado 2026-09-09, sin ticket asociado en el repo)
 **Tipo:** Incidente de rendimiento
 **Severidad:** Alta
 **Servidor:** SFCG-DB01 — SQL Server 2022 Standard 16.0.4075.1

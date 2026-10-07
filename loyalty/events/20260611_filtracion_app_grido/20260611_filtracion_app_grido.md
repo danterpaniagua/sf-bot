@@ -1,5 +1,7 @@
 # [SEC] Incidente – Enumeración y Exfiltración vía App Grido – SmartLoyalty [11/06/2026]
 
+**Ticket Jira:** [GITIN-1352](https://smartit-ar.atlassian.net/browse/GITIN-1352)
+
 ## Resumen
 Durante la tarde del 11/06/2026 se detectó un ataque automatizado contra la API de SmartLoyalty, utilizando la app móvil de Grido como vector de entrada. El atacante realizó enumeración de socios por DNI y exfiltración de perfil y movimientos de puntos.
 

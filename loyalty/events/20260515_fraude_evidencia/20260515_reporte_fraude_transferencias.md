@@ -1,4 +1,5 @@
 # Reporte de Fraude — Transferencias de Puntos
+**Ticket Jira:** [GITIN-1265](https://smartit-ar.atlassian.net/browse/GITIN-1265)
 **Fecha del reporte:** 15 de mayo de 2026  
 **Sistema:** SmartLoyalty — Base de datos principal  
 **Elaborado por:** Dante Paniagua, SRE  

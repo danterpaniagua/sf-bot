@@ -12,9 +12,13 @@ Affected service: **MobileAppService** — `SFCG-MOBI-01/02` (Mobile service, pe
 
 Jira ticket: [GITIN-1866](https://smartit-ar.atlassian.net/browse/GITIN-1866) — "[SML] Impacto Campañas". Ticket scope is general campaign-impact-on-DB analysis, not limited to the single 2026-08-16 occurrence — later spikes/campaigns are in-scope follow-ups under the same ticket, not scope creep.
 
+**Linked tickets (per Jira, confirmed 2026-09-09):**
+- **Blocks [GITIN-1981](https://smartit-ar.atlassian.net/browse/GITIN-1981)** — matches what's already known locally: `GITIN-1981` is the `PNSSRL_MantenimientoIndices` blocking-chain ticket split off from this one's 2026-08-28/29/30 weekend findings (`loyalty/events/20260901_pnssrl_mantenimientoindices_review/`).
+- **Is blocked by [GITIN-1876](https://smartit-ar.atlassian.net/browse/GITIN-1876)** — **no local record at all**: zero references anywhere in this repo (`events/`, `docs/`, memory). Scope/content unconfirmed — don't assume what it covers without checking Jira directly.
+
 ## Status
 
-2026-08-16 campaign window findings (below) are final. Reopened 2026-08-20 to cover a second occurrence — a MobileAppService traffic spike on 2026-08-19 21:00–22:00 UTC-3 (see "Follow-up: 2026-08-19 spike" below) — in-scope under GITIN-1866's general "campaign impact on DB" framing, not a separate ticket. Capacity/limits question for a larger future campaign remains a proposed follow-up item, potentially reusing the existing `20260727_cpu_peaks_loadtest`/`20260803_cpu_peaks_loadtest`/`20260723_bloqueo_customerpointslog_loadtest` precedent (not yet read, `events/` is write-only unless explicitly requested).
+2026-08-16 campaign window findings (below) are final. Reopened 2026-08-20 to cover a second occurrence — a MobileAppService traffic spike on 2026-08-19 21:00–22:00 UTC-3 (see "Follow-up: 2026-08-19 spike" below) — in-scope under GITIN-1866's general "campaign impact on DB" framing, not a separate ticket. Capacity/limits question for a larger future campaign remains a proposed follow-up item, potentially reusing the existing `20260727_cpu_peaks_loadtest`/`20260803_cpu_peaks_loadtest` precedent (not yet read, `events/` is write-only unless explicitly requested). `20260723_bloqueo_customerpointslog_loadtest` **has since been read** — not for this capacity question, but as precedent for the split-off `PNSSRL_MantenimientoIndices` finding below; see "Split off — GITIN-1981" and `loyalty/events/20260901_pnssrl_mantenimientoindices_review/investigation.md`.
 
 ## Working theory
 
@@ -63,6 +67,69 @@ Query health for the campaign window is clean:
 - No blocking anywhere in `PNSSRL` during 15:00–20:00 GMT.
 - MobileAppService (the service the campaign hit) shows the volume fingerprint (highest connection/snapshot-row count of any host — 1,483 rows on `MOBI-02`) but negligible CPU cost per query (~8.6ms avg/row) and healthy Graylog response times (sub-100ms average on all high-volume endpoints: `GetCustomerStatus`, `GetCustomerProfile`, `Login`, `GetAddicionalInformation`, `RecoveryPassword`, `GetCustomerProvisionalPoints`). The campaign traffic did not stress `PNSSRL`.
 - `SFCG-CLUB-01` (Club Grido website) repeatedly executed **Query077** (`AvailablePromotion`, `Domain\Query\Query077-sql.xml` in `SmartLoyalty.WebService`) — 14+ times across the window, ~4,000–6,700ms CPU and ~12,000 logical reads each, via `PNSSRL_TempdbProc`. Fully accounts for `SFCG-CLUB-01`'s 49,706ms total CPU delta, and matches the slowest Graylog endpoint (`/api/Catalog/AvailablePromotion`, 649ms avg, though only 23 hits — not a volume driver). Cost driver: `CROSS JOIN` of two table-valued params (`@BranchOfficeTableTmp × @PromotionTmp`) inside `SmlSupp.PromotionBranchOffice`. Not blocking, not escalating — repeated fixed cost per call, not worsening over the window.
+
+### Query077 — actual source text (`loyalty/repo/dev-src-sol-smartloyalty/Core/Domain.Query/Domain/Query/Query077-sql.xml`, confirmed 2026-09-09)
+
+```sql
+DECLARE @params XML = {0}
+DECLARE @BranchOfficeTableTmp TABLE (BranchOfficeId UNIQUEIDENTIFIER)
+DECLARE @PromotionTmp TABLE (PromotionId INT)
+DECLARE @branchOfficeCountryId INT;
+DECLARE @Counter INT
+
+SELECT @branchOfficeCountryId = n.value('cId[1][not(@xsi:nil = "true")]', 'int')
+FROM @params.nodes('params') AS p(n)
+
+INSERT INTO @BranchOfficeTableTmp
+SELECT n.value('.', 'uniqueidentifier')
+FROM @params.nodes('params/bo') AS p(n)
+
+SELECT @Counter = @@ROWCOUNT
+
+INSERT INTO @PromotionTmp
+SELECT n.value('.', 'int')
+FROM @params.nodes('params/pId') AS p(n)
+
+DECLARE @branchOfficeCount INT
+SELECT @branchOfficeCount = COUNT(*) FROM @BranchOfficeTableTmp
+
+IF (@branchOfficeCountryId IS NOT NULL OR @branchOfficeCount = 0)
+BEGIN
+     INSERT INTO @BranchOfficeTableTmp
+     SELECT BO.Id
+     FROM Sml.BranchOffice BO WITH (NOLOCK)
+     INNER JOIN Sml.[Address] A WITH (NOLOCK) ON A.Id = BO.AddressId
+     INNER JOIN Sml.[Location] CITY WITH (NOLOCK) ON CITY.Id = A.LocationId
+     INNER JOIN Sml.[Location] [STATE] WITH (NOLOCK) ON [STATE].Id = CITY.ParentLocationId
+     INNER JOIN SML.[Location] COUNTRY WITH (NOLOCK) ON COUNTRY.Id = [STATE].ParentLocationId
+     WHERE BO.ActivatedDate IS NOT NULL
+     AND BO.DeactivatedDate IS NULL
+     AND (@branchOfficeCountryId IS NULL OR COUNTRY.Id = @branchOfficeCountryId)
+
+     SELECT @Counter = @@ROWCOUNT
+END
+
+IF((SELECT COUNT(*) FROM @PromotionTmp) > 0)
+BEGIN
+     SELECT  PBO.PromotionId
+     FROM SmlSupp.PromotionBranchOffice PBO WITH (NOLOCK)
+     INNER JOIN (SELECT BranchOfficeId, PromotionId
+                 FROM @BranchOfficeTableTmp
+                 CROSS JOIN @PromotionTmp) temp ON temp.PromotionId = PBO.PromotionId
+                                               AND temp.BranchOfficeId = PBO.BranchOfficeId
+     GROUP BY PBO.PromotionId
+END
+ELSE
+BEGIN
+     SELECT  PBO.PromotionId
+     FROM SmlSupp.PromotionBranchOffice PBO WITH (NOLOCK)
+     INNER JOIN @BranchOfficeTableTmp temp ON temp.BranchOfficeId = PBO.BranchOfficeId
+     GROUP BY PBO.PromotionId
+     HAVING COUNT(DISTINCT PBO.BranchOfficeId) = @Counter
+END
+```
+
+**New detail from the actual source, not previously captured:** the `CROSS JOIN`'s real size isn't a fixed structural cost — `@BranchOfficeTableTmp` gets populated with *every active branch office in the given country* whenever no specific branch-office list is passed (or a country filter is given) (`IF (@branchOfficeCountryId IS NOT NULL OR @branchOfficeCount = 0)`). So the CPU cost scales with how many branches match that filter × how many promotions are passed — a call with a broad/no branch filter and many promotions is the worst case. This refines the optimization angle: filtering branch offices down to only the ones actually relevant *before* the cross join (rather than pulling the whole country's active branches into the temp table first) is the concrete lever, not just "add an index."
 
 ## Tangential (not part of this investigation — recorded for the record only)
 
@@ -310,3 +377,89 @@ User provided the actual file: `SmartLoyalty.MobileAppService.svclog` from `SFCG
 **Update: user confirmed no rotated copy exists.** Retroactive `SaveNewMember`/`Login`/`RecoveryPassword` attribution for the 2026-08-16 and 2026-08-19 occurrences via `.svclog` is a dead end — the data existed on disk at the time (per `SourceSwitch=All`) but rolled off before it could be pulled, and single-file rotation with no numbered backups means there's no other copy to check. Moving to "Dead ends" below.
 
 **Forward-looking note**: the file filled ~6.4MB in ~7.5h (05:00–12:33 UTC) in this sample, ≈853KB/h — at 10MB rotation that's roughly a 11–12h retention window from empty. For any *future* occurrence, the `.svclog` needs to be pulled within that window (well under a day) to avoid the same loss. Worth adding to the action items as a standing operational note, not just this ticket's closure.
+
+## Follow-up: 2026-08-28/29/30 weekend window
+
+**Context**: User asked to add data from the weekend of 2026-08-28/29/30 to this investigation. No specific hours given — queried full calendar days in UTC-3, converted to GMT (UTC-3 + 3h): **2026-08-28 03:00 – 2026-08-31 03:00 UTC**. Continuing under this ticket/event folder per established pattern for GITIN-1866's recurring "campaign/traffic impact on DB" scope.
+
+**Q10 result (data availability)**: full coverage, 864 snapshots at 5-min cadence, 2026-08-28 03:01:00.783–2026-08-31 02:56:00.540 UTC (72h × 12/hr = 864 exact — no gaps).
+
+**Q11 result (blocking check) — materially different from both prior occurrences**: **488 rows with `blocked <> 0`**, vs. **zero** blocking rows in both the 2026-08-16 campaign window and the 2026-08-19 spike window. This is the first confirmed blocking activity found in this investigation.
+
+Pattern observed in the raw dump (not yet run through Q13/Q14 aggregation, so treat the following as a working read, not final):
+- Blocking recurs in three separate **early-morning windows**, one per day, each ~45–60 min long: 2026-08-28 ~06:46–07:26 UTC, 2026-08-29 ~07:31–08:01 UTC, 2026-08-30 ~07:06–07:46 UTC. All fall around UTC-3 03:45–05:00 — outside typical user-traffic hours, consistent with a scheduled batch/sync window rather than campaign or organic traffic.
+- The large majority of blocked rows wait on `LCK_M_SCH_S` (schema-stability lock) against `TAB: 5:1445580188:*` (partitions 0–15 of the same table) — identified via the blocked queries' text as **`Sml.CustomerPointsLog`** in `SmartFran.Solution.SmartLoyalty` (production DB, not `PNSSRL`).
+- Blocked sessions are mostly `SFCG-MOBI-01`'s EF query (`SELECT ... FROM [Sml].[CustomerPointsLog] WHERE CustomerId = @EntityKeyValue1`) and `sfzabbix`'s index-fragmentation healthcheck query.
+- One distinct secondary blocking event (2026-08-28 07:56:00.150 UTC) is on a **different** table, `TAB: 5:859918185:1` (`SmlSupp.PromotionBranchOffice`) — `SFCG-TO-01` running `Query076-sql.xml`, a DELETE+INSERT rebuild of that table, invoked from `SmartLoyalty.TaskOperatorService`.
+- The blocking chain is **cascading** across snapshots (spid A blocked by B, B itself blocked by C in an adjacent snapshot) — the true root/head blocker per window is **not yet confirmed** from eyeballing the raw dump; Q13 (root-blocker identification) and Q14 (per-snapshot severity) queries were issued to resolve this properly, not yet run.
+
+**Q12 result (hostname CPU breakdown, full weekend window)** — also a sharp departure from both prior occurrences:
+
+| Host / program | Snapshot rows | Total CPU delta (ms) |
+|---|---|---|
+| `SFCG-TO-01` (.Net SqlClient Data Provider) | 1,394 | **44,634,597** — dominant, ~23x the next highest |
+| `SFCG-DB01` SQLAgent Job `0x9B0BD93393BA1846BE961FADF915AE66` | 70 | 7,872,716 (~112,467ms/row — very high per-active-row cost despite few rows) |
+| `SFCG-WSV2-01` | 4,082 | 1,986,025 |
+| `SFCG-WSIT-01` | 160 | 999,435 |
+| `SFCG-WSV2-02` | 2,055 | 981,158 |
+| `SFCG-WEBS-02` | 5,706 | 826,089 |
+| `SFCG-WEBS-03` | 2,396 | 822,191 |
+| `SFCG-WEBS-01` | 11,877 | 561,426 |
+| `SFCG-DB01` SQLAgent Job `0xAC5A646AF3CD2C41939160A1FBC86300` | 268 | 486,345 |
+| `SFCG-CLUB-01` | 3,966 | 179,316 |
+| `SFCG-MOBI-02` | 7,416 | 107,231 |
+| `SFCG-MOBI-01` | 4,561 | **20,445** |
+| (remaining hosts, `sfzabbix`, SQLAgent internals) | — | all ≤33,000, negligible |
+
+`SFCG-TO-01` (TaskOperatorService) at 44.6M ms is ~2,180x `SFCG-MOBI-01`'s 20,445ms — a total reversal from the 2026-08-16 and 2026-08-19 occurrences, where `SFCG-WSV2-01` was the dominant baseline consumer (~307K ms/5h window and ~63K ms/hour respectively) and MobileAppService was always negligible relative to a *comparably-sized* dominant host, not a 2,000x gap.
+
+**Correction (superseded by Q13 below)**: this section originally attributed the blocking chain to `SFCG-TO-01`'s workload. Q13's head-blocker identification shows that read was wrong — the actual root blocker is a separate `SFCG-DB01` maintenance job (see below). `SFCG-TO-01`'s CPU dominance is a distinct, still-unexplained finding, not yet tied to the blocking mechanism.
+
+## Root blocker confirmed (Q13/Q14)
+
+**Q13 result — root cause identified, not just correlated.** In all 26 blocking snapshots across all three days, the head blocker (the spid with `blocked=0` that every other blocked row ultimately queues behind) is the **same SQL Agent job**, `0x9B0BD93393BA1846BE961FADF915AE66`, running on `SFCG-DB01`:
+
+- `ALTER INDEX [IX_CustomerId] ON [SmartFran.Solution.SmartLoyalty].[Sml].[CustomerPointsLog] REBUILD;` — head blocker in 25 of 26 snapshots (all of 2026-08-28 06:46–07:26, all of 2026-08-29 07:31–08:01, all of 2026-08-30 07:06–07:46 UTC).
+- `ALTER INDEX [IX_PromotionBranchOffice_1] ON [SmartFran.Solution.SmartLoyalty].[SmlSupp].[PromotionBranchOffice] REBUILD;` — head blocker for the single isolated 2026-08-28 07:56:00.150 UTC event (this corrects the earlier read that attributed that event to `SFCG-TO-01`'s `Query076-sql.xml` DELETE+INSERT — that query appeared in the raw Q11 dump but was not the head blocker; the actual blocker was this second `ALTER INDEX REBUILD`, same job).
+
+The job's own wait type alternates `MEMORY_ALLOCATION_EXT` / `SOS_SCHEDULER_YIELD` (status `runnable` both times — actively executing, not itself blocked) — consistent with a resource-intensive index rebuild rather than an idle/stuck session. This fully explains the `LCK_M_SCH_S` (schema-stability) wait type seen on nearly every blocked row in Q11: sessions requesting a schema-stability lock on `Sml.CustomerPointsLog`/`SmlSupp.PromotionBranchOffice` queue behind the schema-modification lock this `ALTER INDEX REBUILD` holds for its duration.
+
+**Q14 result — severity per snapshot.** Blocking scales up and down within each ~40–70 min window rather than staying flat:
+
+| Day | Peak snapshot (UTC) | Peak blocked sessions | Peak distinct blocker-chain links |
+|---|---|---|---|
+| 2026-08-28 | 07:21:00 | **38** | 16 |
+| 2026-08-29 | 07:56:00 | **33** | 13 |
+| 2026-08-30 | 07:06:00 (start) / 07:31:00 (mid) | 26 | 12 |
+
+The isolated `PromotionBranchOffice` event (2026-08-28 07:56:00.150) was minimal — 1 blocked row, 1 blocker.
+
+## Job identity and schedule confirmed (Q15/Q16/Q17)
+
+Job GUID `0x9B0BD93393BA1846BE961FADF915AE66` = **`PNSSRL_MantenimientoIndices`**, `enabled=1`, matching the reference script already tracked at `queries/PNSSRL_MantenimientoIndices.sql` in this repo (not the `_Lunes`/`_Miercoles` day-specific variants — this is the general one).
+
+**Schedule (Q16)**: `freq_type=4` (daily), `freq_interval=1`, `active_start_time=061500` (06:15:00 UTC = 03:15 UTC-3), `active_end_time=235959` (effectively unbounded). **This is a standing daily job, not weekend-specific or new** — confirms the earlier open question: the two prior occurrences in this investigation (2026-08-16 campaign window 15:00–20:56 UTC, 2026-08-19/20 spike window 00:00–01:00 UTC) simply never overlapped this job's ~06:15+ UTC run window. This blocking pattern is very likely present every day, not something introduced this weekend — the weekend timing is coincidental to when this investigation happened to check.
+
+**Steps (Q15)**: Step 1 — `EXEC PNSSRL_MantenimientoModulos` (generates the per-table `ALTER INDEX REBUILD` statements dynamically, including the ones observed in Q13 — the rebuild commands aren't in the job step text directly). Step 2 — conditionally kicks off `Operaciones_MaintenancePlan_Backups.Backup_Log` if it isn't already running/retrying (tangential, not chased further here). Step 3 — retention cleanup on `PNSSRL_DetallesEjecucionTablasModulos` (internal monitoring housekeeping, unrelated to the blocking).
+
+**Run history (Q17, last 10 rows, most recent first)** confirms daily execution with **highly variable duration**:
+
+| Date (UTC) | Start | Step 1 duration | Outcome |
+|---|---|---|---|
+| 2026-09-01 | 06:15:00 | 01:52:55 | Succeeded |
+| 2026-08-31 | 06:15:00 | **06:14:11** | Succeeded |
+| 2026-08-30 | (Step1 not in this 10-row sample; Step2/3 fired at 08:16:17) | — | Succeeded |
+
+Not directly confirmed from this 10-row sample whether it ran on 2026-08-28/08-29 specifically (history not pulled that far back), but the daily schedule makes it near-certain it did — consistent with the head-blocker match on all three days in Q13.
+
+**Duration variability explains the differing blocking-window start offsets per day** (06:46 on 08-28, 07:31 on 08-29, 07:06 on 08-30, all after the fixed 06:15 start): `PNSSRL_MantenimientoModulos` iterates tables sequentially, so `CustomerPointsLog`'s turn — and the resulting blocking — lands at a different elapsed offset depending on how long earlier tables in the same run took. The 2026-08-31 run taking 6h14m (vs. 1h53m the next day) is itself a standalone flag — a job blocking production queries for over 6 hours on at least one occasion is worth surfacing as an operational concern, independent of this ticket's original scope.
+
+**Still open**: relationship (if any) between this confirmed index-rebuild blocking and `SFCG-TO-01`'s CPU dominance (44.6M ms, Q12) — possibly `SFCG-TO-01`'s `CustomerPointsLog` sync queries piling up/retrying while blocked behind the same rebuild, but not confirmed. Also not confirmed: whether the rebuild runs `ONLINE=OFF` (Standard Edition per `loyalty/CLAUDE.md`'s server description, and the plain `ALTER INDEX ... REBUILD;` syntax without an explicit `ONLINE=ON` option is consistent with an offline rebuild, but not directly verified from the full command text captured).
+
+## Split off — GITIN-1981
+
+The `PNSSRL_MantenimientoIndices` root-cause finding above (job identity, schedule, blocking severity, duration variability) has been split off into its own ticket, **[GITIN-1981](https://smartit-ar.atlassian.net/browse/GITIN-1981)** — "[SML] Revision de PNSSRL_MantenimientoIndices" — since it's a standing daily maintenance-job concern independent of any campaign, not something that belongs folded into a "campaign impact" ticket's conclusion. New event folder: `loyalty/events/20260901_pnssrl_mantenimientoindices_review/`. Further investigation of the job itself (duration variability, `ONLINE`/`OFFLINE` rebuild option, fix options) continues there, not here. The `SFCG-TO-01` CPU-dominance open question also moves with it.
+
+**Related ticket, for further analysis — GITIN-1965 / GITIN-1969**: per user, GITIN-1866 is related to GITIN-1965 (parent ticket for fleet-wide Req/s alerting work). Its child `GITIN-1969` (`operations/events/20260829_mobile_alerts_coverage_analysis/`) independently confirms elevated MobileAppService traffic for the **same weekend, 2026-08-29/30**: service-total (Mobi01+Mobi02) req/s baseline avg=4.60 → weekend actual=6.15 (+34%), Mobi02 alone +89% vs. the most recent prior weekend, concentrated in a Saturday 16:00–17:00 local peak.
+
+**Now further disconfirmed as causally related, given the Q13 root-cause finding**: the blocking chain's confirmed cause (a scheduled `ALTER INDEX REBUILD` job on `SFCG-DB01`, recurring in an early-morning window ~03:45–05:00 UTC-3) is a maintenance-schedule mechanism, independent of application traffic volume — it would fire on this schedule regardless of whether MobileAppService traffic was elevated that weekend. GITIN-1969's Saturday-afternoon traffic peak and this early-morning blocking window remain same-weekend but mechanistically unrelated as far as the data shows. Keeping the cross-reference for the record, but this looks like a coincidence of timing, not a shared cause.

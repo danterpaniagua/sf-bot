@@ -1,5 +1,6 @@
 # [DB] CPU User Time >90% — 3 eventos 2026-05-18 — SmlSt.CustomerAdditionalInformation sin índice
 
+**Ticket Jira:** [GITIN-1268](https://smartit-ar.atlassian.net/browse/GITIN-1268)
 **Tipo:** Bug / Performance
 **Componente:** Base de datos — SmartFran.Solution.SmartLoyalty
 **Prioridad:** Alta

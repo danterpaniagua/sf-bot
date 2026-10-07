@@ -134,3 +134,77 @@ FROM (
 ) x
 GROUP BY hostname, program_name
 ORDER BY total_cpu_delta_ms DESC;
+
+-- Follow-up: 2026-08-28/29/30 weekend window
+
+-- Q10: Data availability check, weekend window
+SELECT
+    MIN(fecha_hora_captura) AS primera_captura,
+    MAX(fecha_hora_captura) AS ultima_captura,
+    COUNT(DISTINCT fecha_hora_captura) AS snapshots_disponibles
+FROM PNSSRL_AuditSysprocesses
+WHERE fecha_hora_captura BETWEEN '2026-08-28 03:00:00' AND '2026-08-31 03:00:00';
+
+-- Q11: Blocking check, weekend window (488 rows found - see investigation.md)
+SELECT
+    fecha_hora_captura, spid, blocked, lastwaittype, waitresource,
+    hostname, program_name, DB_NAME(dbid) AS db_name, comando_ejecutado
+FROM PNSSRL_AuditSysprocesses
+WHERE fecha_hora_captura BETWEEN '2026-08-28 03:00:00' AND '2026-08-31 03:00:00'
+  AND blocked <> 0
+ORDER BY fecha_hora_captura;
+
+-- Q12: Hostname CPU breakdown, weekend window
+SELECT
+    hostname,
+    program_name,
+    COUNT(*) AS snapshot_rows,
+    SUM(CASE WHEN cpu_delta > 0 THEN cpu_delta ELSE 0 END) AS total_cpu_delta_ms
+FROM (
+    SELECT
+        hostname,
+        program_name,
+        cpu - LAG(cpu) OVER (PARTITION BY spid ORDER BY fecha_hora_captura) AS cpu_delta
+    FROM PNSSRL_AuditSysprocesses
+    WHERE fecha_hora_captura BETWEEN '2026-08-28 03:00:00' AND '2026-08-31 03:00:00'
+) x
+GROUP BY hostname, program_name
+ORDER BY total_cpu_delta_ms DESC;
+
+-- Q13: Root blocker identification, weekend window
+;WITH blocked_rows AS (
+    SELECT fecha_hora_captura, spid, blocked
+    FROM PNSSRL_AuditSysprocesses
+    WHERE fecha_hora_captura BETWEEN '2026-08-28 03:00:00' AND '2026-08-31 03:00:00'
+      AND blocked <> 0
+)
+SELECT DISTINCT
+    b.fecha_hora_captura,
+    b.blocked AS head_spid,
+    h.hostname,
+    h.program_name,
+    h.lastwaittype,
+    h.status,
+    h.cmd,
+    h.comando_ejecutado
+FROM blocked_rows b
+LEFT JOIN PNSSRL_AuditSysprocesses h
+    ON h.fecha_hora_captura = b.fecha_hora_captura
+   AND h.spid = b.blocked
+WHERE NOT EXISTS (
+    SELECT 1 FROM blocked_rows b2
+    WHERE b2.fecha_hora_captura = b.fecha_hora_captura AND b2.spid = b.blocked
+)
+ORDER BY b.fecha_hora_captura;
+
+-- Q14: Blocking severity per snapshot, weekend window
+SELECT
+    fecha_hora_captura,
+    COUNT(*) AS blocked_rows,
+    COUNT(DISTINCT spid) AS distinct_blocked_spids,
+    COUNT(DISTINCT blocked) AS distinct_blocker_spids
+FROM PNSSRL_AuditSysprocesses
+WHERE fecha_hora_captura BETWEEN '2026-08-28 03:00:00' AND '2026-08-31 03:00:00'
+  AND blocked <> 0
+GROUP BY fecha_hora_captura
+ORDER BY fecha_hora_captura;

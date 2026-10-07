@@ -83,3 +83,23 @@ Recibí el archivo real `SmartLoyalty.MobileAppService.svclog` de `SFCG-MOBI-01`
 ## 2026-08-20 09:55 — Cierre del intento de atribución retroactiva vía `.svclog`
 
 Usuario confirmó que no existe ninguna copia rotada/archivada de `SmartLoyalty.MobileAppService.svclog`. Cerré la acción propuesta de atribución retroactiva para `SaveNewMember`/`Login`/`RecoveryPassword` en las ocurrencias del 2026-08-16 y 2026-08-19 como no recuperable — el dato existía en el servidor al momento del evento (`SourceSwitch=All`) pero rotó fuera del archivo antes de poder extraerse. El mecanismo queda validado y documentado para uso en ocurrencias futuras, con la salvedad de que requiere extracción dentro de la ventana de retención corta del archivo (~11–12h).
+
+## 2026-09-09 — Hallazgos de consultas SQL promovidos a la tabla principal de `ops.md`
+
+He promovido a la tabla de Hallazgos (H13, H14) los dos hallazgos de consultas SQL que hasta ahora solo estaban en "Hallazgos secundarios": el costo fijo de **Query077** (`AvailablePromotion`, `CROSS JOIN` en `SmlSupp.PromotionBranchOffice`, ~4.000–6.700ms CPU por llamada en `SFCG-CLUB-01`) y el consumo de CPU sin query identificada en `SFCG-WSV2-01` (306.890ms en la ventana del 2026-08-16, sin huella en tempdb). He agregado dos acciones propuestas correspondientes (ítems 8-9): evaluar la optimización del `CROSS JOIN` de Query077, e identificar la query real de `SFCG-WSV2-01` con otra fuente de captura antes de poder evaluarla. Ninguna de las dos estaba accionada hasta ahora — quedan como candidatos de mejora, no como incidentes.
+
+## 2026-09-09 — Corrección: revertido H14 (`SFCG-WSV2-01`), no pertenece al alcance de este ticket
+
+He revertido la promoción de H14 a la tabla de Hallazgos y eliminé la acción propuesta correspondiente (ítem 9). El hallazgo de `SFCG-WSV2-01` no está vinculado al tráfico de la campaña ni a MobileAppService — la propia investigación original ya lo señalaba como "no vinculado a este ticket" y sugería abrirlo como ticket/evento separado si se quiere perseguir. Lo dejé de vuelta en "Hallazgos secundarios", como nota tangencial, sin acción asociada dentro de GITIN-1866. H13 (Query077) queda sin cambios — surge del mismo análisis de CPU de la ventana de campaña, aunque tampoco es causado por la campaña.
+
+## 2026-09-09 — Corrección de alcance: el ticket sí cubre WebServiceV2, y cubre recursos de VM además de la base de datos
+
+He corregido el `Resumen` y la `Tabla resumen` de `ops.md`: el alcance real de GITIN-1866 cubre tanto MobileAppService como WebServiceV2, y tanto el impacto sobre recursos de VM (CPU) como sobre la base de datos — no solo impacto en `PNSSRL` vía MobileAppService, como decía la versión anterior. Con este alcance corregido, he vuelto a promover H14 (`SFCG-WSV2-01`, mayor consumidor de CPU de la ventana, sin query identificada) a la tabla de Hallazgos y he reincorporado la acción propuesta correspondiente (ítem 9), subiendo su riesgo de Bajo a Medio dado que ahora sí está dentro de alcance. He eliminado la nota tangencial de "Hallazgos secundarios" agregada en la corrección anterior.
+
+## 2026-09-09 — Texto fuente real de Query077 incorporado a `investigation.md`, H13 refinado con hallazgo nuevo
+
+He extraído el texto SQL real de Query077 desde el clon local del repo (`loyalty/repo/dev-src-sol-smartloyalty/Core/Domain.Query/Domain/Query/Query077-sql.xml`) y lo he agregado a `investigation.md`, junto con un detalle no capturado antes: el costo del `CROSS JOIN` no es fijo — `@BranchOfficeTableTmp` se puebla con todas las sucursales activas del país cuando la llamada no especifica sucursales puntuales, así que el costo escala con el filtro real usado en cada invocación, no es un costo estructural constante. He actualizado H13 y la acción propuesta (ítem 8) en `ops.md` para reflejar esta causa más precisa (acotar sucursales antes de la query, no solo "optimizar el CROSS JOIN" en abstracto). Para H14 (`SFCG-WSV2-01`) no hay ningún archivo fuente que referenciar todavía — sigue siendo el propio hallazgo pendiente, no un dato que estuviera faltando agregar.
+
+## 2026-09-09 — Texto de Query077 agregado directamente en `ops.md`
+
+He agregado una sección nueva ("Consultas SQL identificadas") en `ops.md` con el texto SQL completo de Query077, en vez de solo referenciarlo desde `investigation.md`. He dejado explícito ahí mismo que H14 (`SFCG-WSV2-01`) no tiene texto de query para mostrar porque ese es el hallazgo pendiente en sí — no hay nada que agregar hasta identificarla.

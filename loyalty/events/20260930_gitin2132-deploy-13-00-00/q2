@@ -1,0 +1,25 @@
+Tabla	Indice	type_desc	is_unique	is_primary_key	Columnas	user_seeks	user_scans	user_lookups	user_updates
+Sml.CustomerInsignia	PK_Sml.CustomerInsignia	CLUSTERED	1	1	CustomerId	0	6	0	5
+Sml.CustomerInsignia	IX_CustomerId	NONCLUSTERED	0	0	CustomerId	0	4	0	1
+Sml.CustomerInsignia	__IX_CustomerInsignia_InsigniaId	NONCLUSTERED	0	0	InsigniaId, LastActivityDate	0	3	0	1
+Sml.CustomerInsigniaHistory	PK_Sml.CustomerInsigniaHistory	CLUSTERED	1	1	HistoryId	0	3	0	3
+Sml.CustomerInsigniaHistory	__IX_CustomerInsigniaHistory_CustomerId	NONCLUSTERED	0	0	CustomerId, TransitionDate	NULL	NULL	NULL	NULL
+Sml.CustomerInsigniaHistory	IX_PreviousInsigniaId	NONCLUSTERED	0	0	PreviousInsigniaId	NULL	NULL	NULL	NULL
+Sml.CustomerInsigniaHistory	IX_NewInsigniaId	NONCLUSTERED	0	0	NewInsigniaId	NULL	NULL	NULL	NULL
+Sml.CustomerInsigniaHistory	IX_AppliedRuleId	NONCLUSTERED	0	0	AppliedRuleId	NULL	NULL	NULL	NULL
+Sml.CustomerInsigniaHistory	IX_TriggeringSaleId	NONCLUSTERED	0	0	TriggeringSaleId	0	1	0	0
+Sml.InsigniaTransitionRule	PK_Sml.InsigniaTransitionRule	CLUSTERED	1	1	RuleId	0	26	3	18
+Sml.InsigniaTransitionRule	IX_FromInsigniaId	NONCLUSTERED	0	0	FromInsigniaId	0	0	0	16
+Sml.InsigniaTransitionRule	IX_ToInsigniaId	NONCLUSTERED	0	0	ToInsigniaId	0	0	0	16
+Sml.InsigniaTransitionRule	IX_CountryId	NONCLUSTERED	0	0	CountryId	0	0	0	16
+Sml.InsigniaTransitionRule	UQ_InsigniaTransitionRule_Country_From_Type_Active	NONCLUSTERED	1	0	CountryId, FromInsigniaId, TransitionType	3	0	0	16
+Sml.Sale	PK_dbo.Sale	CLUSTERED	1	1	Id	15091820	222	12453772	4179796
+Sml.Sale	IX_CustomerCardId	NONCLUSTERED	0	0	CustomerCardId	0	64	0	4179796
+Sml.Sale	IX_CustomerId	NONCLUSTERED	0	0	CustomerId	12647918	0	0	4179796
+Sml.Sale	__IX_Sale_SaleDate_2	NONCLUSTERED	0	0	SaleDate, Id (incl), BranchOfficeId (incl), InvalidatedPointsLogId (incl), CustomerId (incl)	544	132	0	4179796
+Sml.Sale	IX_Id_SaleId_BranchOfficeId	NONCLUSTERED	0	0	Id, SaleDate, BranchOfficeId	78264	23	0	4173800
+
+(19 rows affected)
+
+
+Completion time: 2026-10-01T09:40:10.1131638+00:00

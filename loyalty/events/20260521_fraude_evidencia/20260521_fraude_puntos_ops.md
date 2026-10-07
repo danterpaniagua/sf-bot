@@ -4,7 +4,7 @@
 
 Equipo,
 
-Durante la madrugada del 21 de mayo de 2026 (23:00–02:00 hora local) se detectó actividad anómala de transferencias de puntos en SmartFran.Solution.SmartLoyalty. A continuación, los patrones identificados. El detalle completo está en el ticket de Jira y en `events/20260521_fraude_evidencia/`.
+Durante la madrugada del 21 de mayo de 2026 (23:00–02:00 hora local) se detectó actividad anómala de transferencias de puntos en SmartFran.Solution.SmartLoyalty. A continuación, los patrones identificados. El detalle completo está en [GITIN-1269](https://smartit-ar.atlassian.net/browse/GITIN-1269).
 
 **Explotación de transferencia duplicada + incumplimiento de límite diario**
 Un emisor ejecutó 4 transferencias por un total de 28.000 puntos en la misma sesión, superando 3,5 veces el límite diario de 8.000 puntos. Dos pares de transferencias a la misma cuenta receptora fueron procesadas con 22 y 35 segundos de diferencia con parámetros idénticos, lo que podría indicar que la plataforma no está validando duplicados en tiempo real.

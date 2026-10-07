@@ -4,6 +4,7 @@
 
 | Campo | Detalle |
 |---|---|
+| Ticket Jira | [GITIN-1344](https://smartit-ar.atlassian.net/browse/GITIN-1344) |
 | Fecha detección | 2026-06-11 10:10 UTC (primer registro en historial) |
 | Alerta origen | Zabbix — `MSSQL Job 'Operaciones_MaintenancePlan_Backups.Backup_Log': Failed to run` |
 | Servidor | `SFCG-DB01` (SQL Server 2022 Standard, v16.0.4075.1) |

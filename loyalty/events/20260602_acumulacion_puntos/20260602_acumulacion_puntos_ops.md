@@ -1,5 +1,6 @@
 # Evento: Incremento de puntos acumulados — 02/06/2026
 
+**Ticket Jira:** [GITIN-1271](https://smartit-ar.atlassian.net/browse/GITIN-1271)
 **Estado:** CERRADO — Sin fraude  
 **Fecha de investigación:** 2026-06-02  
 **Período analizado:** 07:00–08:00 UTC-3 (10:00–11:00 UTC)

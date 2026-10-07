@@ -1,4 +1,5 @@
 # Cierre de Investigación — Explotación de Asignaciones Manuales GSFERNANDEZ
+**Ticket Jira:** sin confirmar (verificado 2026-09-09, sin ticket asociado en el repo)  
 **Fecha:** 2026-06-02  
 **Operador investigado:** GSFERNANDEZ  
 **Tipo de incidente:** Exploit — ausencia de techo técnico en `sml.ManualAssignPoints`  

@@ -1,5 +1,6 @@
 # JIRA — Ticket IT
 
+**Ticket Jira:** [GITIN-1266](https://smartit-ar.atlassian.net/browse/GITIN-1266)
 **Proyecto:** SmartLoyalty / Infraestructura BD
 **Tipo:** Bug — Performance
 **Prioridad:** Alta

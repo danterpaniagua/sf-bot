@@ -5,7 +5,7 @@
 ## Confirmed facts
 - User observed DB CPU peaks during a Grido load test on 2026-07-27: two peaks around 50% and one peak at 100%.
 - Reported window: 08:00–11:00 UTC-3 (2026-07-27) → 11:00–14:00 GMT (SFCG-DB01 server time).
-- Jira ticket: [GITIN-1669](https://smartit-ar.atlassian.net/browse/GITIN-1669)
+- Jira ticket: **unconfirmed.** Previously cited here as GITIN-1669 — corrected 2026-09-09: that number was confirmed (against real Jira content pasted by the user) to belong to a different, unrelated event (`20260723_bloqueo_customerpointslog_loadtest`, a blocking incident, not a CPU-peaks investigation). This event's real ticket number is not yet known.
 
 ## Current working theory
 Not a repeat of the 2026-07-23 blocking incident — `blocked = 0` on every row in the window, no lock contention. Instead, SPID 151 (login `sfsqlusr`, host `SFCG-TO-01` / TaskOperatorService) ran a paginated OFFSET/FETCH extraction over `Sml.CustomerPointsLog` join `Sml.Customer` continuously from 11:01 to 13:16 GMT, consuming ~200,000-290,000 CPU-ms per 5-min snapshot (near-saturating one core, wait type mostly `SOS_SCHEDULER_YIELD`). Q4 confirms this same job (by login+host+query pattern) runs on nearly every day in the 90-day retention window, so it is routine, not something the load test triggered.

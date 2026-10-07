@@ -1,5 +1,6 @@
 # Red de Fraude "Batman" — Transferencias Fraudulentas
 
+**Ticket Jira:** [GITIN-1373](https://smartit-ar.atlassian.net/browse/GITIN-1373)
 **Fecha de cierre:** 2026-06-12
 **Período investigado:** Noviembre 2024 – Junio 2026 (18 meses)
 **Base de datos:** `SmartFran.Solution.SmartLoyalty`

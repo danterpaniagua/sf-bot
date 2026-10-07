@@ -1,4 +1,4 @@
-# [TAREA] Bloqueo en CustomerPointsLog durante load test de MobileAppService
+# GITIN-1669 — Bloqueo en CustomerPointsLog durante load test de MobileAppService
 
 ## Resumen
 
@@ -8,6 +8,7 @@ El equipo de App Grido ejecutó un load test sobre MobileAppService desde las 08
 
 | Campo | Valor |
 |---|---|
+| Ticket Jira | [GITIN-1669](https://smartit-ar.atlassian.net/browse/GITIN-1669) |
 | Sistema | SmartLoyalty SQL Server (`PNSSRL`) — `SFCG-DB01` |
 | Severidad | Alta |
 | Detectado | 2026-07-23 08:30 (UTC-3) |

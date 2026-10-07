@@ -1,5 +1,7 @@
 # Duplicación masiva de puntos por reintentos ante error 504 de WAF — CERRADO
 
+**Ticket Jira:** [GITIN-1654](https://smartit-ar.atlassian.net/browse/GITIN-1654)
+
 ## Resumen del incidente
 
 El 22/07/2026, Grido ejecutó una asignación masiva de puntos (`MassivePointsAssignment`, `EventTypeCode = PrizePoints`) sobre varios listados de socios ganadores. El WAF devolvió error 504 al cliente por timeout de respuesta, pero la ejecución del lado del servidor no se cancela ante un 504 de WAF — el proceso siguió corriendo en el servidor (11 min a 1.5 h por corrida). El operador, al ver el 504, reintentó la misma operación varias veces, generando ejecuciones concurrentes sobre listados que en la práctica apuntaban a la misma población objetivo (mismos socios repetidos entre "Lista socios ganadores", "Lista 1", "Lista 2" y "Campaña recupero"). El proceso `MassivePointsAssignment` / `AssignmentPointsCatalog` no tiene control de idempotencia, por lo que cada corrida otorgó puntos de forma independiente al mismo socio.

@@ -1,5 +1,6 @@
 # Jira — Incidente: Ataque automatizado sobre transferencias de puntos
 
+**Ticket Jira:** [GITIN-1265](https://smartit-ar.atlassian.net/browse/GITIN-1265)
 **Tipo:** Incidente  
 **Prioridad:** Crítica  
 **Componente:** SmartLoyalty — Transferencia de puntos  

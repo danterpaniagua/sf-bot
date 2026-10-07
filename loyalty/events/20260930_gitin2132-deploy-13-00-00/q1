@@ -1,0 +1,398 @@
+-- =================================================================================================
+-- Script de Carga Inicial de Insignias - Versión 3 (Tarea 1.3)
+-- Fecha: 22/09/2026
+-- Incorpora:
+--   1. Estado inicial NUEVO incondicional para clientes sin ventas válidas históricas (SaleDate < @AsOfDate),
+--      sin importar cuánto tiempo haya pasado desde Customer.CreatedDate.
+--   2. La regla NUEVO -> CONGELADO queda reservada al proceso/job posterior de downgrade, no participa de la carga inicial.
+--   3. CurrentInsigniaSinceDate = Customer.CreatedDate para clientes sin ventas (topeado defensivamente a @AsOfDate).
+--   4. Mantiene InitializedDate = @AsOfDate y frontera histórica estricta SaleDate < @AsOfDate.
+--   5. Clasificación 100% Country-Aware utilizando Customer.Country_Id y reglas activas por país para clientes CON ventas.
+--   6. Idempotencia estricta (solo inserta registros inexistentes en CustomerInsignia).
+--   7. No genera registros en CustomerInsigniaHistory.
+-- =================================================================================================
+BEGIN TRAN;
+
+-- =================================================================================================
+-- PASO 1: VALIDACIÓN DEL CATÁLOGO DE INSIGNIAS
+-- =================================================================================================
+DECLARE @InsigniaNuevoId INT = (SELECT TOP 1 Id FROM Sml.Insignia WHERE Code = 'NUEVO' OR Name = 'Nuevo');
+DECLARE @InsigniaImbatibleId INT = (SELECT TOP 1 Id FROM Sml.Insignia WHERE Code = 'IMBATIBLE' OR Name = 'Imbatible');
+DECLARE @InsigniaAntojoId INT = (SELECT TOP 1 Id FROM Sml.Insignia WHERE Code = 'ANTOJO' OR Name = 'Antojo');
+DECLARE @InsigniaDerretidoId INT = (SELECT TOP 1 Id FROM Sml.Insignia WHERE Code = 'DERRETIDO' OR Name = 'Derretido');
+DECLARE @InsigniaCongeladoId INT = (SELECT TOP 1 Id FROM Sml.Insignia WHERE Code = 'CONGELADO' OR Name = 'Congelado');
+
+IF @InsigniaNuevoId IS NULL OR @InsigniaImbatibleId IS NULL OR @InsigniaAntojoId IS NULL OR @InsigniaDerretidoId IS NULL OR @InsigniaCongeladoId IS NULL
+BEGIN
+    ROLLBACK TRAN;
+    THROW 50001, 'ERROR: No se encontraron todas las insignias del catalogo (NUEVO, IMBATIBLE, ANTOJO, DERRETIDO, CONGELADO) en Sml.Insignia.', 1;
+END;
+
+-- Variable de corte única para garantizar que todos los socios se evalúen con la misma foto temporal
+DECLARE @AsOfDate DATETIMEOFFSET = SYSDATETIMEOFFSET();
+
+-- =================================================================================================
+-- PASO 2: VALIDACIONES PREVIAS POR PAÍS DE LOS CLIENTES A PROCESAR
+-- =================================================================================================
+
+-- Identificar países distintos de socios activos que aún no tienen CustomerInsignia
+SELECT DISTINCT C.Country_Id AS CountryId
+INTO #PaisesAProcesar
+FROM Sml.Customer C
+LEFT JOIN Sml.CustomerInsignia CI ON C.Id = CI.CustomerId
+WHERE C.DeativatedDate IS NULL
+  AND CI.CustomerId IS NULL;
+
+-- 2.1 Validar que ningún socio a procesar tenga Country_Id nulo o inválido
+IF EXISTS (SELECT 1 FROM #PaisesAProcesar WHERE CountryId IS NULL OR CountryId <= 0)
+BEGIN
+    DROP TABLE #PaisesAProcesar;
+    ROLLBACK TRAN;
+    THROW 50002, 'ERROR: Existen socios activos a procesar sin un Country_Id valido asignado.', 1;
+END;
+
+-- 2.2 Validar regla activa DOWNGRADE IMBATIBLE -> ANTOJO por país
+IF EXISTS (
+    SELECT P.CountryId
+    FROM #PaisesAProcesar P
+    LEFT JOIN Sml.InsigniaTransitionRule R ON R.CountryId = P.CountryId
+        AND R.TransitionType = 'DOWNGRADE'
+        AND R.FromInsigniaId = @InsigniaImbatibleId
+        AND R.ToInsigniaId = @InsigniaAntojoId
+        AND R.IsActive = 1
+        AND R.MinDaysSinceLastActivity IS NOT NULL
+        AND R.MinDaysSinceLastActivity > 0
+    WHERE R.RuleId IS NULL
+)
+BEGIN
+    DECLARE @MissingCountryAntojo INT = (
+        SELECT TOP 1 P.CountryId
+        FROM #PaisesAProcesar P
+        LEFT JOIN Sml.InsigniaTransitionRule R ON R.CountryId = P.CountryId
+            AND R.TransitionType = 'DOWNGRADE'
+            AND R.FromInsigniaId = @InsigniaImbatibleId
+            AND R.ToInsigniaId = @InsigniaAntojoId
+            AND R.IsActive = 1
+            AND R.MinDaysSinceLastActivity IS NOT NULL
+            AND R.MinDaysSinceLastActivity > 0
+        WHERE R.RuleId IS NULL
+    );
+    DROP TABLE #PaisesAProcesar;
+    ROLLBACK TRAN;
+    DECLARE @MsgAntojo NVARCHAR(500) = FORMATMESSAGE('ERROR: Falta regla activa DOWNGRADE IMBATIBLE -> ANTOJO con MinDaysSinceLastActivity valido para CountryId %d.', @MissingCountryAntojo);
+    THROW 50004, @MsgAntojo, 1;
+END;
+
+-- 2.3 Validar regla activa DOWNGRADE ANTOJO -> DERRETIDO por país
+IF EXISTS (
+    SELECT P.CountryId
+    FROM #PaisesAProcesar P
+    LEFT JOIN Sml.InsigniaTransitionRule R ON R.CountryId = P.CountryId
+        AND R.TransitionType = 'DOWNGRADE'
+        AND R.FromInsigniaId = @InsigniaAntojoId
+        AND R.ToInsigniaId = @InsigniaDerretidoId
+        AND R.IsActive = 1
+        AND R.MinDaysSinceLastActivity IS NOT NULL
+        AND R.MinDaysSinceLastActivity > 0
+    WHERE R.RuleId IS NULL
+)
+BEGIN
+    DECLARE @MissingCountryDerretido INT = (
+        SELECT TOP 1 P.CountryId
+        FROM #PaisesAProcesar P
+        LEFT JOIN Sml.InsigniaTransitionRule R ON R.CountryId = P.CountryId
+            AND R.TransitionType = 'DOWNGRADE'
+            AND R.FromInsigniaId = @InsigniaAntojoId
+            AND R.ToInsigniaId = @InsigniaDerretidoId
+            AND R.IsActive = 1
+            AND R.MinDaysSinceLastActivity IS NOT NULL
+            AND R.MinDaysSinceLastActivity > 0
+        WHERE R.RuleId IS NULL
+    );
+    DROP TABLE #PaisesAProcesar;
+    ROLLBACK TRAN;
+    DECLARE @MsgDerretido NVARCHAR(500) = FORMATMESSAGE('ERROR: Falta regla activa DOWNGRADE ANTOJO -> DERRETIDO con MinDaysSinceLastActivity valido para CountryId %d.', @MissingCountryDerretido);
+    THROW 50005, @MsgDerretido, 1;
+END;
+
+-- 2.4 Validar regla activa DOWNGRADE DERRETIDO -> CONGELADO por país
+IF EXISTS (
+    SELECT P.CountryId
+    FROM #PaisesAProcesar P
+    LEFT JOIN Sml.InsigniaTransitionRule R ON R.CountryId = P.CountryId
+        AND R.TransitionType = 'DOWNGRADE'
+        AND R.FromInsigniaId = @InsigniaDerretidoId
+        AND R.ToInsigniaId = @InsigniaCongeladoId
+        AND R.IsActive = 1
+        AND R.MinDaysSinceLastActivity IS NOT NULL
+        AND R.MinDaysSinceLastActivity > 0
+    WHERE R.RuleId IS NULL
+)
+BEGIN
+    DECLARE @MissingCountryCongelado INT = (
+        SELECT TOP 1 P.CountryId
+        FROM #PaisesAProcesar P
+        LEFT JOIN Sml.InsigniaTransitionRule R ON R.CountryId = P.CountryId
+            AND R.TransitionType = 'DOWNGRADE'
+            AND R.FromInsigniaId = @InsigniaDerretidoId
+            AND R.ToInsigniaId = @InsigniaCongeladoId
+            AND R.IsActive = 1
+            AND R.MinDaysSinceLastActivity IS NOT NULL
+            AND R.MinDaysSinceLastActivity > 0
+        WHERE R.RuleId IS NULL
+    );
+    DROP TABLE #PaisesAProcesar;
+    ROLLBACK TRAN;
+    DECLARE @MsgCongelado NVARCHAR(500) = FORMATMESSAGE('ERROR: Falta regla activa DOWNGRADE DERRETIDO -> CONGELADO con MinDaysSinceLastActivity valido para CountryId %d.', @MissingCountryCongelado);
+    THROW 50006, @MsgCongelado, 1;
+END;
+
+-- 2.5 Validar que la escalera DOWNGRADE sea estrictamente monótona creciente (Antojo < Derretido < Congelado) por país
+IF EXISTS (
+    SELECT P.CountryId
+    FROM #PaisesAProcesar P
+    INNER JOIN Sml.InsigniaTransitionRule RAntojo ON RAntojo.CountryId = P.CountryId
+        AND RAntojo.TransitionType = 'DOWNGRADE'
+        AND RAntojo.FromInsigniaId = @InsigniaImbatibleId
+        AND RAntojo.ToInsigniaId = @InsigniaAntojoId
+        AND RAntojo.IsActive = 1
+    INNER JOIN Sml.InsigniaTransitionRule RDerretido ON RDerretido.CountryId = P.CountryId
+        AND RDerretido.TransitionType = 'DOWNGRADE'
+        AND RDerretido.FromInsigniaId = @InsigniaAntojoId
+        AND RDerretido.ToInsigniaId = @InsigniaDerretidoId
+        AND RDerretido.IsActive = 1
+    INNER JOIN Sml.InsigniaTransitionRule RCongelado ON RCongelado.CountryId = P.CountryId
+        AND RCongelado.TransitionType = 'DOWNGRADE'
+        AND RCongelado.FromInsigniaId = @InsigniaDerretidoId
+        AND RCongelado.ToInsigniaId = @InsigniaCongeladoId
+        AND RCongelado.IsActive = 1
+    WHERE NOT (
+        RAntojo.MinDaysSinceLastActivity < RDerretido.MinDaysSinceLastActivity
+        AND RDerretido.MinDaysSinceLastActivity < RCongelado.MinDaysSinceLastActivity
+    )
+)
+BEGIN
+    DECLARE @InconsistentCountry INT = (
+        SELECT TOP 1 P.CountryId
+        FROM #PaisesAProcesar P
+        INNER JOIN Sml.InsigniaTransitionRule RAntojo ON RAntojo.CountryId = P.CountryId
+            AND RAntojo.TransitionType = 'DOWNGRADE'
+            AND RAntojo.FromInsigniaId = @InsigniaImbatibleId
+            AND RAntojo.ToInsigniaId = @InsigniaAntojoId
+            AND RAntojo.IsActive = 1
+        INNER JOIN Sml.InsigniaTransitionRule RDerretido ON RDerretido.CountryId = P.CountryId
+            AND RDerretido.TransitionType = 'DOWNGRADE'
+            AND RDerretido.FromInsigniaId = @InsigniaAntojoId
+            AND RDerretido.ToInsigniaId = @InsigniaDerretidoId
+            AND RDerretido.IsActive = 1
+        INNER JOIN Sml.InsigniaTransitionRule RCongelado ON RCongelado.CountryId = P.CountryId
+            AND RCongelado.TransitionType = 'DOWNGRADE'
+            AND RCongelado.FromInsigniaId = @InsigniaDerretidoId
+            AND RCongelado.ToInsigniaId = @InsigniaCongeladoId
+            AND RCongelado.IsActive = 1
+        WHERE NOT (
+            RAntojo.MinDaysSinceLastActivity < RDerretido.MinDaysSinceLastActivity
+            AND RDerretido.MinDaysSinceLastActivity < RCongelado.MinDaysSinceLastActivity
+        )
+    );
+    DROP TABLE #PaisesAProcesar;
+    ROLLBACK TRAN;
+    DECLARE @MsgMonotonic NVARCHAR(500) = FORMATMESSAGE('ERROR: Las reglas activas DOWNGRADE no son estrictamente crecientes (Antojo < Derretido < Congelado) para CountryId %d.', @InconsistentCountry);
+    THROW 50007, @MsgMonotonic, 1;
+END;
+
+-- Limpieza de tabla temporal tras validaciones exitosas
+DROP TABLE #PaisesAProcesar;
+
+-- =================================================================================================
+-- PASO 3: CONSOLIDACIÓN DE ACTIVIDAD Y REGLAS POR PAÍS (CTEs)
+-- =================================================================================================
+
+-- CTE 1: Última venta válida por cliente anterior a la fecha de corte (excluyendo anuladas)
+WITH UltimaVentaFecha AS (
+    SELECT 
+        CustomerId, 
+        MAX(SaleDate) AS LastDate
+    FROM Sml.Sale
+    WHERE CustomerId IS NOT NULL 
+      AND InvalidatedPointsLogId IS NULL -- Filtro indispensable
+      AND SaleDate < @AsOfDate           -- Frontera temporal estricta: ventas históricas de inicialización
+    GROUP BY CustomerId
+),
+
+-- CTE 2: Ticket físico exacto de la última venta válida anterior al corte
+UltimaVentaTicket AS (
+    SELECT 
+        U.CustomerId, 
+        U.LastDate AS LastActivityDate,
+        (
+            SELECT TOP 1 S.Id 
+            FROM Sml.Sale S 
+            WHERE S.CustomerId = U.CustomerId 
+              AND S.SaleDate = U.LastDate 
+              AND S.InvalidatedPointsLogId IS NULL
+              AND S.SaleDate < @AsOfDate
+            ORDER BY S.Id DESC
+        ) AS LastSaleId
+    FROM UltimaVentaFecha U
+),
+
+-- CTE 3: Tipo de actividad (PURCHASE vs EXCHANGE) derivada de la última venta válida
+ActividadClasificada AS (
+    SELECT 
+        U.CustomerId,
+        U.LastActivityDate,
+        CASE 
+            WHEN EXISTS (
+                SELECT 1 
+                FROM Sml.SalePromotion SP 
+                INNER JOIN Sml.Promotion P ON SP.PromotionId = P.Id 
+                WHERE SP.SaleId = U.LastSaleId AND P.Points < 0
+            ) THEN 'EXCHANGE'
+            ELSE 'PURCHASE'
+        END AS LastActivityType
+    FROM UltimaVentaTicket U
+),
+
+-- CTE 4: Datos consolidados evaluados contra la fecha de corte única @AsOfDate (solo socios activos)
+ClienteInactividad AS (
+    SELECT 
+        C.Id AS CustomerId,
+        C.Country_Id AS CountryId,
+        C.CreatedDate,
+        A.LastActivityDate,
+        A.LastActivityType,
+        DATEDIFF(DAY, A.LastActivityDate, @AsOfDate) AS DaysInactive
+    FROM Sml.Customer C
+    LEFT JOIN ActividadClasificada A ON C.Id = A.CustomerId
+    WHERE C.DeativatedDate IS NULL -- Excluye socios dados de baja
+),
+
+-- CTE 5: Franjas parametrizadas de DOWNGRADE para socios con compras particionadas por país
+ReglasDowngrade AS (
+    SELECT 
+        CountryId,
+        FromInsigniaId,
+        ToInsigniaId, 
+        MinDaysSinceLastActivity,
+        LEAD(MinDaysSinceLastActivity, 1, 999999) OVER (
+            PARTITION BY CountryId 
+            ORDER BY MinDaysSinceLastActivity
+        ) - 1 AS MaxDaysCalculated
+    FROM Sml.InsigniaTransitionRule
+    WHERE TransitionType = 'DOWNGRADE' 
+      AND FromInsigniaId <> @InsigniaNuevoId -- Aísla la escalera de inactividad de compras
+      AND MinDaysSinceLastActivity IS NOT NULL
+      AND MinDaysSinceLastActivity > 0
+      AND IsActive = 1
+)
+
+-- =================================================================================================
+-- PASO 4: INSERCIÓN IDEMPOTENTE CON InitializedDate = @AsOfDate Y REGLAS POR PAÍS
+-- =================================================================================================
+INSERT INTO Sml.CustomerInsignia (
+    CustomerId, 
+    InsigniaId, 
+    LastActivityDate, 
+    LastActivityType, 
+    CurrentInsigniaSinceDate, 
+    InitializedDate,
+    WindowTransactionCount, 
+    UpdatedDate, 
+    IsActive
+)
+SELECT 
+    CI.CustomerId,
+    
+    -- 1. INSIGNIA ASIGNADA:
+    CASE 
+        -- A. Sin compras previas a @AsOfDate: SIEMPRE NUEVO
+        WHEN CI.LastActivityDate IS NULL THEN @InsigniaNuevoId
+
+        -- B. Con compras recientes (< umbral mínimo de inactividad de su país) -> IMBATIBLE
+        WHEN CI.DaysInactive < (SELECT MIN(RD.MinDaysSinceLastActivity) FROM ReglasDowngrade RD WHERE RD.CountryId = CI.CountryId) THEN @InsigniaImbatibleId
+
+        -- C. Con compras e inactividad mayor -> Según regla de DOWNGRADE de la escalera de su país
+        ELSE (
+            SELECT TOP 1 RD.ToInsigniaId 
+            FROM ReglasDowngrade RD 
+            WHERE RD.CountryId = CI.CountryId 
+              AND CI.DaysInactive BETWEEN RD.MinDaysSinceLastActivity AND RD.MaxDaysCalculated
+        )
+    END AS AssignedInsigniaId,
+    
+    CI.LastActivityDate,
+    CI.LastActivityType,
+    
+    -- 2. FECHA REAL DESDE LA CUAL POSEE LA INSIGNIA (Topeada a @AsOfDate defensivamente):
+    CASE 
+        -- Sin compras: Es NUEVO desde su fecha de alta (con tope defensivo a @AsOfDate)
+        WHEN CI.LastActivityDate IS NULL 
+            THEN CASE 
+                    WHEN CI.CreatedDate > @AsOfDate THEN @AsOfDate 
+                    ELSE CI.CreatedDate 
+                 END
+            
+        -- Imbatible: Activo desde la fecha de su última compra válida histórica
+        WHEN CI.DaysInactive < (SELECT MIN(RD.MinDaysSinceLastActivity) FROM ReglasDowngrade RD WHERE RD.CountryId = CI.CountryId) 
+            THEN CI.LastActivityDate
+            
+        -- Downgrade: Fecha exacta en que superó el umbral desde su última compra válida
+        ELSE (
+            SELECT TOP 1 
+                CASE 
+                    WHEN DATEADD(DAY, RD.MinDaysSinceLastActivity, CI.LastActivityDate) > @AsOfDate THEN @AsOfDate 
+                    ELSE DATEADD(DAY, RD.MinDaysSinceLastActivity, CI.LastActivityDate) 
+                END
+            FROM ReglasDowngrade RD 
+            WHERE RD.CountryId = CI.CountryId 
+              AND CI.DaysInactive BETWEEN RD.MinDaysSinceLastActivity AND RD.MaxDaysCalculated
+        )
+    END AS CurrentInsigniaSinceDate,
+    
+    @AsOfDate AS InitializedDate, -- Fecha exacta de creación inicial de CustomerInsignia
+    0 AS WindowTransactionCount, -- Contadores en cero para todos
+    @AsOfDate AS UpdatedDate,    -- Fecha unificada del proceso
+    1 AS IsActive
+FROM ClienteInactividad CI
+LEFT JOIN Sml.CustomerInsignia TargetTable ON CI.CustomerId = TargetTable.CustomerId
+WHERE TargetTable.CustomerId IS NULL; -- Idempotencia: solo clientes sin CustomerInsignia previa
+
+COMMIT TRAN;
+
+-- =================================================================================================
+-- CONTROL POST-CARGA 1: RESUMEN GENERAL POR INSIGNIA
+-- =================================================================================================
+SELECT 
+    I.Code AS Insignia,
+    COUNT(1) AS TotalSocios,
+    MIN(CI.CurrentInsigniaSinceDate) AS DesdeMasAntiguo,
+    MAX(CI.CurrentInsigniaSinceDate) AS DesdeMasReciente,
+    MIN(CI.InitializedDate) AS InitializedDateUnica,
+    MAX(CI.InitializedDate) AS InitializedDateVerificacion
+FROM Sml.CustomerInsignia CI
+INNER JOIN Sml.Insignia I ON CI.InsigniaId = I.Id
+GROUP BY I.Code;
+
+-- =================================================================================================
+-- CONTROL POST-CARGA 2: VALIDACIÓN DE CONSISTENCIA DE SOCIOS SIN VENTAS
+-- Socios activos sin ventas válidas anteriores a @AsOfDate deben tener insignia NUEVO.
+-- Resultado esperado: 0 registros.
+-- =================================================================================================
+SELECT 
+    CI.CustomerId,
+    I.Code AS InsigniaAsignada,
+    CI.CurrentInsigniaSinceDate,
+    CI.InitializedDate
+FROM Sml.CustomerInsignia CI
+INNER JOIN Sml.Insignia I ON CI.InsigniaId = I.Id
+INNER JOIN Sml.Customer C ON C.Id = CI.CustomerId
+WHERE C.DeativatedDate IS NULL
+  AND I.Code <> 'NUEVO'
+  AND NOT EXISTS (
+      SELECT 1 
+      FROM Sml.Sale S 
+      WHERE S.CustomerId = CI.CustomerId 
+        AND S.InvalidatedPointsLogId IS NULL 
+        AND S.SaleDate < @AsOfDate
+  );

@@ -1,8 +1,8 @@
-# GITIN-1866 — [SML] Impacto Campañas — salud de queries durante picos de tráfico en MobileAppService
+# GITIN-1866 — [SML] Impacto Campañas — salud de queries durante picos de tráfico en MobileAppService y WebServiceV2
 
 ## Resumen
 
-Ticket de alcance general: impacto de campañas de marketing sobre la base de datos (`PNSSRL`/`SmartFran.Solution.SmartLoyalty`), vía MobileAppService (`SFCG-MOBI-01/02`). Cubre dos ocurrencias hasta el momento:
+Ticket de alcance general: impacto de campañas de marketing tanto sobre **recursos de VM** (consumo de CPU en los hosts involucrados) como sobre **la base de datos** (`PNSSRL`/`SmartFran.Solution.SmartLoyalty`) — cubriendo MobileAppService (`SFCG-MOBI-01/02`) y WebServiceV2 (`SFCG-WSV2-01`). Cubre dos ocurrencias hasta el momento:
 
 **2026-08-16** — Club Grido envió una campaña masiva de marketing que generó un pico de tráfico reportado de hasta 80 req/s POST y 100 req/s GET. Se investigó la salud de las queries en `PNSSRL` durante la ventana de tráfico real confirmada por Graylog (16:00–21:00 UTC).
 
@@ -15,7 +15,7 @@ En ambas ocurrencias, el lado de base de datos se mantuvo saludable durante toda
 | Campo | Valor |
 |---|---|
 | Ticket Jira | [GITIN-1866](https://smartit-ar.atlassian.net/browse/GITIN-1866) |
-| Caso | Impacto de campañas sobre `PNSSRL` — 2 ocurrencias (2026-08-16, 2026-08-19) |
+| Caso | Impacto de campañas sobre `PNSSRL` — MobileAppService y WebServiceV2, 2 ocurrencias (2026-08-16, 2026-08-19) |
 | Base de datos | `SmartFran.Solution.SmartLoyalty` (monitoreo vía `PNSSRL`) |
 | Severidad | Media |
 | Detectado | 2026-08-18 (retrospectivo, evento 2026-08-16); 2026-08-20 (retrospectivo, evento 2026-08-19) |
@@ -48,6 +48,79 @@ Sí se confirma que el patrón de 400 **se repite** en ambas ocurrencias (mismos
 | H10 | (2026-08-19) Atribución parcial vía campo `Action` de eventos `svclog_input` en Graylog — **es una extracción por regex del log crudo, no un registro general de cada código `st`**, solo captura los patrones para los que fue escrita. De los 5 valores que existen (`LoginSuccess` 4.658, `InvalidPassword` 2.276, `customerEmailNotCompatible` 648, `PointsTransfer` 88, `Exception` 1), dos coinciden con causas identificadas en el código fuente (`InvalidPassword` ≈ falla de autenticación en `Login`; `customerEmailNotCompatible` = código exacto de `RecoveryPassword` por email no coincidente), ambos sostenidos parejo en toda la ventana, sin concentración puntual. **Ninguno de los códigos de `SaveNewMember` aparece** — sigue sin visibilidad alguna, sea porque no ocurrieron esos fallos en la ventana o porque el extractor no los captura (no distinguible con este dato) | Bajo |
 | H11 | Confirmado por configuración real de NXLog y `SystemDiagnostics.config` de `SFCG-MOBI-01`: la brecha de atribución de `SaveNewMember` es **estructural, no de consulta**. El pipeline NXLog→Graylog descarta el contenido crudo de cualquier línea que no matchee uno de sus 5 regex (de 56.398 filas `svclog_input`, 48.728 llegan a Graylog sin ningún campo extraído — el texto original se pierde en el salto NXLog→Graylog, no en Graylog). El dato sí existe completo en el servidor: `SourceSwitch value="All"` en la app confirma que se traza todo, sin filtrar, hacia dos archivos — el CSV que lee NXLog (`D:\Log\SmartLoyalty.MobileAppService\csv\SmartLoyalty.MobileAppService.csv`) y un XML paralelo nunca leído por NXLog (`D:\Log\SmartLoyalty.MobileAppService\SmartLoyalty.MobileAppService.svclog`). Este último se escribe como fragmentos XML sueltos sin elemento raíz — por eso NXLog Community nunca lo ingiere (limitación de producto, no un descuido de config); igual sirve para extracción manual (grep/regex, o envolverlo en una raíz sintética antes de parsear) | Medio |
 | H12 | **Mecanismo de atribución de `SaveNewMember` confirmado y validado contra un archivo `.svclog` real** de `SFCG-MOBI-01` (6,4MB, ventana 2026-08-20 05:00–12:33 UTC — **no coincide con ninguna ventana de campaña**, solo sirve para validar el método). Cada evento `BusinessReport-{code}` lleva el endpoint embebido como prefijo literal `[OP] {endpoint}: ` en el mismo mensaje — atribución directa sin necesidad de correlacionar por hilo/`Id`. En esta ventana (no de campaña) aparecieron los 7 códigos: `Login`→`InvalidPassword` (93)/`InvalidUserName` (41), `RecoveryPassword`→`customerEmailNotCompatible` (58), `SaveNewMember`→`EmailAlreadyExist` (4)/`CustomerExists` (4)/`PendingCustomerExists` (1)/`DocumentTooShort` (1) — incluyendo `SaveNewMember`, resolviendo la duda de H11 sobre si el dato era recuperable manualmente (sí lo es, una vez que se consigue el archivo correcto). También apareció `InvalidUserName`, un código que el código fuente clasifica como retorno 200 sin excepción — confirma que el tag `BusinessReport` se escribe independientemente de si el flujo termina en 400 o en 200 con fallo en el cuerpo | Bajo |
+| H13 | `SFCG-CLUB-01` (sitio Club Grido) ejecutó repetidamente **Query077** (`AvailablePromotion` — fuente: `Core/Domain.Query/Domain/Query/Query077-sql.xml`, `SmartLoyalty.WebService`, clon local del repo) — 14+ veces en la ventana del 2026-08-16, ~4.000–6.700ms de CPU y ~12.000 lecturas lógicas cada vez (vía `PNSSRL_TempdbProc`), explicando la totalidad de los 49.706ms de CPU delta de ese host. Costo fijo por llamada, causado por un `CROSS JOIN` entre dos table-valued params (`@BranchOfficeTableTmp × @PromotionTmp`) dentro de `SmlSupp.PromotionBranchOffice`. **Detalle adicional confirmado en el texto fuente:** cuando no se filtra por sucursal específica (o se pasa un `cId`/país), `@BranchOfficeTableTmp` se puebla con *todas* las sucursales activas de ese país — el tamaño real del `CROSS JOIN` depende de cuántas sucursales entren en ese filtro, no es un costo fijo estructural sino proporcional al catálogo de sucursales/promociones pasado. No genera bloqueos ni escala en el tiempo dentro de esta ventana — no es un incidente, es una consulta cara de forma consistente | Bajo (candidato de optimización, no bloqueante) |
+| H14 | `SFCG-WSV2-01` (WebServiceV2) fue el mayor consumidor de CPU de toda la ventana del 2026-08-16 (306.890ms, ~mitad del total de todos los hosts) pero no aparece en el top 20 de `PNSSRL_TempdbProc` — sin huella en tempdb, la query responsable no pudo identificarse con las tablas de captura usadas en este ticket. Carga sostenida durante toda la ventana 15:00–20:00, no concentrada en el patrón puntual de tráfico de la campaña — consistente con carga base, pero WebServiceV2 está dentro del alcance de este ticket | Medio (mayor consumidor de CPU de la ventana, sin visibilidad de la query) |
+
+## Consultas SQL identificadas (H13/H14)
+
+### Query077 — `AvailablePromotion` (H13)
+
+Fuente: `Core/Domain.Query/Domain/Query/Query077-sql.xml`, `SmartLoyalty.WebService` (clon local del repo, confirmado 2026-09-09).
+
+```sql
+DECLARE @params XML = {0}
+DECLARE @BranchOfficeTableTmp TABLE (BranchOfficeId UNIQUEIDENTIFIER)
+DECLARE @PromotionTmp TABLE (PromotionId INT)
+DECLARE @branchOfficeCountryId INT;
+DECLARE @Counter INT
+
+SELECT @branchOfficeCountryId = n.value('cId[1][not(@xsi:nil = "true")]', 'int')
+FROM @params.nodes('params') AS p(n)
+
+INSERT INTO @BranchOfficeTableTmp
+SELECT n.value('.', 'uniqueidentifier')
+FROM @params.nodes('params/bo') AS p(n)
+
+SELECT @Counter = @@ROWCOUNT
+
+INSERT INTO @PromotionTmp
+SELECT n.value('.', 'int')
+FROM @params.nodes('params/pId') AS p(n)
+
+DECLARE @branchOfficeCount INT
+SELECT @branchOfficeCount = COUNT(*) FROM @BranchOfficeTableTmp
+
+IF (@branchOfficeCountryId IS NOT NULL OR @branchOfficeCount = 0)
+BEGIN
+     INSERT INTO @BranchOfficeTableTmp
+     SELECT BO.Id
+     FROM Sml.BranchOffice BO WITH (NOLOCK)
+     INNER JOIN Sml.[Address] A WITH (NOLOCK) ON A.Id = BO.AddressId
+     INNER JOIN Sml.[Location] CITY WITH (NOLOCK) ON CITY.Id = A.LocationId
+     INNER JOIN Sml.[Location] [STATE] WITH (NOLOCK) ON [STATE].Id = CITY.ParentLocationId
+     INNER JOIN SML.[Location] COUNTRY WITH (NOLOCK) ON COUNTRY.Id = [STATE].ParentLocationId
+     WHERE BO.ActivatedDate IS NOT NULL
+     AND BO.DeactivatedDate IS NULL
+     AND (@branchOfficeCountryId IS NULL OR COUNTRY.Id = @branchOfficeCountryId)
+
+     SELECT @Counter = @@ROWCOUNT
+END
+
+IF((SELECT COUNT(*) FROM @PromotionTmp) > 0)
+BEGIN
+     SELECT  PBO.PromotionId
+     FROM SmlSupp.PromotionBranchOffice PBO WITH (NOLOCK)
+     INNER JOIN (SELECT BranchOfficeId, PromotionId
+                 FROM @BranchOfficeTableTmp
+                 CROSS JOIN @PromotionTmp) temp ON temp.PromotionId = PBO.PromotionId
+                                               AND temp.BranchOfficeId = PBO.BranchOfficeId
+     GROUP BY PBO.PromotionId
+END
+ELSE
+BEGIN
+     SELECT  PBO.PromotionId
+     FROM SmlSupp.PromotionBranchOffice PBO WITH (NOLOCK)
+     INNER JOIN @BranchOfficeTableTmp temp ON temp.BranchOfficeId = PBO.BranchOfficeId
+     GROUP BY PBO.PromotionId
+     HAVING COUNT(DISTINCT PBO.BranchOfficeId) = @Counter
+END
+```
+
+**Punto clave para la optimización (ítem 8):** `@BranchOfficeTableTmp` se puebla con *todas* las sucursales activas del país cuando la llamada no especifica sucursales puntuales (`IF (@branchOfficeCountryId IS NOT NULL OR @branchOfficeCount = 0)`). El `CROSS JOIN` contra `@PromotionTmp` escala con ese universo de sucursales, no es un costo fijo — acotar la lista de sucursales antes de invocar la query es la palanca real, no un índice.
+
+### WebServiceV2 — query sin identificar (H14)
+
+No hay texto de query para mostrar acá — ese es justamente el hallazgo pendiente. `SFCG-WSV2-01` no aparece en el top 20 de `PNSSRL_TempdbProc` (sin huella en tempdb), así que ninguna de las tablas de captura usadas en este ticket devolvió el texto de la consulta responsable. Identificarla (acción propuesta 9) requiere otra fuente — `sys.dm_exec_query_stats` o extended events sobre `SFCG-WSV2-01`, no evaluado todavía.
 
 ## Métricas del evento
 
@@ -110,6 +183,8 @@ Ver `scripts.sql`.
 5. Análisis de capacidad/límites de `PNSSRL` ante una campaña de mayor escala que las observadas hasta ahora — evaluar reutilizar precedentes existentes de pruebas de carga en `events/` (`20260727_cpu_peaks_loadtest`, `20260803_cpu_peaks_loadtest`, `20260723_bloqueo_customerpointslog_loadtest`) en lugar de partir de cero. No evaluado en este ticket.
 6. Reconciliar el pico de tráfico reportado (~100 req/s, ambas ocurrencias) contra el medido en logs IIS (~30 req/s el 2026-08-16, ~4,7 req/s el 2026-08-19) — determinar si la cifra reportada proviene de otro punto de medición (gateway/LB) no capturado por este log. No evaluado en este ticket.
 7. **Para cualquier ocurrencia futura similar**: el mecanismo de atribución vía `.svclog` (tag `[OP] {endpoint}: ...<BusinessReport-{code}>`, ver H12) ya está validado y listo para usar — pero el archivo tiene retención corta (~11–12h desde vacío hasta los ~10MB de rotación, sin backups numerados). Para que sea útil, debe extraerse de `SFCG-MOBI-01`/`02` dentro de ese margen desde el evento, no días después como en este ticket. No evaluado en este ticket.
+8. **(H13) Optimizar Query077 (`AvailablePromotion`)** — el texto fuente (`Core/Domain.Query/Domain/Query/Query077-sql.xml`) confirma que el costo no es fijo: cuando la llamada no especifica sucursales puntuales (o pasa un filtro de país), `@BranchOfficeTableTmp` se puebla con *todas* las sucursales activas de ese país antes del `CROSS JOIN` contra `@PromotionTmp`. Evaluar con el equipo de desarrollo si el caller (`/api/Catalog/AvailablePromotion`) puede acotar la lista de sucursales antes de invocar la query, en vez de dejar que la query traiga el universo completo de sucursales del país. Reduciría el costo de ~4.000–6.700ms CPU / ~12.000 lecturas lógicas por llamada de forma proporcional al filtro real usado. No bloqueante ni vinculado a la campaña — candidato de mejora de performance.
+9. **(H14) Identificar la query real detrás del consumo de CPU de `SFCG-WSV2-01`** (306.890ms en la ventana del 2026-08-16, ~mitad del total) — al no tener huella en tempdb, requiere otra fuente de captura (p. ej. `sys.dm_exec_query_stats` o extended events, ya que `$indexStats`-equivalente en `PNSSRL_TempdbProc` no la captura) para identificarla antes de poder evaluar si amerita optimización. Prioridad: WebServiceV2 está dentro del alcance de este ticket y es el mayor consumidor de CPU de la ventana — no evaluado todavía.
 
 ## Archivos de evidencia
 
@@ -123,5 +198,4 @@ Ver `scripts.sql`.
 
 ## Hallazgos secundarios
 
-- `SFCG-CLUB-01` (sitio Club Grido) ejecutó repetidamente **Query077** (`AvailablePromotion`, `Domain\Query\Query077-sql.xml` en `SmartLoyalty.WebService`) — 14+ veces en la ventana, ~4.000–6.700ms de CPU y ~12.000 lecturas lógicas cada vez, vía `PNSSRL_TempdbProc`. Costo explicado por un `CROSS JOIN` entre dos table-valued params (`@BranchOfficeTableTmp × @PromotionTmp`) dentro de `SmlSupp.PromotionBranchOffice`. No genera bloqueos ni escala en el tiempo — candidato a optimización, pero no vinculado a la campaña.
-- `SFCG-WSV2-01` (WebServiceV2) fue el mayor consumidor de CPU de toda la ventana 15:00–20:00 (306.890ms, ~mitad del total) pero no aparece en el top 20 de `PNSSRL_TempdbProc` (sin huella en tempdb) — su query no fue identificada con las tablas de captura disponibles. Carga estable durante toda la ventana, no concentrada en el patrón de tráfico de la campaña, y corresponde a un servicio distinto al de MobileAppService. No vinculado a este ticket.
+- Los dos hallazgos de consultas SQL detectados durante este análisis (Query077 en `SFCG-CLUB-01`, query no identificada en `SFCG-WSV2-01`) están reportados como H13/H14 en la tabla de Hallazgos, con sus acciones propuestas correspondientes (ítems 8-9) — no se detallan acá para evitar duplicación.
