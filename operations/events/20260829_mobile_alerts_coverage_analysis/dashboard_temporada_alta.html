@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chequeo de Temporada Alta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Source+Sans+3:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #f4f5f2;
+    --surface: #ffffff;
+    --surface-2: #eceee9;
+    --ink: #1c2624;
+    --ink-muted: #5b6663;
+    --ink-faint: #8b948f;
+    --border: #dde0da;
+    --accent-mobile: #1f6f5c;
+    --accent-mobile-soft: #d9ebe5;
+    --accent-pedidos: #3f5ba6;
+    --accent-pedidos-soft: #dee4f3;
+    --accent-web: #b8862b;
+    --accent-web-soft: #f3e7cf;
+    --accent-cloud: #9c4f66;
+    --accent-cloud-soft: #f2dee3;
+    --status-up-bg: #f7e6cf;
+    --status-up-ink: #8a5a0f;
+    --status-flat-bg: #dfe9e2;
+    --status-flat-ink: #2f5346;
+    --status-pending-bg: #eceee9;
+    --status-pending-ink: #6b746f;
+    --shadow: 0 1px 2px rgba(20,30,26,0.04), 0 8px 24px -12px rgba(20,30,26,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #141a18;
+      --surface: #1b2321;
+      --surface-2: #212a27;
+      --ink: #e8ece9;
+      --ink-muted: #9aa6a0;
+      --ink-faint: #6d7975;
+      --border: #2c3532;
+      --accent-mobile: #4fb59c;
+      --accent-mobile-soft: #1e3630;
+      --accent-pedidos: #7f9adb;
+      --accent-pedidos-soft: #232c44;
+      --accent-web: #d9ab54;
+      --accent-web-soft: #3a2f18;
+      --accent-cloud: #c97b93;
+      --accent-cloud-soft: #3a2530;
+      --status-up-bg: #3a2f18;
+      --status-up-ink: #e0b869;
+      --status-flat-bg: #1e3630;
+      --status-flat-ink: #7fc3ab;
+      --status-pending-bg: #212a27;
+      --status-pending-ink: #9aa6a0;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #141a18;
+    --surface: #1b2321;
+    --surface-2: #212a27;
+    --ink: #e8ece9;
+    --ink-muted: #9aa6a0;
+    --ink-faint: #6d7975;
+    --border: #2c3532;
+    --accent-mobile: #4fb59c;
+    --accent-mobile-soft: #1e3630;
+    --accent-pedidos: #7f9adb;
+    --accent-pedidos-soft: #232c44;
+    --accent-web: #d9ab54;
+    --accent-web-soft: #3a2f18;
+    --accent-cloud: #c97b93;
+    --accent-cloud-soft: #3a2530;
+    --status-up-bg: #3a2f18;
+    --status-up-ink: #e0b869;
+    --status-flat-bg: #1e3630;
+    --status-flat-ink: #7fc3ab;
+    --status-pending-bg: #212a27;
+    --status-pending-ink: #9aa6a0;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap{ max-width: 1080px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  h1,h2,h3{ font-family:"Fraunces", Georgia, serif; text-wrap: balance; margin:0; }
+  header.page{ margin-bottom: 40px; }
+  header.page .eyebrow{
+    font-family:"IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-faint); margin-bottom: 10px;
+  }
+  header.page h1{ font-size: 34px; font-weight: 600; color: var(--ink); }
+  header.page p.lede{
+    max-width: 640px; color: var(--ink-muted); font-size: 16px; margin-top: 12px;
+  }
+
+  /* ---- summary cards ---- */
+  .cards{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 44px; }
+  @media (max-width: 980px){ .cards{ grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px){ .cards{ grid-template-columns: 1fr; } }
+  .card{
+    background: var(--surface); border:1px solid var(--border); border-radius: 14px;
+    padding: 22px 22px 20px; box-shadow: var(--shadow);
+    display:flex; flex-direction:column; gap: 10px;
+  }
+  .card .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; }
+  .card h3{ font-size: 18px; font-weight: 500; color: var(--ink); }
+  .pill{
+    font-family:"IBM Plex Mono", monospace; font-size: 11px; font-weight:500;
+    letter-spacing: 0.03em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .pill.up{ background: var(--status-up-bg); color: var(--status-up-ink); }
+  .pill.flat{ background: var(--status-flat-bg); color: var(--status-flat-ink); }
+  .pill.pending{ background: var(--status-pending-bg); color: var(--status-pending-ink); }
+  .card .metric{
+    font-family:"IBM Plex Mono", monospace; font-variant-numeric: tabular-nums;
+    font-size: 30px; font-weight: 500; color: var(--ink);
+  }
+  .card .metric small{ font-size: 14px; color: var(--ink-muted); font-weight: 400; margin-left: 4px; }
+  .card .metric-caption{ font-size: 13px; color: var(--ink-muted); }
+  .card .sparkline{ margin-top: 4px; }
+
+  /* ---- sections ---- */
+  section.detail{
+    background: var(--surface); border:1px solid var(--border); border-radius: 16px;
+    padding: 28px 28px 24px; margin-bottom: 24px; box-shadow: var(--shadow);
+  }
+  section.detail .section-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+    flex-wrap: wrap; margin-bottom: 4px;
+  }
+  section.detail h2{ font-size: 22px; font-weight:600; }
+  section.detail .section-sub{ color: var(--ink-muted); font-size: 14px; max-width: 620px; margin-top: 6px; margin-bottom: 22px;}
+  .chart-row{ display:grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 780px){ .chart-row{ grid-template-columns: 1fr; } }
+
+  .legend{ display:flex; gap: 16px; flex-wrap:wrap; margin-bottom: 10px; font-size: 13px; color: var(--ink-muted); }
+  .legend .item{ display:flex; align-items:center; gap:6px; }
+  .legend .swatch{ width:10px; height:10px; border-radius:2px; }
+
+  .tooltip{
+    position: absolute; pointer-events:none; background: var(--ink); color: var(--bg);
+    font-family:"IBM Plex Mono", monospace; font-size: 12px; padding: 7px 10px;
+    border-radius: 8px; box-shadow: var(--shadow); opacity:0; transition: opacity .1s;
+    white-space: nowrap; z-index: 10;
+  }
+  :root[data-theme="dark"] .tooltip, @media (prefers-color-scheme: dark){ }
+
+  .notes-table{ width:100%; border-collapse: collapse; font-size: 13.5px; }
+  .notes-table th{
+    text-align:left; font-weight:500; color: var(--ink-faint); font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: 0.04em; padding: 0 10px 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .notes-table td{ padding: 9px 10px 9px 0; border-bottom: 1px solid var(--border); color: var(--ink); vertical-align: top;}
+  .notes-table td.num{ font-family:"IBM Plex Mono",monospace; font-variant-numeric: tabular-nums; text-align:right; }
+  .notes-table tr:last-child td{ border-bottom:none; }
+  .note-flag{ font-size: 12px; color: var(--ink-muted); }
+
+  footer.methodology{
+    margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--border);
+    color: var(--ink-muted); font-size: 13px; line-height: 1.7;
+  }
+  footer.methodology h4{
+    font-family:"Source Sans 3",sans-serif; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--ink-faint); margin: 0 0 10px;
+  }
+  footer.methodology ul{ margin: 0; padding-left: 18px; }
+  footer.methodology li{ margin-bottom: 6px; }
+  footer.methodology .stamp{ margin-top:18px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <div class="eyebrow">GITIN-1965 · Chequeo cruzado de actividad</div>
+    <h1>¿Estamos entrando en temporada alta?</h1>
+    <p class="lede">Comparación del fin de semana del 29-30 de agosto contra fines de semana previos, en los sistemas donde pudimos conseguir datos comparables. Los gráficos horarios muestran sábado y domingo completos. Pasá el mouse sobre los gráficos para ver el detalle de cada punto.</p>
+  </header>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-top"><h3>MobileAppService</h3><span class="pill up">Elevado</span></div>
+      <div class="metric">+34<small>% vs. promedio de 3 fines de semana previos</small></div>
+      <div class="metric-caption">Pico puntual sábado 16-17h, 2,5-5x el mismo horario en semanas anteriores.</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><h3>SmartPedidos</h3><span class="pill up">Elevado</span></div>
+      <div class="metric">+32<small>% vs. único fin de semana de referencia completo</small></div>
+      <div class="metric-caption">Volumen real de pedidos procesados. Solo hay un fin de semana limpio de comparación (retención de datos de 15 días).</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><h3>WebService (on-premise)</h3><span class="pill pending">Pendiente</span></div>
+      <div class="metric">—<small>sin línea base todavía</small></div>
+      <div class="metric-caption">Sistema on-premise de SmartFran. Corregimos un problema de configuración que impedía comparar; la primera comparación real va a estar disponible el próximo fin de semana.</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><h3>WebServiceV2 (SmartCloud)</h3><span class="pill pending">Pendiente</span></div>
+      <div class="metric">—<small>sin línea base todavía</small></div>
+      <div class="metric-caption">Plataforma SmartCloud — sistema distinto al WebService on-premise, no comparable entre sí. Misma limitación de datos, mismo plazo.</div>
+    </div>
+  </div>
+
+  <!-- MOBILE -->
+  <section class="detail" id="sec-mobile">
+    <div class="section-head">
+      <h2>MobileAppService</h2>
+    </div>
+    <p class="section-sub">Tráfico total del servicio (ambos servidores combinados), sábado y domingo completos, fin de semana actual contra el promedio de los tres anteriores. El aumento no está repartido a lo largo del fin de semana — se concentra en una ventana puntual el sábado a la tarde.</p>
+    <div class="chart-row">
+      <div>
+        <div class="legend" id="legend-mobile-hourly"></div>
+        <svg id="chart-mobile-hourly" width="100%" height="260" viewBox="0 0 900 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div>
+        <div class="legend"><div class="item"><span class="swatch" style="background:var(--accent-mobile)"></span>Promedio del fin de semana (req/s)</div></div>
+        <svg id="chart-mobile-weekend" width="100%" height="260" viewBox="0 0 320 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- SMARTPEDIDOS -->
+  <section class="detail" id="sec-pedidos">
+    <div class="section-head">
+      <h2>SmartPedidos</h2>
+    </div>
+    <p class="section-sub">Cantidad de eventos de pedidos generados por fin de semana. La base de datos solo retiene 15 días de historial, por eso hay fines de semana sin dato o con dato parcial — están marcados como tales, no completados con estimaciones.</p>
+    <div class="chart-row">
+      <div>
+        <div class="legend"><div class="item"><span class="swatch" style="background:var(--accent-pedidos)"></span>Eventos de pedidos por fin de semana</div></div>
+        <svg id="chart-pedidos-weekend" width="100%" height="260" viewBox="0 0 480 260" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <table class="notes-table">
+        <thead><tr><th>Fin de semana</th><th style="text-align:right">Eventos</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr><td>08-08 / 08-09</td><td class="num">—</td><td class="note-flag">Sin datos (fuera de retención)</td></tr>
+          <tr><td>08-15 / 08-16</td><td class="num">49.155</td><td class="note-flag">Parcial — falta el sábado</td></tr>
+          <tr><td>08-22 / 08-23</td><td class="num">72.717</td><td class="note-flag">Completo</td></tr>
+          <tr><td>08-29 / 08-30</td><td class="num">95.914</td><td class="note-flag">Completo — este fin de semana</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- WEBSERVICE ON-PREM -->
+  <section class="detail" id="sec-webservice">
+    <div class="section-head">
+      <h2>WebService <span style="font-family:'Source Sans 3',sans-serif; font-size:14px; font-weight:500; color:var(--ink-muted);">— on-premise SmartFran</span></h2>
+    </div>
+    <p class="section-sub">Sistema on-premise de SmartFran.</p>
+    <div class="chart-row">
+      <div>
+        <div class="legend"><div class="item"><span class="swatch" style="background:var(--accent-web)"></span>Este fin de semana (sin línea base)</div></div>
+        <svg id="chart-web-hourly" width="100%" height="220" viewBox="0 0 900 220" preserveAspectRatio="xMidYMid meet"></svg>
+        <div style="margin-top:6px; font-size:12.5px; color:var(--ink-muted);">
+          Promedio cada 15 minutos. Pico marcado en el gráfico: <strong style="color:var(--accent-web); font-family:'IBM Plex Mono',monospace;">46,7 req/s</strong>, domingo 11:45. Dentro de esa ventana, el dato de 1 minuto sin promediar llegó puntualmente a <strong style="color:var(--accent-web); font-family:'IBM Plex Mono',monospace;">221 req/s</strong>.
+        </div>
+      </div>
+      <div style="align-self:center; color:var(--ink-muted); font-size:14px; line-height:1.7;">
+        Pico el sábado tarde/noche y domingo a la tarde. Sin un fin de semana previo con el que comparar todavía, no podemos decir si es más o menos que lo habitual.
+      </div>
+    </div>
+  </section>
+
+  <!-- WEBSERVICEV2 SMARTCLOUD -->
+  <section class="detail" id="sec-webservicev2">
+    <div class="section-head">
+      <h2>WebServiceV2 <span style="font-family:'Source Sans 3',sans-serif; font-size:14px; font-weight:500; color:var(--ink-muted);">— SmartCloud</span></h2>
+    </div>
+    <p class="section-sub">Sistema de la plataforma SmartCloud.</p>
+    <div class="chart-row">
+      <div>
+        <div class="legend"><div class="item"><span class="swatch" style="background:var(--accent-cloud)"></span>Este fin de semana (sin línea base)</div></div>
+        <svg id="chart-webv2-hourly" width="100%" height="220" viewBox="0 0 900 220" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div style="align-self:center; color:var(--ink-muted); font-size:14px; line-height:1.7;">
+        Mismo patrón de picos sábado/domingo a la tarde que WebService on-premise, pero a una escala mucho menor de tráfico — consistente con ser una plataforma más chica, no con un problema.
+      </div>
+    </div>
+  </section>
+
+  <footer class="methodology">
+    <h4>Metodología y limitaciones</h4>
+    <ul>
+      <li><strong>MobileAppService:</strong> tráfico HTTP (GET+POST) de los dos servidores combinados, comparado contra el promedio de los 3 fines de semana anteriores.</li>
+      <li><strong>SmartPedidos:</strong> conteo directo de eventos de pedidos generados, la métrica más directa de actividad real disponible. Solo un fin de semana de referencia completo por la retención de 15 días de la base — el CPU y el tiempo de espera en cola del sistema se mantuvieron estables pese al mayor volumen, lo que indica que el sistema absorbió el aumento sin mostrar señales de sobrecarga.</li>
+      <li><strong>WebService (on-premise) y WebServiceV2 (SmartCloud):</strong> son dos plataformas distintas, no versiones de un mismo sistema — se muestran por separado. En ambas detectamos y corregimos una configuración que retenía muy poco historial de datos — no es recuperable retroactivamente, así que la comparación empieza a construirse desde este fin de semana en adelante, para cada una de forma independiente.</li>
+      <li>Ninguno de estos aumentos fue confirmado todavía como originado por un evento de negocio puntual (ej. apertura de temporada) — solo el aumento de actividad en sí está confirmado con datos.</li>
+    </ul>
+    <div class="stamp">Generado 2026-08-31 · GITIN-1965</div>
+  </footer>
+
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const tooltip = document.getElementById('tooltip');
+function showTooltip(evt, html){
+  tooltip.innerHTML = html;
+  tooltip.style.opacity = 1;
+  tooltip.style.left = (evt.pageX + 14) + 'px';
+  tooltip.style.top = (evt.pageY - 10) + 'px';
+}
+function hideTooltip(){ tooltip.style.opacity = 0; }
+
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+/* ---------- generic bar chart (single series) ---------- */
+function drawBarChart(svgId, data, opts){
+  const svg = document.getElementById(svgId);
+  const vb = svg.viewBox.baseVal;
+  const W = vb.width, H = vb.height;
+  const padL = 46, padR = 14, padT = 16, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxVal = Math.max(...data.map(d => d.value === null ? 0 : d.value)) * 1.15;
+  const n = data.length;
+  const gap = 14;
+  const barW = (plotW - gap * (n - 1)) / n;
+
+  // gridlines
+  for(let i=0;i<=3;i++){
+    const y = padT + plotH - (plotH * i/3);
+    svg.appendChild(el('line', {x1:padL, x2:W-padR, y1:y, y2:y, stroke:'var(--border)', 'stroke-width':1}));
+    const val = Math.round(maxVal * i/3);
+    const t = el('text', {x:padL-8, y:y+4, 'text-anchor':'end', 'font-size':10.5, fill:'var(--ink-faint)', 'font-family':'IBM Plex Mono, monospace'});
+    t.textContent = opts.fmtAxis ? opts.fmtAxis(val) : val;
+    svg.appendChild(t);
+  }
+
+  data.forEach((d,i) => {
+    const x = padL + i * (barW + gap);
+    const isNull = d.value === null;
+    const h = isNull ? 6 : Math.max(3, (d.value / maxVal) * plotH);
+    const y = padT + plotH - h;
+    const color = d.color || opts.color;
+    const rect = el('rect', {
+      x, y, width: barW, height: h, rx: 5, ry: 5,
+      fill: isNull ? 'var(--border)' : color,
+      opacity: d.faded ? 0.55 : 1,
+      style: 'cursor:pointer; transition: opacity .12s;'
+    });
+    rect.addEventListener('mousemove', (evt) => {
+      showTooltip(evt, `<strong>${d.label}</strong><br>${isNull ? d.note || 'Sin datos' : (opts.fmtTooltip ? opts.fmtTooltip(d.value) : d.value)}`);
+      rect.setAttribute('opacity', 1);
+    });
+    rect.addEventListener('mouseleave', () => { hideTooltip(); rect.setAttribute('opacity', d.faded ? 0.55 : 1); });
+    svg.appendChild(rect);
+
+    if(d.highlight){
+      svg.appendChild(el('rect', {x:x-2, y:y-2, width:barW+4, height:h+4, rx:7, ry:7, fill:'none', stroke: color, 'stroke-width':1.5, 'stroke-dasharray':'3,3'}));
+    }
+
+    const lbl = el('text', {x: x + barW/2, y: H - padB + 18, 'text-anchor':'middle', 'font-size':11, fill:'var(--ink-muted)', 'font-family':'Source Sans 3, sans-serif'});
+    lbl.textContent = d.shortLabel || d.label;
+    svg.appendChild(lbl);
+
+    if(d.badge){
+      const badge = el('text', {x: x + barW/2, y: y - 8, 'text-anchor':'middle', 'font-size':10.5, fill: color, 'font-family':'IBM Plex Mono, monospace', 'font-weight':500});
+      badge.textContent = d.badge;
+      svg.appendChild(badge);
+    } else if(isNull){
+      const badge = el('text', {x: x + barW/2, y: H - padB - 12, 'text-anchor':'middle', 'font-size':10, fill:'var(--ink-faint)', 'font-family':'IBM Plex Mono, monospace'});
+      badge.textContent = d.note || 'sin datos';
+      svg.appendChild(badge);
+    }
+  });
+}
+
+/* ---------- generic multi-series time-bucketed line/area chart, Sat+Sun ----------
+   opts.bucketMinutes: minutes per data point (default 60). Series length must
+   be 2 * (24*60/bucketMinutes) — Saturday buckets followed by Sunday buckets. */
+function drawHourlyChart(svgId, series, opts){
+  const svg = document.getElementById(svgId);
+  const vb = svg.viewBox.baseVal;
+  const W = vb.width, H = vb.height;
+  const padL = 44, padR = 14, padT = 16, padB = 28;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const bucketMin = opts.bucketMinutes || 60;
+  const bucketsPerDay = (24 * 60) / bucketMin;
+  const allVals = series.flatMap(s => s.values);
+  const maxVal = Math.max(...allVals) * 1.12;
+  const n = series[0].values.length;
+
+  function xFor(i){ return padL + (i/(n-1)) * plotW; }
+  function timeLabel(i){
+    const dayIdx = Math.floor(i / bucketsPerDay);
+    const bucketInDay = i % bucketsPerDay;
+    const totalMin = bucketInDay * bucketMin;
+    const hh = Math.floor(totalMin / 60), mm = totalMin % 60;
+    return { day: dayIdx === 0 ? 'Sáb' : 'Dom', hh, mm };
+  }
+
+  for(let i=0;i<=3;i++){
+    const y = padT + plotH - (plotH * i/3);
+    svg.appendChild(el('line', {x1:padL, x2:W-padR, y1:y, y2:y, stroke:'var(--border)', 'stroke-width':1}));
+    const val = Math.round(maxVal * i/3);
+    const t = el('text', {x:padL-8, y:y+4, 'text-anchor':'end', 'font-size':10.5, fill:'var(--ink-faint)', 'font-family':'IBM Plex Mono, monospace'});
+    t.textContent = opts.fmtAxis ? opts.fmtAxis(val) : val;
+    svg.appendChild(t);
+  }
+
+  // Sat/Sun divider at the midpoint
+  const xDiv = xFor(bucketsPerDay);
+  svg.appendChild(el('line', {x1:xDiv, x2:xDiv, y1:padT, y2:padT+plotH, stroke:'var(--border)', 'stroke-width':1.5, 'stroke-dasharray':'2,3'}));
+
+  // ticks every 6h within each day
+  [0,6,12,18].forEach(h => {
+    [0,1].forEach(dayIdx => {
+      const idx = dayIdx*bucketsPerDay + (h*60/bucketMin);
+      const x = xFor(idx);
+      const t = el('text', {x, y: H - 8, 'text-anchor':'middle', 'font-size':10, fill:'var(--ink-faint)', 'font-family':'IBM Plex Mono, monospace'});
+      t.textContent = String(h).padStart(2,'0') + 'h';
+      svg.appendChild(t);
+    });
+  });
+  const satLbl = el('text', {x: xFor(6*60/bucketMin), y: padT + 12, 'text-anchor':'middle', 'font-size':10.5, fill:'var(--ink-faint)', 'font-family':'Source Sans 3, sans-serif', 'font-weight':600, 'letter-spacing':'0.04em'});
+  satLbl.textContent = 'SÁB';
+  svg.appendChild(satLbl);
+  const sunLbl = el('text', {x: xFor(bucketsPerDay + 6*60/bucketMin), y: padT + 12, 'text-anchor':'middle', 'font-size':10.5, fill:'var(--ink-faint)', 'font-family':'Source Sans 3, sans-serif', 'font-weight':600, 'letter-spacing':'0.04em'});
+  sunLbl.textContent = 'DOM';
+  svg.appendChild(sunLbl);
+
+  series.forEach(s => {
+    const pts = s.values.map((v,i) => [xFor(i), padT + plotH - (v/maxVal)*plotH]);
+    const pathD = pts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    if(s.area){
+      const areaD = pathD + ` L${pts[pts.length-1][0].toFixed(1)},${padT+plotH} L${pts[0][0].toFixed(1)},${padT+plotH} Z`;
+      svg.appendChild(el('path', {d: areaD, fill: s.color, opacity: 0.12}));
+    }
+    svg.appendChild(el('path', {d: pathD, fill:'none', stroke: s.color, 'stroke-width': s.width || 2, 'stroke-linejoin':'round', 'stroke-linecap':'round'}));
+
+    // invisible hover targets (hit width scaled to point density so adjacent
+    // targets don't overlap when there are many buckets)
+    const hitR = Math.max(3, Math.min(9, plotW / n / 1.6));
+    pts.forEach((p,i) => {
+      const hitArea = el('circle', {cx:p[0], cy:p[1], r:hitR, fill:'transparent', style:'cursor:pointer;'});
+      hitArea.addEventListener('mousemove', (evt) => {
+        const t = timeLabel(i);
+        showTooltip(evt, `<strong>${s.name}</strong><br>${t.day} ${String(t.hh).padStart(2,'0')}:${String(t.mm).padStart(2,'0')} — ${opts.fmtTooltip ? opts.fmtTooltip(s.values[i]) : s.values[i]}`);
+      });
+      hitArea.addEventListener('mouseleave', hideTooltip);
+      svg.appendChild(hitArea);
+      if(s.emphasize && s.emphasize.includes(i)){
+        svg.appendChild(el('circle', {cx:p[0], cy:p[1], r:4, fill: s.color, stroke:'var(--surface)', 'stroke-width':1.5}));
+      }
+    });
+  });
+}
+
+function buildLegend(containerId, items){
+  const c = document.getElementById(containerId);
+  items.forEach(it => {
+    const d = document.createElement('div'); d.className='item';
+    d.innerHTML = `<span class="swatch" style="background:${it.color}"></span>${it.label}`;
+    c.appendChild(d);
+  });
+}
+
+/* ================= DATA ================= */
+
+// Mobile: service-total hourly, Sat+Sun (48h), baseline = mean of the 3 prior
+// weekends per hour; now = this weekend.
+// 15-minute buckets, 96/day, Sat then Sun (192 total) — from build_dashboard_data_15min.py
+const mobileBaseline15 = [2.88,2.22,1.74,1.37,1.01,0.78,0.68,0.52,0.51,0.37,0.28,0.29,0.21,0.23,0.26,0.38,0.39,0.28,0.16,0.15,0.16,0.15,0.17,0.65,0.34,0.20,0.29,0.20,0.24,0.26,0.35,0.39,0.35,0.37,0.43,0.54,0.51,0.66,0.74,0.62,0.70,0.81,0.84,0.95,1.01,1.18,1.17,1.43,1.91,4.42,2.41,2.62,4.39,3.20,3.71,4.10,5.02,8.79,8.63,6.84,9.09,9.06,6.83,9.25,7.83,7.68,7.13,6.84,5.79,5.62,5.83,5.32,5.72,5.34,5.32,6.30,5.70,6.49,6.31,7.59,7.23,7.60,7.34,8.45,9.05,8.87,9.26,10.26,10.23,10.47,11.34,10.62,10.03,9.22,7.98,6.52,4.49,3.28,2.79,1.78,1.43,1.00,0.86,0.59,0.54,0.42,0.42,0.30,0.28,0.28,0.25,0.38,0.40,0.32,0.22,0.16,0.14,0.16,0.14,0.14,0.19,0.15,0.15,0.16,0.18,0.18,0.17,0.24,0.25,0.29,0.32,0.38,0.49,0.54,0.60,0.75,0.85,1.11,1.29,1.48,1.56,1.98,2.48,2.73,4.95,4.37,4.34,4.81,10.22,8.25,9.91,12.72,17.16,10.98,17.77,16.01,16.94,25.98,23.33,16.88,15.62,15.22,15.56,12.73,12.59,9.99,10.09,8.61,7.93,7.50,6.42,6.82,6.30,6.82,6.34,5.88,6.66,6.88,6.94,7.11,7.73,8.19,8.51,8.91,9.01,9.39,9.67,7.67,6.53,5.78,4.74,3.79];
+const mobileNow15 = [7.12,6.09,2.11,1.38,1.14,0.83,0.71,0.54,0.59,0.40,0.32,0.33,0.27,0.23,0.25,0.15,0.21,0.14,0.20,0.59,0.11,0.17,0.16,0.16,0.21,0.16,0.20,0.20,0.21,0.21,0.28,0.32,0.41,0.41,0.48,0.52,0.60,0.58,0.64,0.80,0.86,0.96,1.06,1.09,1.12,1.45,1.72,1.91,2.84,3.20,3.62,3.91,3.89,4.06,4.72,5.37,5.53,6.15,6.32,9.35,9.20,8.33,10.83,9.96,16.50,29.70,13.52,24.54,12.49,25.73,26.72,13.81,13.56,12.69,11.07,13.79,11.94,11.89,14.40,15.43,15.47,17.11,16.58,14.11,15.38,15.36,16.55,15.37,14.56,13.14,14.17,13.04,12.54,12.18,9.92,7.33,6.16,4.09,3.14,2.47,1.95,1.20,0.92,0.90,0.68,0.57,0.55,0.45,0.38,0.41,0.21,0.24,0.53,0.37,0.29,0.24,0.18,0.17,0.22,0.20,0.20,0.18,0.19,0.17,0.28,0.21,0.18,0.31,0.27,0.47,0.48,0.52,0.66,0.75,0.85,0.98,0.90,1.39,1.80,1.84,2.08,2.25,3.01,3.46,10.35,17.25,10.50,10.11,9.99,10.55,9.85,10.88,10.56,12.21,16.85,17.13,17.35,14.60,14.42,15.02,14.67,14.04,13.04,11.98,13.16,11.40,10.34,9.23,9.11,8.98,8.31,7.88,7.90,8.03,8.86,8.56,8.72,8.74,8.78,8.96,8.74,9.65,9.51,9.19,9.22,9.21,8.25,7.51,6.24,5.65,4.67,3.67];
+
+buildLegend('legend-mobile-hourly', [
+  {color:'var(--ink-faint)', label:'Promedio 3 semanas previas'},
+  {color:'var(--accent-mobile)', label:'Este fin de semana'}
+]);
+drawHourlyChart('chart-mobile-hourly', [
+  {name:'Promedio previo', values: mobileBaseline15, color:'#9aa6a0', width:1.75},
+  {name:'Este fin de semana', values: mobileNow15, color:'var(--accent-mobile)', width:2.5, area:true, emphasize:[65]}
+], {bucketMinutes:15, fmtAxis:v=>v, fmtTooltip:v=>v.toFixed(1)+' req/s'});
+
+drawBarChart('chart-mobile-weekend', [
+  {label:'08-08 / 09', shortLabel:'08-08', value:5.60, color:'var(--accent-mobile)', faded:true},
+  {label:'08-15 / 16', shortLabel:'08-15', value:4.83, color:'var(--accent-mobile)', faded:true},
+  {label:'08-22 / 23', shortLabel:'08-22', value:3.36, color:'var(--accent-mobile)', faded:true},
+  {label:'08-29 / 30 (ahora)', shortLabel:'08-29', value:6.15, color:'var(--accent-mobile)', highlight:true, badge:'+34%'}
+], {fmtTooltip:v=>v.toFixed(2)+' req/s promedio'});
+
+// SmartPedidos weekend totals
+drawBarChart('chart-pedidos-weekend', [
+  {label:'08-08 / 09', shortLabel:'08-08', value:null, note:'sin datos', color:'var(--accent-pedidos)'},
+  {label:'08-15 / 16 (parcial)', shortLabel:'08-15*', value:49155, color:'var(--accent-pedidos)', faded:true},
+  {label:'08-22 / 23', shortLabel:'08-22', value:72717, color:'var(--accent-pedidos)', faded:true},
+  {label:'08-29 / 30 (ahora)', shortLabel:'08-29', value:95914, color:'var(--accent-pedidos)', highlight:true, badge:'+32%'}
+], {fmtAxis:v=>(v/1000)+'k', fmtTooltip:v=>v.toLocaleString('es-AR')+' eventos'});
+
+// WebService on-premise hourly (now only, Sat+Sun) — SFCG-WEBS-01/02/03
+const webs15 = [11.74,8.51,6.43,4.59,2.21,1.11,0.81,0.61,0.28,0.44,0.17,0.17,0.09,0.09,0.09,0.09,0.09,0.09,0.12,0.46,0.11,0.09,0.09,0.09,0.09,0.09,0.09,0.09,0.78,0.78,0.10,0.09,0.31,0.21,0.17,0.27,0.41,0.45,0.51,1.42,2.36,1.86,2.60,6.45,7.58,6.27,6.75,8.84,11.97,10.39,10.71,11.50,14.11,12.36,12.48,12.12,14.77,15.80,16.64,16.60,18.80,18.68,19.06,18.96,21.74,20.40,20.21,20.38,24.51,21.25,20.16,21.85,24.56,20.74,19.98,20.50,20.34,20.61,23.04,22.69,25.82,24.47,25.48,24.33,24.66,24.67,22.53,22.89,23.72,22.20,22.09,21.68,21.88,22.97,22.96,20.76,18.37,14.86,17.87,35.45,3.45,2.34,1.55,1.17,0.62,0.62,0.29,0.14,0.10,0.30,0.12,0.11,0.09,0.09,0.09,0.09,0.09,0.09,0.09,0.09,0.09,0.10,0.09,0.09,0.10,0.09,0.09,0.10,0.10,0.11,0.10,0.24,0.32,0.33,0.66,1.68,2.99,2.29,4.05,35.61,22.12,15.92,21.72,46.74,27.98,25.35,24.07,25.04,26.34,24.42,21.60,21.23,23.69,23.52,25.57,26.64,27.35,28.39,28.82,27.92,32.84,29.62,28.55,29.50,31.30,29.27,29.42,27.41,30.53,26.79,24.89,23.05,23.75,23.34,23.40,21.58,22.59,21.21,21.17,18.99,18.96,19.30,19.37,17.72,19.02,17.40,15.45,14.09,13.11,13.32,10.90,9.53];
+drawHourlyChart('chart-web-hourly', [
+  {name:'WebService (on-premise)', values: webs15, color:'var(--accent-web)', width:2, area:true, emphasize:[143]}
+], {bucketMinutes:15, fmtAxis:v=>v, fmtTooltip:v=>v.toFixed(1)+' req/s (promedio de 15 min)'});
+
+// WebServiceV2 SmartCloud hourly (now only, Sat+Sun) — SFCG-WSV2-01/02
+const wsv215 = [0.64,0.46,0.38,0.24,0.14,0.13,0.10,0.04,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.03,0.02,0.02,0.05,0.05,0.08,0.12,0.17,0.28,0.30,0.26,0.34,0.39,0.52,0.55,0.58,0.55,0.59,0.67,0.67,0.68,0.81,0.93,1.05,0.97,1.07,1.11,1.25,1.16,1.09,1.23,1.22,1.24,1.23,1.26,1.19,1.31,1.08,1.20,1.27,1.33,1.23,1.19,1.32,1.30,1.46,1.34,1.44,1.50,1.40,1.32,1.21,1.26,1.32,1.29,1.19,1.16,1.07,1.25,1.04,0.83,0.78,0.62,0.49,0.39,0.16,0.10,0.08,0.07,0.02,0.02,0.03,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.02,0.03,0.02,0.03,0.05,0.08,0.10,0.13,0.21,0.41,0.50,0.53,0.69,0.92,1.08,1.14,1.16,1.34,1.20,1.21,1.26,1.19,1.36,1.59,1.58,1.61,1.85,1.85,1.99,1.85,2.01,1.80,1.91,1.87,1.72,1.82,1.79,1.68,1.66,1.49,1.50,1.44,1.33,1.23,1.19,1.27,1.21,1.10,1.15,1.25,1.31,1.14,2.27,2.09,0.96,0.98,1.04,0.73,0.80,0.68,0.56];
+drawHourlyChart('chart-webv2-hourly', [
+  {name:'WebServiceV2 (SmartCloud)', values: wsv215, color:'var(--accent-cloud)', width:2, area:true}
+], {bucketMinutes:15, fmtAxis:v=>v, fmtTooltip:v=>v.toFixed(2)+' req/s'});
+</script>
+</body>
+</html>

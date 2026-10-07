@@ -15,7 +15,7 @@ He confirmado que la base `GESTION` está online (no en estado SUSPECT/RECOVERY_
 GESTION: 9265.367 MB, 100% usado
 ROM_Log — C:\Smartfran\DATA\GESTION_log.ldf — tamaño 9265.375 MB, max_size ~9.77 GB (1.280.000 páginas), growth 10%
 
-He confirmado que el archivo de log está al 100% de uso y a solo ~92,6% de su propio límite configurado (max_size) — quedaba apenas ~735 MB de margen de autogrowth, por lo que crecer el log no era una solución real. Confirmo también que la instancia corresponde a un equipo on-premise SmartFran POS (`C:\Smartfran\...`), consistente con un esquema local de sucursal.
+He confirmado que el archivo de log está al 100% de uso y a solo ~92,6% de su propio límite configurado (max_size) — quedaba apenas ~735 MB de margen de autogrowth, por lo que crecer el log no era una solución real. He confirmado también que la instancia corresponde a un equipo on-premise SmartFran POS (`C:\Smartfran\...`), consistente con un esquema local de sucursal.
 
 ## 2026-08-15 — Auditoría de historial de backups
 
