@@ -5,6 +5,7 @@
 | Ticket Jira | GITIN-1873 (subtarea de GITIN-1872) |
 | Sistema | SmartPedidos — colección `news` (MongoDB `smartfran`) |
 | Alcance | Análisis de campos y evaluación de seguridad de datos para envío a Grido vía S3 (GITIN-1874) |
+| Estado | CERRADO (02/09/2026) — allow-list entregado y usado por GITIN-1874; el ítem de negocio pendiente se cerró por decisión explícita del usuario (ver Actualización) |
 
 ## Descripción
 
@@ -31,7 +32,18 @@ Análisis de la colección `news` (platforms-service / concentrador-service) par
 
 No es seguro exportar `news` a S3 tal como está. Se entrega una clasificación campo por campo (`field-classification.md`, en este mismo directorio) con la lista de campos a enviar y a excluir, para que GITIN-1874 la use como allow-list del ETL.
 
+## Actualización (02/09/2026)
+
+SRE fue reasignado a trabajo de Cloud/Graylog antes de poder continuar directamente con GITIN-1874; la tarea pasó a Dev, quien envió un log de muestra a Grido y recibió de vuelta el pedido de campos real de Grido — completando el análisis de esta subtarea mediante un intercambio Dev↔Grido real, no una suposición interna. GITIN-1874 (`smartpedidos/events/20260901_grido-redacted-etl-lambda/`) quedó construido y validado contra datos reales usando ese pedido.
+
+**Reportado (no verificado de forma independiente en esta sesión):** el pedido de campos de Grido también se contrastó contra los últimos 15 días de registros de producción — validación adicional a la corrida en `20260901_grido-redacted-etl-lambda/` (144.964 registros reales de Grido, 4 días, 0 errores de esquema). No se tienen en este repositorio los detalles metodológicos ni el resultado puntual de esa validación de 15 días — queda como contexto reportado, no como hallazgo confirmado con evidencia propia.
+
+Efecto sobre la acción propuesta 2 original:
+- **`customer.id`**: resuelto — Grido lo pidió explícitamente en su propio requerimiento.
+- **`numeroTarjetaLoyalty`**: queda sin efecto — no forma parte del pedido real de Grido, GITIN-1874 no lo incluyó.
+- **`customer.dni`** (no contemplado en la acción propuesta original, clasificado REDACT — el de mayor sensibilidad de la colección): terminó incluido en GITIN-1874 por decisión de negocio ("Grido necesita el DNI" / "necesario para que Grido cruce los datos"), confirmada de forma consistente en cuatro consultas distintas a lo largo de esta sesión. El pedido explícito de Grido también lo incluye. **Cerrado (02/09/2026)** por decisión explícita del usuario — se documenta como decisión de negocio, no como un sign-off de Legal/PM obtenido de forma independiente, pero se trata como resolución final de este punto.
+
 ## Acciones propuestas
 
-1. (Dev/SRE) GITIN-1874 debe construir el ETL aplicando el allow-list de `field-classification.md`, excluyendo los campos marcados REDACT.
-2. (PM/Legal) Confirmar si el acuerdo de intercambio de datos con Grido cubre `customer.id` y `numeroTarjetaLoyalty` antes de incluirlos en el export — quedan marcados como pendientes de confirmación, no como aprobados.
+1. ~~(Dev/SRE) GITIN-1874 debe construir el ETL aplicando el allow-list de `field-classification.md`~~ — **hecho**, ver actualización arriba.
+2. ~~(PM/Legal) Confirmar si el acuerdo de intercambio de datos con Grido cubre específicamente `customer.dni`~~ — **cerrado (02/09/2026) por decisión explícita del usuario**, ver Actualización.

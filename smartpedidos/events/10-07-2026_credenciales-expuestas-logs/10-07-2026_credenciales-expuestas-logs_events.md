@@ -4,7 +4,7 @@
 
 **Autor:** Dante Paniagua
 
-Se recibió un log de producción de `platforms-service` (`TOKEN_EXPIRED`) que mostraba el payload completo del JWT decodificado, incluyendo `user.credentials.aws_id` y `user.credentials.aws_secret` en texto plano dentro de `rest.authContext.jwtPayload`.
+He recibido un log de producción de `platforms-service` (`TOKEN_EXPIRED`) que mostraba el payload completo del JWT decodificado, incluyendo `user.credentials.aws_id` y `user.credentials.aws_secret` en texto plano dentro de `rest.authContext.jwtPayload`.
 
 **Origen identificado:** `api/src/app.js:104-133` — el handler global de errores de auth decodifica el JWT (sin verificar firma, vía `jwtDecode`) en cualquier error `TOKEN_EXPIRED`/`TOKEN_INVALID`/etc. y lo incluye completo en el objeto que se pasa a `Log.saveError`, sin ningún filtrado de campos sensibles.
 
@@ -40,7 +40,7 @@ Se recibió un log de producción de `platforms-service` (`TOKEN_EXPIRED`) que m
 
 **Autor:** Dante Paniagua
 
-Se evaluaron las alternativas de diseño para SEC-006 (¿deben los agentes de sucursal recibir credenciales AWS embebidas en su JWT?).
+He evaluado las alternativas de diseño para SEC-006 (¿deben los agentes de sucursal recibir credenciales AWS embebidas en su JWT?).
 
 **Opción A — Mantener credenciales embebidas en el JWT (estado actual):**
 - Pros: los agentes hablan directo con SQS sin proxy por el backend (menor latencia, sin carga extra en concentrador-service); siguen funcionando si la API está degradada; no requiere refactor de `SmartFran Agente`.
@@ -60,9 +60,9 @@ Se evaluaron las alternativas de diseño para SEC-006 (¿deben los agentes de su
 
 **Autor:** Dante Paniagua
 
-**Pregunta respondida:** ¿la misma clave está en todos los entornos? Sí — se confirmó por grep que `AWS_ID`/`AWS_SECRET` son idénticos (mismo valor literal) en `production.js`, `staging.js`, `testing.js`, `development.js` y `performance.js` (dos ocurrencias por archivo). No es un patrón replicado por entorno: es la clave de producción también presente en configs de desarrollo y testing.
+**Pregunta respondida:** ¿la misma clave está en todos los entornos? Sí — he confirmado por grep que `AWS_ID`/`AWS_SECRET` son idénticos (mismo valor literal) en `production.js`, `staging.js`, `testing.js`, `development.js` y `performance.js` (dos ocurrencias por archivo). No es un patrón replicado por entorno: es la clave de producción también presente en configs de desarrollo y testing.
 
-**Se agregó al issue report** una tabla con las 10 ubicaciones exactas (archivo:línea) de todo lo relevado hasta ahora.
+**He agregado al issue report** una tabla con las 10 ubicaciones exactas (archivo:línea) de todo lo relevado hasta ahora.
 
 **Nuevo hallazgo — segundo vector de logging, en concentrador-service esta vez:**
 - `controllers/activeSoftware.js:50,92,131,145,158` — cinco bloques `catch` distintos arman `error = { error: error.toString(), branch: req.token }` y lo pasan a `logger.error({ message, meta: error })`. `req.token` es el JWT de sucursal ya decodificado por el middleware de auth; si incluye `user.credentials` (por el mismo embebido documentado en `branch.js:4677-4678`), cada uno de estos catch loguea la credencial completa. Es independiente del vector de `platforms-service/app.js` — mismo problema de fondo, servicio distinto.
@@ -82,7 +82,7 @@ Se evaluaron las alternativas de diseño para SEC-006 (¿deben los agentes de su
 
 **Autor:** Dante Paniagua
 
-Se evaluó si el axioma SUB-000 ("Credentials in logs") de `/sp-log-improvements` habría detectado los hallazgos de este ticket. Conclusión: no. SUB-000, tal como estaba escrito, sólo buscaba headers crudos pasados a un log call (`Authorization`, `rappi-signature`, `x-api-key`, `cookie`, `headersConfig`, `req.headers`). Ninguno de los 10 puntos de exposición identificados en este ticket coincide con ese patrón — los hallazgos #1 (`app.js:104-133`) y #10 (`activeSoftware.js`) loguean un **payload de token ya decodificado** (`jwtPayload`, `req.token`), no un header crudo. Un ciclo de `/sp-log-improvements` corrido antes de esta sesión sobre cualquiera de los dos servicios no habría marcado ninguno de los dos.
+He evaluado si el axioma SUB-000 ("Credentials in logs") de `/sp-log-improvements` habría detectado los hallazgos de este ticket. Conclusión: no. SUB-000, tal como estaba escrito, sólo buscaba headers crudos pasados a un log call (`Authorization`, `rappi-signature`, `x-api-key`, `cookie`, `headersConfig`, `req.headers`). Ninguno de los 10 puntos de exposición identificados en este ticket coincide con ese patrón — los hallazgos #1 (`app.js:104-133`) y #10 (`activeSoftware.js`) loguean un **payload de token ya decodificado** (`jwtPayload`, `req.token`), no un header crudo. Un ciclo de `/sp-log-improvements` corrido antes de esta sesión sobre cualquiera de los dos servicios no habría marcado ninguno de los dos.
 
 **Fixes aplicados esta sesión (SEC-009):**
 
@@ -100,7 +100,7 @@ Se evaluó si el axioma SUB-000 ("Credentials in logs") de `/sp-log-improvements
 
 **Autor:** Dante Paniagua
 
-Desarrollo indicó que las credenciales filtradas no tienen impacto real sobre la infraestructura. Se verificó directamente vía AWS CLI/IAM Policy Simulator, sin apoyarse en el claim.
+Desarrollo indicó que las credenciales filtradas no tienen impacto real sobre la infraestructura. He verificado directamente vía AWS CLI/IAM Policy Simulator, sin apoyarse en el claim.
 
 **Comandos ejecutados (read-only):**
 - `aws iam list-attached-user-policies --user-name userSQS`
@@ -114,7 +114,7 @@ Desarrollo indicó que las credenciales filtradas no tienen impacto real sobre l
 - Sin políticas inline ni grupos — el alcance depende únicamente de las 3 políticas administradas ya documentadas.
 - Dos access keys en `userSQS`: `AKIAVSB5P2XNU5ONDYOD` (Inactive, 2020-09-29) y `AKIAVSB5P2XNWM46BYM3` (**Active**, 2020-07-29). El valor enmascarado del ticket (`AKIAVSB5***BYM3`) corresponde a la clave Active — la credencial filtrada sigue vigente.
 
-**Conclusión:** el claim de "sin impacto real" queda refutado por evidencia directa de IAM — acceso total (lectura, escritura, purga) a cualquier cola SQS de la cuenta en cualquier región, con la clave filtrada aún activa. Se agregó sección "Verificación de impacto" al ticket principal. No se modificó prioridad ni sub-tareas — SEC-002/SEC-003 (rotación y scoping de la clave) siguen pendientes y ahora tienen respaldo empírico adicional.
+**Conclusión:** el claim de "sin impacto real" queda refutado por evidencia directa de IAM — acceso total (lectura, escritura, purga) a cualquier cola SQS de la cuenta en cualquier región, con la clave filtrada aún activa. He agregado sección "Verificación de impacto" al ticket principal. No he modificado prioridad ni sub-tareas — SEC-002/SEC-003 (rotación y scoping de la clave) siguen pendientes y ahora tienen respaldo empírico adicional.
 
 ---
 
@@ -122,7 +122,7 @@ Desarrollo indicó que las credenciales filtradas no tienen impacto real sobre l
 
 **Autor:** Dante Paniagua
 
-Se verificó, vía `git blame` sobre los clones locales de ambos servicios, si el vector de `platforms-service` (`app.js:104-133`) y el de `concentrador-service` (`activeSoftware.js`, cinco bloques catch) fueron introducidos en el mismo cambio.
+He verificado, vía `git blame` sobre los clones locales de ambos servicios, si el vector de `platforms-service` (`app.js:104-133`) y el de `concentrador-service` (`activeSoftware.js`, cinco bloques catch) fueron introducidos en el mismo cambio.
 
 **Resultado:** no. Son dos commits completamente independientes, separados por años:
 
@@ -137,6 +137,6 @@ Se verificó, vía `git blame` sobre los clones locales de ambos servicios, si e
 
 **Autor:** Dante Paniagua
 
-Se redactó y guardó el email de confirmación de impacto dirigido a desarrollo y PMs, en respuesta al claim de "sin impacto real" sobre la credencial filtrada. Contenido: origen de los dos vectores de logging (platforms-service y concentrador-service), antigüedad y último uso confirmado de la clave, alcance de permisos (SQS, S3, CloudWatch Logs) y motivo por el cual no se detectó de forma automática antes de esta investigación.
+He redactado y guardado el email de confirmación de impacto dirigido a desarrollo y PMs, en respuesta al claim de "sin impacto real" sobre la credencial filtrada. Contenido: origen de los dos vectores de logging (platforms-service y concentrador-service), antigüedad y último uso confirmado de la clave, alcance de permisos (SQS, S3, CloudWatch Logs) y motivo por el cual no se detectó de forma automática antes de esta investigación.
 
 **Archivo:** `10-07-2026_credenciales-expuestas-logs_email-devs-pms.md`

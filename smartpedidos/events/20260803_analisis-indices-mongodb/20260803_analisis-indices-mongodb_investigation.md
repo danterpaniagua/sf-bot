@@ -1,5 +1,7 @@
 # Investigation — 20260803_analisis-indices-mongodb
 
+**Resumed as [GITIN-2006](https://smartit-ar.atlassian.net/browse/GITIN-2006)** on 2026-09-08 — see `smartpedidos/events/20260908_gitin2006-mongo-index-review/`. All fresh data, decisions, and the PM/Ops status reports live there; this file stays as the frozen baseline it already was.
+
 **Status:** paused for the full cluster-wide re-pull (target resume window ~2026-08-10 to 2026-08-17, to give Advisor's usage window fully clear of the M30→M20 cutover) — but a fresh Suggested Indexes pull came in 2026-08-04, confirmed by user to already reflect **M20** (not a mixed/transitional window), and is logged below as real M20 data, though still only ~1 day in.
 
 **Why paused:** all data gathered so far (Unused Indexes, Suggested Indexes, size inventory) was captured while the cluster was still on M30, before the M20 downsize decided in `20260803_mongodb-downsize-m20` ([GITIN-1741](https://smartit-ar.atlassian.net/browse/GITIN-1741)) is rolled out and stabilized. Re-analyzing after 1-2 weeks on M20 gives: (1) Advisor's 7-day "unused" window fully inside the new tier rather than spanning the M30→M20 cutover, (2) a chance to see whether the smaller cache changes which indexes actually get exercised under real M20 query patterns, and (3) time for the M20 ticket's own post-downsize monitoring window to run its course first — no point acting on an index list that might need re-deriving anyway.

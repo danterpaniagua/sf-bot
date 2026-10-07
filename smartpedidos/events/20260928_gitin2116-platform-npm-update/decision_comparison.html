@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GITIN-2116 axios y mongoose</title>
+<style>
+:root{--bg:#f7f7f5;--fg:#1c1c1a;--mut:#5f5f5a;--card:#fff;--bd:#dcdcd6;--so:#d97706;--npm:#7c5cbf;--axios:#b3261e;--app:#2456a6;--ok:#2f7d4f;--unk:#6b7280;--code:#efefea}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#151514;--fg:#ecece8;--mut:#a3a39c;--card:#1e1e1c;--bd:#3a3a36;--so:#f0a84a;--npm:#a68be0;--axios:#f0736b;--app:#7aa7f0;--ok:#5fbf86;--unk:#9ca3af;--code:#2a2a27}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:24px 16px 56px}
+h1{font-size:1.4rem;margin:0 0 4px}h2{font-size:1.1rem;margin:30px 0 10px}
+.sub{color:var(--mut);margin:0 0 6px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin:12px 0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:620px}
+th,td{border:1px solid var(--bd);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--card)}td.num{text-align:right;font-variant-numeric:tabular-nums}
+.ok{color:var(--ok);font-weight:600}.unk{color:var(--unk);font-style:italic}
+code,pre{background:var(--code);border-radius:5px;font-size:.85rem}
+code{padding:1px 5px}pre{padding:10px 12px;overflow-x:auto;margin:8px 0}
+.bar{display:flex;height:28px;border-radius:5px;overflow:hidden;background:var(--bd);margin:6px 0 2px}
+.bar span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:.78rem;font-weight:600;min-width:0;overflow:hidden}
+.so{background:var(--so)}.npm{background:var(--npm)}.axios{background:var(--axios)}.app{background:var(--app)}
+.leg{color:var(--mut);font-size:.85rem}.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:6px 0 10px;font-size:.85rem}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.note{border-left:3px solid var(--so);padding:6px 12px;background:var(--card);margin:12px 0}
+ul{padding-left:20px}li{margin:4px 0}
+</style>
+</head>
+<body>
+<main>
+<h1>GITIN-2116 — axios y mongoose</h1>
+<p class="sub">Platform · comparación de la imagen actual contra dos opciones de Node · Trivy, hallazgos HIGH y CRITICAL (capa del sistema operativo y paquetes Node) · 2026-09-30</p>
+
+<div class="card">
+<strong>Resumen</strong>
+<ul>
+ <li><strong>De 51 a 6 hallazgos</strong> en ambas opciones (HIGH y CRITICAL, sistema operativo y paquetes Node), medidos con el mismo método. El sistema operativo queda en 0.</li>
+ <li><code>axios</code>: 22 hallazgos → 0 (1.13.6 y la copia transitiva 0.26.1 pasan a una sola copia, 1.20.0). <code>mongoose</code>: se queda en 7.8.12, 0 CVEs.</li>
+ <li><strong>Opción 1 (Node 20.20)</strong> mantiene el runtime; <strong>Opción 2 (Node 22.20)</strong> no cambia ningún CVE, cambia la línea de Alpine (3.23 → 3.22, con una imagen base de 2025-09-24) y exige verificaciones adicionales por el salto de Node 20 a 22.</li>
+ <li>Quedan 6 hallazgos HIGH que no dependen de Node: <code>express-jwt</code>, <code>jsonwebtoken</code>, <code>lodash.set</code>, <code>brace-expansion</code> ×2 y <code>undici</code>.</li>
+</ul>
+</div>
+
+<h2>1. Alcance</h2>
+<div class="card scroll"><table>
+<tr><th>Paquete</th><th>Actual (develop)</th><th>Con el cambio</th><th>CVEs</th></tr>
+<tr><td><code>axios</code></td><td><code>~1.13.5</code> → 1.13.6, más una copia transitiva 0.26.1</td><td><code>~1.20.0</code> → 1.20.0, una sola copia (el <code>overrides</code> la unifica)</td><td>22 hallazgos en Trivy → <span class="ok">0</span></td></tr>
+<tr><td><code>mongoose</code></td><td><code>~7.8.7</code> → 7.8.12</td><td>sin cambio (decisión: se queda en 7.8)</td><td><span class="ok">0 → 0</span></td></tr>
+</table></div>
+
+<h2>2. Cambios en el Dockerfile (iguales en ambas opciones)</h2>
+<div class="card">
+<pre>RUN npm install -g npm@11.20.0
+RUN apk upgrade --no-cache &amp;&amp; apk add --no-cache ca-certificates</pre>
+<div class="leg">Capas separadas: npm por un lado, <code>apk</code> por otro. Además, <code>package.json</code> con <code>axios ~1.20.0</code> y un bloque <code>overrides</code>: <code>"axios": "$axios"</code> (hace que la copia transitiva dentro de <code>@sendgrid/client</code> use la misma versión que la directa) y <code>"tar": "latest"</code> (sin <code>tar</code> en el árbol de la aplicación según la captura del lockfile del 28-sep, por lo que hoy no tiene efecto observado). <code>develop</code> de Platform no tiene <code>overrides</code>; <code>develop</code> de Concentrador sí tiene ambos.</div>
+</div>
+
+<h2>3. Actual contra las dos opciones</h2>
+<div class="card scroll"><table>
+<tr><th></th><th>ACTUAL (develop)<br><code>node:20.20-alpine</code> sin cambios</th><th>OPCIÓN 1<br><code>node:20.20-alpine</code> + cambios</th><th>OPCIÓN 2<br><code>node:22.20-alpine</code> + cambios</th></tr>
+<tr><td>npm</td><td>10.8.2 (el de la imagen)</td><td>11.20.0 (fijado)</td><td>11.20.0 (fijado)</td></tr>
+<tr><td><code>apk upgrade</code></td><td>no</td><td>sí</td><td>sí</td></tr>
+<tr><td>axios</td><td>1.13.6 + 0.26.1</td><td>1.20.0</td><td>1.20.0</td></tr>
+<tr><td>mongoose</td><td>7.8.12</td><td>7.8.12</td><td>7.8.12</td></tr>
+<tr><td>Alpine de la imagen base</td><td>3.23.4</td><td>3.23.4 (descarga nueva)</td><td>3.22.2 (descarga nueva; imagen creada el 2025-09-24)</td></tr>
+<tr><td>Alpine tras <code>apk upgrade</code></td><td>no aplica</td><td>3.23.6</td><td>3.22.6</td></tr>
+<tr><td>Hallazgos SO</td><td class="num">4</td><td class="num ok">0</td><td class="num ok">0</td></tr>
+<tr><td>Hallazgos npm de la imagen</td><td class="num">22 (1 CRITICAL)</td><td class="num">3</td><td class="num">3</td></tr>
+<tr><td>Hallazgos axios</td><td class="num">22 (12 + 10)</td><td class="num ok">0</td><td class="num ok">0</td></tr>
+<tr><td>Otros paquetes</td><td class="num">3</td><td class="num">3</td><td class="num">3</td></tr>
+<tr><td><strong>TOTAL (medido)</strong></td><td class="num"><strong>51</strong></td><td class="num"><strong>6</strong></td><td class="num"><strong>6</strong></td></tr>
+</table></div>
+
+<div class="legend">
+ <span><i class="so"></i>SO (Alpine)</span><span><i class="npm"></i>npm de la imagen</span><span><i class="axios"></i>axios</span><span><i class="app"></i>otros paquetes</span>
+</div>
+<div class="grid">
+ <div class="card"><strong>Actual</strong> · 51
+  <div class="bar"><span class="so" style="width:7.8%">4</span><span class="npm" style="width:43.1%">22</span><span class="axios" style="width:43.1%">22</span><span class="app" style="width:5.9%">3</span></div>
+  <div class="leg">1 CRITICAL (<code>tar</code>) + 50 HIGH</div></div>
+ <div class="card"><strong>Opción 1 · Node 20.20</strong> · 6
+  <div class="bar"><span class="npm" style="width:5.9%">3</span><span class="app" style="width:5.9%">3</span></div>
+  <div class="leg">barras al mismo ancho relativo (total = 51)</div></div>
+ <div class="card"><strong>Opción 2 · Node 22.20</strong> · 6
+  <div class="bar"><span class="npm" style="width:5.9%">3</span><span class="app" style="width:5.9%">3</span></div>
+  <div class="leg">barras al mismo ancho relativo (total = 51)</div></div>
+</div>
+
+<h3>Referencia: la misma aplicación sobre Node 22.20, sin los cambios</h3>
+<div class="card scroll"><table>
+<tr><th></th><th>Imagen base cruda <code>node:22.20-alpine</code></th><th>Aplicación de develop sobre Node 22.20, sin cambios</th><th>Opción 2 (con cambios)</th></tr>
+<tr><td>Alpine · npm</td><td>3.22.2 · 10.9.3</td><td>3.22.2 · 10.9.3</td><td>3.22.6 · 11.20.0</td></tr>
+<tr><td>Hallazgos SO</td><td class="num">21 (2 CRITICAL)</td><td class="num">21 (2 CRITICAL)</td><td class="num ok">0</td></tr>
+<tr><td>Hallazgos npm de la imagen</td><td class="num">41 (3 CRITICAL)</td><td class="num">41 (3 CRITICAL)</td><td class="num">3</td></tr>
+<tr><td>Hallazgos axios</td><td class="num">—</td><td class="num">22</td><td class="num ok">0</td></tr>
+<tr><td>Otros paquetes</td><td class="num">—</td><td class="num">3</td><td class="num">3</td></tr>
+<tr><td><strong>TOTAL (medido)</strong></td><td class="num"><strong>62</strong></td><td class="num"><strong>87</strong></td><td class="num"><strong>6</strong></td></tr>
+</table></div>
+<div class="leg">La imagen <code>node:22.20-alpine</code> se creó el 2025-09-24 y no se reconstruyó desde entonces: por eso trae más hallazgos que la de Node 20.20 (reconstruida el 2026-04-15): 21 de SO contra 4, y un npm más viejo con dos copias de <code>tar</code>. Descarga nueva medida el 2026-09-30.</div>
+
+<div class="note"><strong>Qué cambia entre la Opción 1 y la 2:</strong>
+ <ul>
+  <li><strong>CVEs:</strong> ninguno. Con los mismos cambios, ambas quedan en 6 hallazgos y 0 en el sistema operativo.</li>
+  <li><strong>Versión de Alpine:</strong> sí cambia. Node 20.20 corre sobre Alpine 3.23 (3.23.4, 3.23.6 tras <code>apk upgrade</code>) y Node 22.20 sobre Alpine 3.22 (3.22.2, 3.22.6 tras <code>apk upgrade</code>). La línea 3.22 es la más antigua de las dos.</li>
+  <li><strong>Riesgo y verificación:</strong> la Opción 2 es un salto de versión mayor de Node (20 → 22) y exige más verificaciones que la Opción 1 (ver sección 5). La Opción 1 cambia versiones de npm, de paquetes del sistema y de axios, pero mantiene el runtime.</li>
+  <li><strong>AWS SDK:</strong> la Opción 2 cumple el requisito de Node 22 o superior a partir de enero de 2027; ese plazo no es un CVE.</li>
+ </ul></div>
+
+<h2>4. Lo que queda abierto (igual en ambas)</h2>
+<div class="card"><ul>
+ <li><code>express-jwt@5.3.3</code> (corregido en 6.0.0 o posterior), <code>jsonwebtoken@8.5.1</code> (en 9.0.0 o posterior) y <code>lodash.set@4.3.2</code> (sin versión corregida).</li>
+ <li><code>brace-expansion@5.0.9</code> (×2) y <code>undici@6.28.0</code>, dentro del propio npm 11.20.0.</li>
+</ul></div>
+
+<h2>5. Verificaciones adicionales de la Opción 2 (Node 20 → 22)</h2>
+<div class="card"><ul>
+ <li>Que el controlador de MongoDB que trae <code>mongoose</code> 7.8 (<code>mongodb 5.9.2</code>) y la conexión a Atlas funcionen en Node 22: no se probó.</li>
+ <li>Compatibilidad en Node 22 de las dependencias directas con versiones antiguas, por ejemplo <code>nodemon ^1.18.4</code>, <code>node-cron ^2.0.3</code>, <code>winston 3.2.1</code> y <code>@babel/node</code>: no se revisó.</li>
+ <li>Cambios de comportamiento del runtime que podrían afectar a la aplicación (TLS y certificados con <code>NODE_EXTRA_CA_CERTS</code>, <code>fetch</code> nativo, advertencias de APIs en desuso): no se evaluaron.</li>
+ <li>Pruebas funcionales completas en staging (webhooks de las plataformas, SQS, login de UberEats, cierre/apertura de sucursales) con la imagen en Node 22.</li>
+ <li>Que la línea Alpine 3.22 siga recibiendo las correcciones de seguridad que se necesitan, y si existen versiones menores más nuevas de Node 22 con una imagen base reconstruida (la etiqueta <code>22.20-alpine</code> es de 2025-09-24).</li>
+</ul>
+<div class="leg">Esta lista son puntos por verificar, no problemas encontrados. Para la Opción 1 (mismo Node 20) no se agregan verificaciones de runtime, solo las pruebas funcionales de axios de la sección 6.</div></div>
+
+<h2>6. Sin verificar</h2>
+<div class="card"><ul>
+ <li>Pruebas funcionales de axios: login OAuth de UberEats en Platform y el interceptor de <code>httpClient</code> en Concentrador (GITIN-2117).</li>
+ <li>Si una versión de npm posterior a 11.20.0 corrige <code>brace-expansion</code> y <code>undici</code>.</li>
+ <li>Qué copia de la imagen base usa Jenkins al construir (la etiqueta <code>20.20-alpine</code> cambia con el tiempo).</li>
+ <li><strong>SendGrid en develop:</strong> ambos servicios declaran <code>@sendgrid/mail ^7.7.0</code> (instalado: 7.7.0 en Platform). Concentrador ya tiene en <code>develop</code> un <code>overrides</code> que fuerza axios 1.13.x en su cliente SendGrid; Platform no (conserva la copia 0.26.1). Si el override de Concentrador ya está desplegado, los logs de fallos de envío desde entonces serían evidencia de compatibilidad; no se revisaron.</li>
+ <li><strong>SendGrid:</strong> la copia <code>axios@0.26.1</code> viene de <code>@sendgrid/mail@7.7.0</code> → <code>@sendgrid/client@7.7.0</code>, que declara <code>axios ^0.26.0</code>. El <code>overrides</code> hace que ese cliente use axios 1.20.0 (un salto de versión mayor para el que no fue escrito); su compatibilidad no se probó. SendGrid se usa en Platform (<code>aws.js</code>) y en Concentrador (recuperación de contraseña y otros). Falta probar el envío de un correo en ambos servicios.</li>
+ <li>Alternativa no evaluada: actualizar <code>@sendgrid/mail</code> a la 8.x (última: 8.1.6) en lugar de forzar axios con <code>overrides</code>. No se verificó qué rango de axios declara su cliente.</li>
+</ul></div>
+
+<p class="leg">Método común de todas las columnas: imagen base descargada de nuevo, construcción con <code>--no-cache</code> y Trivy con <code>--scanners vuln --pkg-types os,library --severity HIGH,CRITICAL</code>. Actual = <code>origin/develop</code> (commit <code>ded57a5</code>); Opción 1 y Opción 2 = rama <code>ope</code> (commit <code>b8d57be</code>) con las dos capas del Dockerfile y solo el <code>FROM</code> distinto. Verificado en la Opción 1: <code>ca-certificates</code> instalado, bundle presente y <code>NODE_EXTRA_CA_CERTS</code> definido. La base de datos de vulnerabilidades de Trivy se actualizó durante las mediciones, por lo que los totales pueden variar levemente con el tiempo. Fuentes en <code>data/</code>: <code>develop_current_summary_20260930.txt</code>, <code>n20_opt1_summary_20260930.txt</code>, <code>n22_summary_20260930.txt</code>, <code>trivy_vuln_ladder_*_20260930.json</code>.</p>
+</main>
+</body>
+</html>
