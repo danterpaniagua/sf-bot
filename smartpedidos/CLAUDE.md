@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working in this
 
 ## Project
 
-Reference and SRE tooling for **SmartPedidos** (franchise food delivery order management) — the `platforms-service` and `concentrador-service` Node.js/Express services. Skills here mostly work from documented architecture knowledge and MongoDB/AWS queries that the user runs and pastes back, but `repos/` (below) now holds local read-only clones for source-level lookups.
+Reference and SRE tooling for **SmartPedidos** (franchise food delivery order management) — the `platforms-service` and `concentrador-service` Node.js/Express services. Skills here mostly work from documented architecture knowledge and MongoDB/AWS queries that the user runs and pastes back, but `repo/` (below) now holds local read-only clones for source-level lookups.
 
 > For deep, actively-maintained source-level work (log-improvements against real diffs, SRP refactor, static analysis on the primary working copy), use the separate `smartfran/sp-logs` project — it has its own working clone and its own `sp-logs-*` skill set. Do not assume that project's paths or skills apply here.
 
-### `repos/` — local read-only source clones (confirmed present 2026-07-22)
+### `repo/` — local read-only source clones (confirmed present 2026-09-01; earlier "confirmed 2026-07-22" note used the wrong directory name, `repos/` — fixed)
 
-- `repos/dev-src-smartPedidos-concentradorService/` (own `.git`)
-- `repos/dev-scr-smartPedidos-platformsService/` (own `.git`)
+- `repo/dev-src-smartPedidos-concentradorService/` (own `.git`)
+- `repo/dev-scr-smartPedidos-platformsService/` (own `.git`)
 
 Same pattern as `loyalty/repo/` and `cloud/repo/` — `.gitignore`d, read-only lookups only (root-cause/architecture checks, e.g. tracing where a JWT is issued or a middleware bug lives), never a deploy target and never edited from a smartpedidos/ session. `smartfran/sp-logs` remains the place for actual source changes.
 
@@ -20,7 +20,7 @@ Same pattern as `loyalty/repo/` and `cloud/repo/` — `.gitignore`d, read-only l
 ## Directory Layout
 
 - `docs/` — reference documents (architecture, infrastructure). Write analysis/report files here, never to the project root.
-- `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
+- `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/` (or `YYYYMMDD_gitinXXXX-description/` — see root `CLAUDE.md` → "Investigation Files" for the folder naming convention).
 - `repos/` — local read-only clones of `concentrador-service` and `platforms-service` for source lookups. See "Project" section above.
 
 ## SmartPedidos Architecture
@@ -49,11 +49,14 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 | `sp-static-analysis` | `/sp-static-analysis` | Static analysis for HIGH-confidence critical defects and security vulnerabilities |
 | `sp-tech-debt` | `/sp-tech-debt` | Record a technical debt item to `docs/tech-debt.md` and create an expanded explanation file |
 | `sp-sre-output` | `/sp-sre-output` | Produce formatted Jira tickets, closure reports, and emails for SmartPedidos incidents |
+| `sp-npm-compliance` | `/sp-npm-compliance` | Audit npm dependencies (backOffice, platformsService, concentradorService) against version/health/documentation/size/license/last-version axioms; produces a per-package report table |
 | `ops-aws` | `/ops-aws` | AWS operational triage (SQS, ECS/Fargate, ALB) — stuck orders, dead consumers, DLQ accumulation, high CPU / ECS tasks killed by health checks, for platforms-service and concentrador-service |
 
 ## MongoDB Analysis Workflow
 
 **Never ask the user for credentials or connection strings.** Write ready-to-paste `mongosh` queries and hand them to the user to run against `PedidosSmartfran` (`us-east-1`), database `smartfran`. The user pastes back the output for analysis.
+
+**Scripts meant to run non-interactively** (`mongosh <conn> script.js`, or `load(...)` inside a session) **must explicitly print their result** — `.forEach(doc => printjson(doc))` or equivalent. Unlike the interactive REPL, non-interactive execution does not auto-print a top-level expression's return value; a query without explicit printing produces silent empty output that's easy to mistake for zero matches or a connection failure.
 
 Standard queries before a log-improvements cycle:
 

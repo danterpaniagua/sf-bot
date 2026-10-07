@@ -13,3 +13,22 @@
 **.tbl
 **.table
 **.cer
+**.svclog
+**.txt
+**.jsonl
+**.zip
+
+# cloud-appservice-perf-report skill: default output dirs for the perf report
+# tool — the HTML embeds the full raw dataset inline (Altair/Vega-Lite default),
+# same "local-only, never in git history" reasoning as the raw exports above.
+cloud/scripts/data/
+cloud/report/
+
+__pycache__/
+*.pyc
+# PII: emails de usuarios Auth0 (GITIN-2184)
+**/events/**/data/*-users-emails.jsonl
+
+# Entornos virtuales de Python dentro de events/
+**/venv/
+**/.venv/

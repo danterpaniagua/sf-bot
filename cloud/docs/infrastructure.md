@@ -1,6 +1,6 @@
 # SmartFran Cloud — Infrastructure Reference
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-08-25 (GITIN-1937 — corrected the stale "`AppServiceHTTPLogs` confirmed working for DEV" claim in the Logging section; see the note there)
 **Subscription:** SmartIT Cloud (`85c76dea-3304-4310-8656-bf21b28e4f4b`) — production/shared services, everything in this doc unless noted otherwise.
 
 **Non-prod environments exist in a different subscription** — discovered 2026-08-10 in the separate `cloud-graylog` project (ticket GITIN-1794, log-ingestion onboarding, not app diagnostics): RG `SmartFran.Cloud` (no suffix) under subscription **Smart IT - Grido** (`0190fa7d-4ccf-4e3d-beb1-323b5780bfc8` — same subscription used for SmartLoyalty prod VMs/NSGs, see `docs/azure_nsg.md` note below) holds 33 App Services across DEV, DEV2, STG, TEST, and POC tiers for the same 8 domains listed below. Out of scope for this project; full inventory documented in `cloud-graylog/CLAUDE.md` → "App Services — DEV" (separate repo, not part of this monorepo).
@@ -34,7 +34,7 @@ SmartFran Cloud hosts **multiple franchises on the same shared App Services** �
 | `SmartFran-Cloud-Person-PRO` | `SmartFran-Cloud-Person-Plan-PRO` | `SmartFran-Cloud-Person-PRO_new` |
 | `SmartFran-Cloud-Catalog-PRO` | `SmartFran-Cloud-Catalog-Plan-PRO` | `SmartFran-Cloud-Catalog-PRO_new` |
 
-**Function Apps:** `SmartFranCloudBusinessFunPro` (+ `-stg` slot), `SmartFranCloudTicketProcessAsync-pro`, `SmartFranCloudFunctionsScheduledJobs-pro`.
+**Function Apps (corrected 2026-09-15, GITIN-2042 — previous names below were stale):** 4 Linux Function Apps, all sharing one App Service Plan (`P0v3`, 1 instance, RG `SmartFran.Cloud.PRO`, subscription SmartIT Cloud `85c76dea-3304-4310-8656-bf21b28e4f4b`) — `SFC-CodeGenerator-PRO`, `SFC-PosWasmRelay-PRO` (log relay sink for `smartfran-pos-wasm`, confirmed live in `cloud/events/20260913_pos-net-http-timeout/`), `SFC-ScheduledJobs-PRO`, `SFC-TicketProcess-PRO`. Likely maps to the `SFC.CodeGeneratorFunction`/`SFC.BusinessLog` HttpClient names below, not independently confirmed which Function App backs which client. Previously documented as `SmartFranCloudBusinessFunPro` (+ `-stg`), `SmartFranCloudTicketProcessAsync-pro`, `SmartFranCloudFunctionsScheduledJobs-pro` — different naming convention entirely, source/date of that version unknown, corrected from a live Azure Portal listing.
 
 **App Insights naming convention:** components suffixed `_new` are the active ones each app service actually sends telemetry to. Non-suffixed duplicates (e.g. `SmartFran-Cloud-Business-PRO_Insights`) are legacy — confirm which one is wired up before trusting query results.
 
@@ -86,6 +86,12 @@ Each franchise has its **own dedicated CosmosDB account** (named by tenantId), s
 ### Identity Provider
 
 **Auth0**, not Azure AD DS — confirmed via `Auth0:Domain` / `Auth0UserManagement` config. Multi-tenancy at the auth layer uses **Auth0 Organizations**, each mapped 1:1 to a `tenantId` via the `organizations` App Configuration entry above. Do not confuse with the `smartit.azure` AADDS domain used by SmartLoyalty — they are unrelated identity systems.
+
+**Authorization on `Platform.API` `TenantController` (GSFC-1005, in PRO release `v02.46.00`, `d969856fa`, 2026-09-30 — GITIN-2134):** the class-level `[Authorize]` (commented out since the origin so login could reach `/Organization/*` without a token) was re-enabled; `GET /api/Tenant/{identifier}` now requires `[RequiredScope("read:tenant")]`, the write endpoints `write:tenant`; the `Organization/*` endpoints stay `[AllowAnonymous]`; the `dashboards` PUT needs `write:tenant` + role `Owner`. A caller with a valid token lacking the scope gets a 403 (general ASP.NET behaviour, not observed in this system). The POS Blazor WASM client requests scopes from `Source/Pos/.../SmartFran.Cloud.Pos.Wasm/wwwroot/SmartFran.Cloud.Pos.Wasm_{DEV,STG,TEST}.json` (all include `read:tenant`); **there is no `_PRO` file in the repo**, so the PRO client's requested scopes are not visible from source.
+
+**Auth0 PRO tenant `smartfran-cloud.us.auth0.com` (read via Management API, 2026-09-30, GITIN-2134):** API `SmartFran.Cloud.API_PROD`, identifier/audience **`smartfran-cloud-prod`** (RS256, RBAC on, permissions in `access_token`, offline access on, token lifetime 86400 s / 7200 s web), 139 permissions incl. `read:tenant` and `write:tenant`. Applications: SPAs `SFC PoS`, `SFC Manager`; machine-to-machine `Business.API_PROD`, `Sales.API_PROD`, `API_PROD (Test Application)`, `Functions.Scheduler`, `SmartPedidos`, `BOT Wise CX`, `SmartFran.Loyalty.WebServiceCG`, `Auth0 Management`, `READ_API`. Organizations (4): `grido` (`org_z72xsKwcFsVLHF3c`), `jacinto`, `ultracai`, `weiss`. Roles (8, direct members): Collaborator 146, Franchisee 72, Franchisor 1, FranchisorExecutive 2, FranchiseeExecutive 0, Kitchen 2, Owner 36, Wholesale 2 — all hold `read:tenant`; only Owner holds `write:tenant`. The code's `RequiredScope` values include 7 permissions the PRO API lacks (`delete:accountcategory`, `delete:chartofaccountsassignment`, `delete:chartofaccountsconcept`, `delete:chartofaccountsgroup`, `delete:moneywarehouse`, `write:franchisororderrequests`, `write:franchisororderresponses`). The `AUTH0_*_PROD` Management API credentials used for this read had scopes `read:client_grants/clients/resource_servers/roles/role_members/organizations/organization_members` (no organization-member roles, no logs).
+
+**Auth0 dev tenant `dev-wzt4q1xqoe7cwz0f.us.auth0.com` (LOCAL/DEV/TEST/STG/DEMO/DEV2 environments; read via Management API, 2026-09-30, GITIN-2134):** APIs `SmartFran.Cloud.Catalog.API_{LOCAL,DEV,TEST,STG,DEMO,DEV2}` (RBAC on, permissions in the access token; `read:tenant`/`write:tenant` exist on LOCAL/DEV/TEST/STG), applications per environment (`POS_*`, `Client.Web_*`, `Platform.API_*`, `Business.API_*`, `Sales.API_*`, …), 15 roles (Collaborator, Delegated Admin ×4, Franchisee, FranchiseeExecutive, FRANCHISEE TEST, Franchisor, FranchisorExecutive, Kiri, Kitchen, Owner, Test, Wholesale). **This tenant has no PRO API/application — PRO is the separate `smartfran-cloud` tenant above** (its Platform API checked-in `appsettings.json` still points at this dev tenant's domain). `GET /api/v2/roles/{id}/permissions` is capped at 100 per page: use `page=` (5 roles hit exactly 100 on the first page, 2026-09-30). The POS SPA receives its scopes at user login (client's requested `Scopes` ∩ the user's role permissions); client grants apply to machine-to-machine apps only.
 
 ### Per-franchise persistent data
 
@@ -143,7 +149,9 @@ All three fixed and confirmed — real CLEF JSON is now visible live via Kudu Lo
 
 **"Works on my machine" is not evidence against any of this** — running via Visual Studio (F5/IIS Express/Kestrel debug profile) attaches directly to the process and captures `Console.Out` live; it never goes through IIS/ANCM's stdout redirection at all.
 
-Confirmed for `Sales-DEV` specifically. `Pos-DEV` shares the same CI/CD build pattern (`windows-latest` runner, `dotnet publish`, no `web.config` override) and is almost certainly affected the same way, unconfirmed. Both were onboarded to Graylog in GITIN-1794 (Event Hub/Diagnostic Settings confirmed working there for `AppServiceHTTPLogs`, which is platform-generated and unaffected by any of this). **`Sales-PRO`/`Pos-PRO` status is entirely separate and unverified** — same platform limitation would apply if checked (both are also Windows/.NET), but nothing has actually confirmed it there.
+Confirmed for `Sales-DEV` specifically. `Pos-DEV` shares the same CI/CD build pattern (`windows-latest` runner, `dotnet publish`, no `web.config` override) and is almost certainly affected the same way, unconfirmed. Both were onboarded to Graylog in GITIN-1794 (Event Hub/Diagnostic Settings originally enabled there for `AppServiceHTTPLogs`, which is platform-generated and unaffected by any of this). **`Sales-PRO`/`Pos-PRO` status is entirely separate and unverified** — same platform limitation would apply if checked (both are also Windows/.NET), but nothing has actually confirmed it there.
+
+**Correction (2026-08-25, GITIN-1937):** the "`AppServiceHTTPLogs` confirmed working for DEV" claim above went stale between GITIN-1794 and now — GITIN-1882 (verbosity reduction) turned `AppServiceHTTPLogs`/`AppServiceAppLogs` back off for all 8 DEV apps (Sales/Pos included), leaving only `AppServiceConsoleLogs` configured. GITIN-1937 re-enabled both categories for all 8 PRO **and** all 8 DEV App Services (16 Diagnostic Settings total). Post-`apply` delivery to Graylog was confirmed for `AppServiceHTTPLogs` on `Business-PRO` (Linux) specifically — not independently re-verified per-app or for `AppServiceAppLogs` on the Windows apps (`Sales`/`Pos`), so the "unconfirmed... unsupported for ASP.NET Core" caveat on `AppServiceAppLogs` two paragraphs above still stands as unconfirmed, not resolved by this ticket. Full detail: `events/20260825_webapps-console-app-http-logs-graylog/`.
 
 Diagnostic command (read-only, Kudu VFS via short-lived AAD token — avoids exposing publishing-credentials passwords) if checking whether ANCM is capturing stdout on another app:
 ```bash
@@ -173,6 +181,8 @@ Sources: [Azure Web app (Windows) console logs not showing in AppServiceConsoleL
 | SendGrid | `sf-cloud-sendgrid` | Email delivery |
 | VNets | `sfc_vnet`, `vnet_smartfrancloud` | eastus |
 | NAT Gateways | `sfc_nat_ngw`, `sfc_nat_fabric`, `sfc_nat_appservice_pro` | Outbound egress per workload tier |
+| WAF | **None** | Confirmed absent (2026-08-25, GITIN-1938) — retail App Services are reached directly via their per-tenant hostname/SNI cert binding (see "Per-franchise hostname pattern" above), no WAF in the path today. |
+| Azure APIM | **None** | Confirmed absent (2026-08-25, GITIN-1938) — no API gateway/governance layer in front of any retail App Service today; requests hit the App Service directly. |
 
 **Sales CosmosDB layout (confirmed 2026-08-03, `20260802_promocion-invalida-weiss-franui`), WEISS:** SQL API databases per tenant follow `<Domain>-<TENANT>` (confirmed: `Sales-WEISS`, `Orders-WEISS`, `Business-WEISS`, `PersonsDB-WEISS`, `Audit-WEISS` — note these Cosmos "Business"/"Orders" databases are separate from the same-named SQL Server databases, don't conflate). `Sales-WEISS` containers: `Sales`, `SaleOrders`, `Shifts`, `Movements`, `MovementCurrentAccount`, `PaymentMethods`, `KdsOrders`, `DeliveryRoutes`, `WalletNotifications`. `Sales` container partition key confirmed via `az cosmosdb sql container show`: `MultiHash` on `[/FranchiseeCode, /FranchiseCode, /PosCode]`. No `az` CLI command exists for ad-hoc SQL API queries against document content — use Data Explorer in the Azure Portal (or the SDK) for that; `az cosmosdb sql *` commands only manage account/database/container *metadata*.
 
@@ -190,11 +200,23 @@ DLQ alert rule baseline: metric `Dead-lettered messages`, threshold `> 0`, aggre
 
 ---
 
+## SmartPedidos Bridge (AWS SQS — not Service Bus)
+
+Confirmed from source 2026-09-17 (GITIN-2068) — previously undocumented anywhere in this repo, easy to wrongly assume it goes through the Service Bus namespace above.
+
+`SmartFran.Cloud.Orders.Application.Services.Aws.MessageProcessor.PollOnceAsync` polls **AWS SQS directly** (AWS SDK, not Azure Service Bus, not a Function App relay) from the Azure-hosted Orders API — a genuine cross-cloud direct integration:
+
+- **Producer side (SmartPedidos):** `concentrador-service` creates one per-branch FIFO SQS queue (`<branchId>PRD_PlatformMessages.fifo`, account `382381053403`, `us-east-1`); `platforms-service` pushes each new order there.
+- **Consumer side (SmartCloud):** `MessageProcessor` polls that same queue directly from Orders-PRO, routes to `ProcessGridoOrderAsync`/`ProcessNonGridoOrderAsync` based on `OrderSQSVersionSettings.GetVersion(tenantId)` (live App Configuration key `OrderSQSVersion`, defaults to Grido's `v1` mapping for any unregistered tenant), persists to Cosmos, and acks back to SmartPedidos via a second SQS queue.
+- **Failure handling:** an unhandled exception in either processing path leaves the SQS message undeleted — retried indefinitely until the queue's `MessageRetentionPeriod` (3 days) expires, silently, without ever reaching the DLQ (`maxReceiveCount: 1000` is rarely reached within 3 days) and without SmartPedidos ever being told. Root cause of GITIN-2068 (a `TimeZoneCountries.cs` Windows-timezone-ID bug for any country outside its 4-entry dictionary) lived exactly here.
+- A **separate, pull-based path** also exists (`/api/v1/Queue/Heartbeat` → SmartPedidos' own `/branches/heartbeat`) — its relationship/precedence to this SQS path was not fully resolved during GITIN-2068; flagged as an open question below.
+
 ## Open Questions
 
 - Whether the Service Bus namespace (`...-Grido-PRO`) is Grido-specific or shared across all franchises despite the name — worth checking before assuming other tenants use the same namespace.
 - Full list of current `organizations` entries (all onboarded tenants' `name`/`orgId`/`tenantId`) — not pulled from a live App Configuration read; only GRIDO and WEISS tenant IDs are confirmed (from source, not from a runtime query).
 - `Security` service (`Source/Services/Security/`) exists in the codebase but has no corresponding App Service confirmed in the Azure inventory yet — check whether it's embedded in another service or genuinely unmapped.
+- Relationship/precedence between the AWS SQS bridge and the `/api/v1/Queue/Heartbeat` pull path (both described above, "SmartPedidos Bridge") — which one is actually authoritative for order delivery to POS terminals in production, or whether both are load-bearing for different purposes. Not resolved during GITIN-2068.
 
 ---
 

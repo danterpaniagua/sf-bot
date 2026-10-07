@@ -104,6 +104,8 @@ IP purpose labels below (Claro/Fibertel/APIM Grido/etc.) come from `~/Documentos
 
 Not actioned as part of `GITIN-1909` (unrelated to that ticket's root cause). Before treating this as a real cleanup item, confirm with whoever owns NSG hygiene on `sfcgnetsec01` whether the 3-IP "clean" lists are still the intended target — do not assume the external doc is authoritative over the live Azure state.
 
+**WebServiceV2 ingress rule (`GITIN-1238`, fixed 2026-08-27)** — same pattern as the MobileAppService rules above (a hardcoded destination-IP list, not a subnet/ASG-based rule): `WebService_V2_PRO` (priority 123, Inbound, Allow, source `*`, TCP, port 8080) gates real client traffic to `SFCG-WSV2-01`/`-02` (`192.168.50.171`/`.172`). Confirmed root cause of `SFCG-WSV2-02` never receiving real traffic despite a healthy LB probe: `destinationAddressPrefixes` listed `192.168.50.171` and `192.168.50.173` but never `192.168.50.172` (VM2) — Azure's own probe traffic (`168.63.129.16`) bypasses NSG evaluation, so the gap was invisible to health checks. Fixed by adding `.172` to the list (`.174` was also added in the same edit; purpose unconfirmed). Full detail: `loyalty/events/20260826_wsv2lb_vm2_trustedlaunch_no_traffic/`.
+
 See `loyalty/docs/infrastructure.md` and `/loyalty-azure-lb` for the LB-side detail. Full rule table for `sfcgnetsec01` was pulled 2026-08-21 but only the 8043-relevant rows are recorded here — the rest of the table above is still the 2026-06-30 snapshot; a full refresh wasn't in scope for this pass.
 
 ---

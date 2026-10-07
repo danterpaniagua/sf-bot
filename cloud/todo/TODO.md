@@ -1,0 +1,7 @@
+# TODO — cloud
+
+Pending action items, tracked outside the `events/` investigation archive. One entry per item; check off and date when done, don't delete — move to a "Done" section instead so history isn't lost.
+
+## Pending
+
+- [ ] **Sales-PRO OOM crash-loop — `use32BitWorkerProcess` keeps reverting to `true`.** Fixed once (2026-09-21 ~00:15Z), reverted on its own, crash-loop resumed and accelerated (7 crashes in ~23h by 2026-09-22, pairs only 25-35 min apart). Exact revert mechanism unconfirmed (Azure Change Analysis, which could trace this precisely, is policy-blocked on this subscription) — plausible mechanism is a deploy causing the explicit `false` override to fall back to Azure's documented default (`true`), not an explicit revert. Two-part fix needed: (1) re-apply `use32BitWorkerProcess: false` as an immediate stopgap; (2) make it durable across future deploys — add an explicit `az webapp config set --use-32bit-worker-process false` step to `SmartFran.Cloud.Sales.PRO_win.yml`, or create the missing `SmartFran.Cloud.Sales.Settings.PRO.yml` (DEV/TEST both already have this settings-workflow pattern, PRO doesn't). Underlying suspected root cause (unbounded query in `AccessRepository.GetByConditionsAsync`/`MovementServices.POSGetAllAsync`, `Movement/POSGetAll`) still unremediated in code — separate Dev action, see `email_dev.md`. User is reporting this to Gaston directly before further action. Ticket: [GITIN-2075](https://smartit-ar.atlassian.net/browse/GITIN-2075). Event: `events/20260920_sales-oom-48h/`. (2026-09-20, reverted/reopened 2026-09-22)

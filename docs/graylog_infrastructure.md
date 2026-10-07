@@ -24,7 +24,7 @@ Compose file and related scripts live locally on the host under `~/scritps/grayl
 
 | Port | Purpose |
 |---|---|
-| `9000` | Graylog web UI / REST API |
+| `9000` | Graylog web UI / REST API — requires Basic auth (`WWW-Authenticate: Basic realm="Graylog Server"`). Token/credential referenced as `$SML_GRAYLOG_API_KEY` in this host's shell environment. |
 | `9200` | OpenSearch — `plugins.security.disabled: true`, no auth |
 | `1514` | `TXT_UDP` input — raw/plaintext. Carries hMailServer/`SF-SMTPRL` traffic (SmartLoyalty) and ClubSite/IIS traffic (also SmartLoyalty) through a shared, historically-reused JSON extractor (`mobile_json_extractor`) and CSV parser (`w3c_parser_mobile`) — names reflect the original IIS use, not current traffic. |
 | `11514` | AWS WAF raw UDP |

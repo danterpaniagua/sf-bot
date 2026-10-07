@@ -24,6 +24,16 @@
 > con prefijo `_`). Corregido tras validar directamente contra el código
 > fuente — ver detalle en cada sección afectada y en
 > `cloud/events/20260819_promote-remaining-clef-fields/`.
+>
+> **Corrección 2026-09-23 (GITIN-2098):** §3.1/§9 no listaban `TraceId`/
+> `SpanId`/`ParentId` como campos propios de `Properties` — solo aparecía
+> `Activity.TraceId` como valor de fallback de `TraceKey` (§3.2). Son en
+> realidad campos independientes agregados por un enricher de proceso
+> dedicado (`W3CAndAmbientTraceEnricher`), presentes en todo log del
+> proceso igual que `Service`/`Environment`/`Version` — confirmado contra
+> el código fuente y promovido a campo plano en Graylog en el mismo ticket.
+> Ver `cloud/docs/graylog-log-fields.md` y
+> `cloud/events/20260923_gitin2098-traceid-not-promoted-graylog/`.
 
 ---
 
@@ -103,11 +113,23 @@ request HTTP (e.g. logs de arranque, eventos de Kestrel Hosting).
 | `Service`      | parámetro `serviceName` de `SerilogBootstrap.Configure`  | `"Sales"`, `"SmartFran.Cloud.Catalog.API"`|
 | `Environment`  | env-var `ASPNETCORE_ENVIRONMENT` (default `"Production"`)| `"Production"`, `"Development"`           |
 | `Version`      | `Assembly.GetName().Version` (`typename of SerilogBootstrap`) | `"1.0.0.0"`                         |
+| `TraceId`      | `Activity.Current.TraceId` — enricher dedicado (`W3CAndAmbientTraceEnricher`), registrado junto a `Service`/`Environment`/`Version` | `"5919fadb011722d4e672a91ec99535a4"` |
+| `SpanId`       | `Activity.Current.SpanId` — mismo enricher que `TraceId`  | `"09e3862bdb0e1139"`                      |
+| `ParentId`     | `Activity.Current.ParentSpanId` — mismo enricher; no siempre presente junto a `TraceId`/`SpanId` | `"774e29c73b715d0b"` |
 
 > Convención **PascalCase** del codebase C# (sin prefijo `_` GELF). El
 > `EnrichmentMiddleware` los **sobreescribe por request** con los mismos
 > nombres resueltos en runtime **más** las claves `TraceKey`, `TenantId`,
-> `UserId`, `ProcessType`, `Component` (ver §3.2).
+> `UserId`, `ProcessType`, `Component` (ver §3.2). `TraceId`/`SpanId`/
+> `ParentId` **no** son sobreescritos por el middleware — viven únicamente
+> en este enricher de proceso, con el mismo alcance universal (todo log del
+> proceso, dentro y fuera de un request HTTP).
+>
+> **Corrección 2026-09-23 (GITIN-2098):** este documento antes solo
+> mencionaba `Activity.TraceId` como valor de fallback de `TraceKey` (ver
+> §3.2) — no como campo propio. `TraceId`/`SpanId`/`ParentId` son campos
+> independientes del payload `Properties`, confirmados promovidos a campo
+> plano en Graylog desde GITIN-2098 (ver `cloud/docs/graylog-log-fields.md`).
 
 ### 3.2 Scope del `EnrichmentMiddleware` (sobreescribe por request HTTP)
 
@@ -149,7 +171,11 @@ ejecución del request:
 > del scope del middleware** (vienen del `HostingApplicationDiagnostics`
 > que dispara eventos de Kestrel) ⇒ **no traen** `TraceKey / TenantId /
 > UserId / ProcessType / Component`. Sí traen los enrichers de proceso
-> §3.1 (`Service / Environment / Version`).
+> §3.1 (`Service / Environment / Version`) **y también `TraceId`/`SpanId`/
+> `ParentId`**, por ser del mismo enricher de proceso, no del middleware
+> por-request (confirmado en el mensaje real usado para abrir GITIN-2098,
+> una línea "Request starting" de `Microsoft.AspNetCore.Hosting.Diagnostics`
+> con `TraceId`/`SpanId` presentes en `Properties`).
 
 ### 3.3 Scopes (`BeginScope`) puestos por los helpers
 
@@ -644,6 +670,9 @@ y el consumer recibe el envelope sin distinguir origen.
 log.Properties["Service"];        // "SmartFran.Cloud.Sales.API"
 log.Properties["Environment"];    // "Production"
 log.Properties["Version"];        // "1.0.0.0" — faltaba en esta lista hasta 2026-08-19
+log.Properties["TraceId"];        // W3C Activity.TraceId — faltaba en esta lista hasta 2026-09-23 (GITIN-2098)
+log.Properties["SpanId"];         // W3C Activity.SpanId — ídem
+log.Properties["ParentId"];       // W3C Activity.ParentSpanId — ídem, no siempre presente
 
 // --- Scope del EnrichmentMiddleware (§3.2) ---
 log.Properties["TenantId"];       // "d3186bc6d7b2"

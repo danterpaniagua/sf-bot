@@ -28,12 +28,14 @@ The Operations area covers all non-database platform concerns: monitoring, deplo
   - `docs/mobileappservice_ssl_renewal_runbook.md` — MobileAppService SSL renewal, manual stopgap and the DNS-01/Azure DNS automation that replaced it (`GITIN-1774`).
   - `docs/waf_apps_cert_automation_runbook.md` — SSL cert automation for hosts behind `WAF_APPs` (Key Vault + Application Gateway pattern, plus the backend-leg/re-encryption variant), first implemented for ClubSite AR (`GITIN-1770`).
   - `docs/zabbix_scripts_home_dir_risk.md` — unverified risk: Zabbix UserParameter scripts symlinked from personal home directories instead of `/opt/scripts/`.
+  - `docs/sonarqube_upgrade_runbook.md` — SonarQube upgrade plan for `sfcg-sonarqube` (`GITIN-1327`): confirmed 9.9.3 Community Edition → 24.12.0.100206 → 26.1.0.118079 → 26.9.0.129388 path, required Java 21/PostgreSQL 15+ bumps, the Ubuntu 20.04→22.04→24.04 in-place OS upgrade this now requires (PGDG dropped focal packages), sequencing, and rollback plan.
+  - `docs/grafana.md` — Grafana 7.3.7 + Prometheus + CloudWatch/blackbox exporter + Traefik stack on an EC2 VM handed over by a third party (`/home/ubuntu/grafana-prometheus`, hostname `monitoreosp.smartfran.com`): components and versions, plugins, what is monitored, manual backup/update procedures, known risks (`GITIN-1174`).
   - `docs/job_description_completa.md` — combined Operations + SRE + DevOps job description (`GITIN-1820`); the recommended profile to publish, with the three-way role-comparison tables. Sibling docs below are trimmed single-role versions.
   - `docs/job_description_operations.md` — Operations-only trimmed job description.
   - `docs/job_description_sre.md` — SRE-only trimmed job description.
   - `docs/job_description_devops.md` — DevOps-only trimmed job description.
-- `../docs/` — cross-project shared references. See `../docs/azure_nsg.md` for Azure NSG inventory, VNet topology, AADDS DC IPs, and CLI patterns. See `../docs/graylog_infrastructure.md` for the Docker Graylog/OpenSearch stack shared with SmartLoyalty — host, ports, known issues (zero replicas, mapping field-count cap). Distinct from the separate `cloud-graylog` repo (SmartCloud-only instance) — don't conflate the two.
-- `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/`.
+- `../docs/` — cross-project shared references. See `../docs/azure_nsg.md` for Azure NSG inventory, VNet topology, AADDS DC IPs, and CLI patterns. See `../docs/graylog_infrastructure.md` for the Docker Graylog/OpenSearch stack shared with SmartLoyalty — host, ports, known issues (zero replicas, mapping field-count cap). Distinct from the separate `cloud-graylog` repo (SmartCloud-only instance) — don't conflate the two. See `../docs/zabbix_observability.md` for the shared Zabbix instance (`sf-monitoreo.smartfran.com`) — host onboarding checklist, alert-routing/action status (the `action.status` convention is under re-check, `GITIN-2156`), MOBI IIS alert tiers, SSL-expiry trigger notes, and known Agent 2 bugs; complements `ope-zabbix`'s custom-healthcheck-integration workflow.
+- `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/` (or `YYYYMMDD_gitinXXXX-description/` — see root `CLAUDE.md` → "Investigation Files" for the folder naming convention).
 - `memory/` — persistent operational memory: known recurring issues, infrastructure state, service notes. Read at investigation start; update at close.
 
 ### Required event files
@@ -62,7 +64,7 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 | `ope-zabbix` | `/ope-zabbix` | Custom healthcheck-to-Zabbix integration: UserParameter items, macros, triggers, alert routing |
 | `ope-sre-output` | `/ope-sre-output` | Event artifacts: Jira tickets, closure reports, emails |
 | `ope-static-analysis` | `/ope-static-analysis` | Static analysis for critical defects and vulnerabilities (Bash/Python/PowerShell) |
-| `ope-job-description` | `/ope-job-description` | Keep the four role job-description docs (`docs/job_description_*.md`) in sync with real capability evidence from `.claude/commands/` across `bots/`, `cloud-graylog/`, `smartfran/sp-logs/`, `smartfran/sf-devops/` |
+| `ope-job-description` | `/ope-job-description` | Keep the four role job-description docs (`docs/job_description_*.md`) in sync with real capability evidence from `.claude/commands/` across `bots/` and sibling repos (`cloud-graylog/`, `sp-logs/`, `sf-devops/`) |
 
 ## Global Restrictions
 
@@ -88,8 +90,7 @@ Skills live in the `bots/` root `.claude/commands/` (sf-skills submodule) with t
 
 Every event produces an `ops-events.md` file alongside the ticket. Append-only work journal. Full entry format specified once in the `ope-sre-output` skill — not duplicated here.
 
-**Before writing any command output or new finding to any file, ask the user:**
-> ¿Lo registro como actividad (`ops-events.md`) o actualizo el ticket (`ops.md`)?
+Once an event has files open, write findings, results, and new information into the appropriate file (`ops-events.md` for the activity log, `ops.md` for ticket content) as they're produced — don't ask "activity or ticket?" each time. Still confirm scope before opening a brand-new event, and route a genuinely tangential finding to `docs/` instead of the active ticket.
 
 Command output results are also recorded as commented `# OUTPUT (YYYY-MM-DD):` blocks in the scripts file immediately below the executed command.
 
