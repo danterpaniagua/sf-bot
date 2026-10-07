@@ -10,7 +10,7 @@ He abierto la investigación a partir del título de GITIN-1901 ("agregar Azure 
 **Resultado:**
 17 Function Apps listadas, ninguna con sufijo `-pro`/`-PRO`. `SFC-PosWasmRelay-DEV` presente, grupo de recursos `SmartFran.Cloud`, estado `Running`.
 
-He confirmado que el listado está completo. Esto deja sin resolver una discrepancia con `cloud/docs/infrastructure.md`, que documenta nombres de Function Apps PROD que no aparecen en este listado — la dejo registrada como acción de seguimiento no bloqueante, fuera del alcance de este ticket.
+He confirmado que el listado está completo. Esto deja sin resolver una discrepancia con `cloud/docs/infrastructure.md`, que documenta nombres de Function Apps PROD que no aparecen en este listado — la he dejado registrada como acción de seguimiento no bloqueante, fuera del alcance de este ticket.
 
 ## 2026-08-20 — Confirmación de que SFC-PosWasmRelay-DEV no tiene código desplegado
 

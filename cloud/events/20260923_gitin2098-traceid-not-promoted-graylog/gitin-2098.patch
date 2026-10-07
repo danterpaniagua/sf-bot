@@ -1,0 +1,53 @@
+--- azure-eventhub-to-graylog.conf
++++ azure-eventhub-to-graylog.conf
+@@ -197,6 +197,50 @@
+       end
+     '
+   }
++  # GITIN-2098: TraceId / SpanId / ParentId - promote the W3C distributed-
++  # tracing triple from Properties.TraceId/.SpanId/.ParentId, the same
++  # Serilog CLEF payload GITIN-1883/1892 already read. Confirmed in
++  # application source (Provider.Logger.Core/W3CAndAmbientTraceEnricher.cs,
++  # registered in SerilogBootstrap.cs alongside Service/Environment/Version)
++  # that these are stamped from Activity.Current onto every log line, for
++  # every service built on the shared SerilogBootstrap - same universal
++  # reach as TraceKey, not confined to one specific log line (unlike the
++  # Request-finished line GITIN-1940 promotes StatusCode/Path/Method/
++  # ElapsedMilliseconds from). Distinct from the business TraceKey the app
++  # sets (GITIN-1883): this is the W3C/OpenTelemetry trace triple, lowercase-
++  # hex form. Same two-branch split as GITIN-1883/1892 blocks above.
++  ruby {
++    code => '
++      # --- Event Hub apps: Properties nested inside resultDescription ---
++      result_desc = event.get("resultDescription")
++      if result_desc.is_a?(String) && result_desc.strip.start_with?("{")
++        begin
++          parsed = JSON.parse(result_desc)
++          if parsed.is_a?(Hash) && parsed["Properties"].is_a?(Hash)
++            props = parsed["Properties"]
++            event.set("TraceId", props["TraceId"]) if props["TraceId"].is_a?(String) && !props["TraceId"].empty?
++            event.set("SpanId", props["SpanId"]) if props["SpanId"].is_a?(String) && !props["SpanId"].empty?
++            event.set("ParentId", props["ParentId"]) if props["ParentId"].is_a?(String) && !props["ParentId"].empty?
++          end
++        rescue JSON::ParserError
++        end
++      end
++
++      # --- Sales / SFC-PosWasmRelay direct-GELF: Properties already stringified by the GITIN-1883 block above ---
++      props_str = event.get("Properties")
++      if props_str.is_a?(String) && props_str.strip.start_with?("{")
++        begin
++          top_props = JSON.parse(props_str)
++          if top_props.is_a?(Hash)
++            event.set("TraceId", top_props["TraceId"]) if top_props["TraceId"].is_a?(String) && !top_props["TraceId"].empty?
++            event.set("SpanId", top_props["SpanId"]) if top_props["SpanId"].is_a?(String) && !top_props["SpanId"].empty?
++            event.set("ParentId", top_props["ParentId"]) if top_props["ParentId"].is_a?(String) && !top_props["ParentId"].empty?
++          end
++        rescue JSON::ParserError
++        end
++      end
++    '
++  }
+   # GITIN-1892: Version / UserId / ProcessType / Component / RequestId / Category /
+   # SourceContext / ErrorCode / Operation / Recovered / Handled / AuditAction
+   # / AuditOutcome — promote to bare top-level fields for ALL services with

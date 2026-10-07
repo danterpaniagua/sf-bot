@@ -6,7 +6,7 @@ He recibido el reporte de CaC: en Weiss Punta del Este, la promo para compartir 
 
 **Comando:** C1 — Localizar promoción por nombre
 **Resultado:**
-Encontré `Promotions.Id = 212`, "Promo para compartir - Dijon", activa desde 2026-07-29, junto con otras promociones de nombre similar ("Hamburguesa/Combo - Clasica Dijon Con Papas", Id 39/52/67/81/122/136).
+He encontrado `Promotions.Id = 212`, "Promo para compartir - Dijon", activa desde 2026-07-29, junto con otras promociones de nombre similar ("Hamburguesa/Combo - Clasica Dijon Con Papas", Id 39/52/67/81/122/136).
 
 He identificado la Promoción 212 como la correspondiente al reporte.
 
@@ -48,7 +48,7 @@ He confirmado que las tres promociones conviven activas sin restricción de fran
 
 **Comando:** C8 — Actualización y verificación del repo local
 **Resultado:**
-El clon local estaba 13 commits detrás de `origin/dev`; lo actualicé. Confirmé que `DialogBuildCombo.razor.cs` y `PromotionService.cs` son idénticos entre `main` (producción) y `dev`.
+El clon local estaba 13 commits detrás de `origin/dev`; lo he actualizado. He confirmado que `DialogBuildCombo.razor.cs` y `PromotionService.cs` son idénticos entre `main` (producción) y `dev`.
 
 He verificado que el mecanismo de armado de combo (`GetItems`/`GetPriceDetails` en `DialogBuildCombo.razor.cs`) construye las opciones de cada grupo estrictamente a partir de `PromotionDetails.ArticleId`, lo cual es consistente con lo hallado en la base de datos. Con esto he confirmado que el POS interno no puede estar mostrando 3 opciones para esta promoción tal como está configurada.
 

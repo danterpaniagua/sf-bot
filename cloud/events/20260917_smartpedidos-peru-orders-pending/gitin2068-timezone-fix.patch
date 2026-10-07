@@ -1,0 +1,21 @@
+--- a/Source/Services/Orders/SmartFran.Cloud.Orders.Application/Models/Enum/TimeZoneCountries.cs	2026-07-12 20:36:33.671642708 -0300
++++ b/Source/Services/Orders/SmartFran.Cloud.Orders.Application/Models/Enum/TimeZoneCountries.cs
+@@ -6,7 +6,8 @@
+     private static Dictionary<string, string> timeZones = new Dictionary<string, string>() { { "Argentina", "America/Argentina/Buenos_Aires" },
+       { "Chile", "America/Santiago" },
+       { "Uruguay", "America/Montevideo" },
+-      { "Paraguay", "America/Asuncion" } };
++      { "Paraguay", "America/Asuncion" },
++      { "Perú", "America/Lima" } };
+ 
+     public static DateTime GetTimeByCountry(DateTime dateTime, string? country = null)
+     {
+@@ -25,7 +26,7 @@
+       }
+       else
+       {
+-        return TimeZoneInfo.FindSystemTimeZoneById("Argentina Standard Time");
++        return TimeZoneInfo.FindSystemTimeZoneById("America/Argentina/Buenos_Aires");
+       }
+     }
+ 

@@ -1,0 +1,1587 @@
+--- a/.github/workflows/Dispatch.Deploy.TESTtoSTG.yml
++++ b/.github/workflows/Dispatch.Deploy.TESTtoSTG.yml
+@@ -5,7 +5,7 @@
+ 
+ jobs:
+   update-test-branch:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     env:
+       CONDITION_RESULT: '[DEPLOY]'
+     steps:
+--- a/.github/workflows/MergeDeploy.DEVtoTEST_v2.yml
++++ b/.github/workflows/MergeDeploy.DEVtoTEST_v2.yml
+@@ -5,7 +5,7 @@
+ 
+ jobs:
+   update-test-branch:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     env:
+       SUBJECT_RESULT: ''
+     steps:
+--- a/.github/workflows/MergeDeploy.DEVtoTEST_v3.yml
++++ b/.github/workflows/MergeDeploy.DEVtoTEST_v3.yml
+@@ -5,7 +5,7 @@
+ 
+ jobs:
+   automated-update-from-dev-to-test:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     env:
+       SUBJECT_RESULT: 'Automated Pull Request and Merge from DEV to TEST'
+ 
+--- a/.github/workflows/MergeDeploy.DEVtoTEST.yml
++++ b/.github/workflows/MergeDeploy.DEVtoTEST.yml
+@@ -5,7 +5,7 @@
+ 
+ jobs:
+   update-test-branch:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     env:
+       SUBJECT_RESULT: ''
+     steps:
+--- a/.github/workflows/Poc_v1.yml
++++ b/.github/workflows/Poc_v1.yml
+@@ -5,7 +5,7 @@
+ 
+ jobs:
+   update-destination-branch:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     env:
+       SUBJECT_RESULT: 'Automated Pull Request and Merge from source-branch to destination-branch'
+ 
+--- a/.github/workflows/ScheduledInfo.yml
++++ b/.github/workflows/ScheduledInfo.yml
+@@ -5,7 +5,7 @@
+ 
+ jobs:
+   update-test-branch:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     env:
+       SUBJECT_RESULT: ''
+     steps:
+--- a/.github/workflows/SendScriptToAzureStorage.yml
++++ b/.github/workflows/SendScriptToAzureStorage.yml
+@@ -12,7 +12,7 @@
+ 
+ jobs:
+   migrations-job:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Set environment to apply based on branch
+         id: var
+--- a/.github/workflows/SFC.Admin.BugsFixing.yml
++++ b/.github/workflows/SFC.Admin.BugsFixing.yml
+@@ -18,7 +18,7 @@
+   WORKING_DIRECTORY: Source/Client/SmartFran.Cloud.Client.Web
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v3
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         name: build_status
+         path: build_status_admin_app_dev2.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -78,7 +78,7 @@
+         
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SFC.Business.BugsFixing.yml
++++ b/.github/workflows/SFC.Business.BugsFixing.yml
+@@ -19,7 +19,7 @@
+   WORKING_DIRECTORY: Source/Services/Business/SmartFran.Cloud.Business.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v3
+     - name: Setup .NET SDK
+@@ -50,7 +50,7 @@
+         name: build_status
+         path: build_status_business_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -79,7 +79,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SFC.Catalog.BugsFixing.yml
++++ b/.github/workflows/SFC.Catalog.BugsFixing.yml
+@@ -20,7 +20,7 @@
+   WORKING_DIRECTORY: Source/Services/Catalog/SmartFran.Cloud.Catalog.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v3
+     - name: Setup .NET SDK
+@@ -51,7 +51,7 @@
+         name: build_status
+         path: build_status_catalog_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -80,7 +80,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SFC.CodeGen.BugsFixing.yml
++++ b/.github/workflows/SFC.CodeGen.BugsFixing.yml
+@@ -23,7 +23,7 @@
+   WORKING_DIRECTORY: Source/Common/Functions/SmartFran.Cloud.Functions.Business.CodeGenerator.LiteEditionV2
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -55,7 +55,7 @@
+         path: build_status_CodeGenerator_AzF.txt
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -82,7 +82,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SFC.Orders.BugsFixing.yml
++++ b/.github/workflows/SFC.Orders.BugsFixing.yml
+@@ -22,7 +22,7 @@
+   WORKING_DIRECTORY: Source/Services/Orders/SmartFran.Cloud.Orders.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v3
+     - name: Setup .NET SDK
+@@ -53,7 +53,7 @@
+         name: build_status
+         path: build_status_orders_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -82,7 +82,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SFC.Person.BugsFixing.yml
++++ b/.github/workflows/SFC.Person.BugsFixing.yml
+@@ -23,7 +23,7 @@
+   WORKING_DIRECTORY: Source/Services/Person/SmartFran.Cloud.Person.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v3
+     - name: Setup .NET SDK
+@@ -54,7 +54,7 @@
+         name: build_status
+         path: build_status_Person_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -83,7 +83,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SFC.Platform.BugsFixing.yml
++++ b/.github/workflows/SFC.Platform.BugsFixing.yml
+@@ -23,7 +23,7 @@
+   WORKING_DIRECTORY: Source/Services/Platform/SmartFran.Cloud.Platform.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v3
+     - name: Setup .NET SDK
+@@ -54,7 +54,7 @@
+         name: build_status
+         path: build_status_Platform_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -85,7 +85,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SFC.POS.BugsFixing.yml
++++ b/.github/workflows/SFC.POS.BugsFixing.yml
+@@ -84,7 +84,7 @@
+         
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SFC.Sales.BugsFixing.yml
++++ b/.github/workflows/SFC.Sales.BugsFixing.yml
+@@ -84,7 +84,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps: 
+     - name: Download statuses
+       uses: actions/download-artifact@v4
+--- a/.github/workflows/SmartFran.Cloud.Admin.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Admin.DEV.yml
+@@ -18,7 +18,7 @@
+   WORKING_DIRECTORY: Source/Client/SmartFran.Cloud.Client.Web
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         name: build_status
+         path: build_status_admin_app.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -77,7 +77,7 @@
+         path: deploy_status_admin_app.txt
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -88,7 +88,7 @@
+           client-payload: '{"repository": "${{ github.repository }}", "sha": "${{ github.sha }}"}'    
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Admin.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.Admin.PRO.yml
+@@ -27,7 +27,7 @@
+   DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_target || 'stg2' }}
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -78,7 +78,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.Admin.STG.v2.yml
++++ b/.github/workflows/SmartFran.Cloud.Admin.STG.v2.yml
+@@ -29,7 +29,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+ 
+@@ -57,7 +57,7 @@
+         path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -88,7 +88,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: ${{ always() }}
+     steps:
+     - name: Build deployment summary
+--- a/.github/workflows/SmartFran.Cloud.Admin.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Admin.TEST.yml
+@@ -18,7 +18,7 @@
+   WORKING_DIRECTORY: Source/Client/SmartFran.Cloud.Client.Web
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         name: build_status
+         path: build_status_admin_app.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -78,7 +78,7 @@
+         
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Business.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Business.DEV.yml
+@@ -19,7 +19,7 @@
+   WORKING_DIRECTORY: Source/Services/Business/SmartFran.Cloud.Business.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -50,7 +50,7 @@
+         name: build_status
+         path: build_status_business_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -78,7 +78,7 @@
+         path: deploy_status_business_API.txt
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -89,7 +89,7 @@
+           client-payload: '{"repository": "${{ github.repository }}", "sha": "${{ github.sha }}"}'    
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Business.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.Business.PRO.yml
+@@ -27,7 +27,7 @@
+   DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_target || 'stg2' }}
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -78,7 +78,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.Business.Settings.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Business.Settings.DEV.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Business.Settings.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Business.Settings.TEST.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Business.STG.v2.yml
++++ b/.github/workflows/SmartFran.Cloud.Business.STG.v2.yml
+@@ -29,7 +29,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - uses: actions/checkout@v4
+ 
+@@ -57,7 +57,7 @@
+           path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+       - name: Download artifact from build job
+@@ -88,7 +88,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+     steps:
+       - name: Set deployment result
+--- a/.github/workflows/SmartFran.Cloud.Business.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Business.TEST.yml
+@@ -19,7 +19,7 @@
+   WORKING_DIRECTORY: Source/Services/Business/SmartFran.Cloud.Business.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -50,7 +50,7 @@
+         name: build_status
+         path: build_status_business_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -80,7 +80,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Catalog.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Catalog.DEV.yml
+@@ -20,7 +20,7 @@
+   WORKING_DIRECTORY: Source/Services/Catalog/SmartFran.Cloud.Catalog.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -51,7 +51,7 @@
+         name: build_status
+         path: build_status_catalog_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -79,7 +79,7 @@
+         path: deploy_status_catalog_API.txt
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -90,7 +90,7 @@
+           client-payload: '{"repository": "${{ github.repository }}", "sha": "${{ github.sha }}"}'    
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Catalog.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.Catalog.PRO.yml
+@@ -27,7 +27,7 @@
+   DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_target || 'stg2' }}
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -78,7 +78,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.Catalog.Settings.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Catalog.Settings.DEV.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Catalog.Settings.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Catalog.Settings.TEST.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Catalog.STG.v2.yml
++++ b/.github/workflows/SmartFran.Cloud.Catalog.STG.v2.yml
+@@ -29,7 +29,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - uses: actions/checkout@v4
+ 
+@@ -57,7 +57,7 @@
+           path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+       - name: Download artifact from build job
+@@ -88,7 +88,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+     steps:
+       - name: Set deployment result
+--- a/.github/workflows/SmartFran.Cloud.Catalog.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Catalog.TEST.yml
+@@ -20,7 +20,7 @@
+   WORKING_DIRECTORY: Source/Services/Catalog/SmartFran.Cloud.Catalog.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -51,7 +51,7 @@
+         name: build_status
+         path: build_status_catalog_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -80,7 +80,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.ClearArtifacts.yml
++++ b/.github/workflows/SmartFran.Cloud.ClearArtifacts.yml
+@@ -7,7 +7,7 @@
+ 
+ jobs:
+   delete-artifacts:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - uses: kolpav/purge-artifacts-action@v1
+         with:
+--- a/.github/workflows/SmartFran.Cloud.CodeGen.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.CodeGen.DEV.yml
+@@ -25,7 +25,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - uses: actions/checkout@v4
+ 
+@@ -110,7 +110,7 @@
+           path: build_status_CodeGenerator_AzF.txt
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+       - name: Download artifact from build job
+@@ -139,7 +139,7 @@
+ 
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -151,7 +151,7 @@
+ 
+   send_email:
+     needs: [build, deploy, dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()
+     steps:
+       - name: Download build status
+--- a/.github/workflows/SmartFran.Cloud.CodeGen.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.CodeGen.PRO.yml
+@@ -28,7 +28,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+     - uses: actions/checkout@v4
+@@ -69,7 +69,7 @@
+         
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     
+@@ -98,7 +98,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.CodeGen.STG.yml
++++ b/.github/workflows/SmartFran.Cloud.CodeGen.STG.yml
+@@ -28,7 +28,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - uses: actions/checkout@v4
+@@ -68,7 +68,7 @@
+           path: functionapp.zip
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+ 
+     steps:
+@@ -96,7 +96,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.CodeGen.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.CodeGen.TEST.yml
+@@ -24,7 +24,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+     - uses: actions/checkout@v4
+@@ -76,7 +76,7 @@
+         path: build_status_CodeGenerator_AzF.txt
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     
+@@ -106,7 +106,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Orders.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Orders.DEV.yml
+@@ -22,7 +22,7 @@
+   WORKING_DIRECTORY: Source/Services/Orders/SmartFran.Cloud.Orders.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -53,7 +53,7 @@
+         name: build_status
+         path: build_status_orders_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -82,7 +82,7 @@
+ 
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -94,7 +94,7 @@
+ 
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Orders.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.Orders.PRO.yml
+@@ -27,7 +27,7 @@
+   DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_target || 'stg2' }}
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -78,7 +78,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.Orders.STG.yml
++++ b/.github/workflows/SmartFran.Cloud.Orders.STG.yml
+@@ -29,7 +29,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - uses: actions/checkout@v4
+ 
+@@ -57,7 +57,7 @@
+           path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+       - name: Download artifact from build job
+@@ -89,7 +89,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+     steps:
+       - name: Set deployment result
+--- a/.github/workflows/SmartFran.Cloud.Orders.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Orders.TEST.yml
+@@ -22,7 +22,7 @@
+   WORKING_DIRECTORY: Source/Services/Orders/SmartFran.Cloud.Orders.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -53,7 +53,7 @@
+         name: build_status
+         path: build_status_orders_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -82,7 +82,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Person.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Person.DEV.yml
+@@ -23,7 +23,7 @@
+   WORKING_DIRECTORY: Source/Services/Person/SmartFran.Cloud.Person.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -54,7 +54,7 @@
+         name: build_status
+         path: build_status_Person_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -83,7 +83,7 @@
+ 
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -95,7 +95,7 @@
+ 
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Person.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.Person.PRO.yml
+@@ -27,7 +27,7 @@
+   DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_target || 'stg2' }}
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -78,7 +78,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.Person.Settings.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Person.Settings.DEV.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Person.Settings.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Person.Settings.TEST.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Person.STG.v2.yml
++++ b/.github/workflows/SmartFran.Cloud.Person.STG.v2.yml
+@@ -29,7 +29,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - uses: actions/checkout@v4
+ 
+@@ -57,7 +57,7 @@
+           path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+       - name: Download artifact from build job
+@@ -88,7 +88,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+     steps:
+       - name: Set deployment result
+--- a/.github/workflows/SmartFran.Cloud.Person.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Person.TEST.yml
+@@ -23,7 +23,7 @@
+   WORKING_DIRECTORY: Source/Services/Person/SmartFran.Cloud.Person.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -54,7 +54,7 @@
+         name: build_status
+         path: build_status_Person_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -83,7 +83,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Platform.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Platform.DEV.yml
+@@ -24,7 +24,7 @@
+   WORKING_DIRECTORY: Source/Services/Platform/SmartFran.Cloud.Platform.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -55,7 +55,7 @@
+         name: build_status
+         path: build_status_Platform_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -86,7 +86,7 @@
+ 
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -98,7 +98,7 @@
+ 
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Platform.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.Platform.PRO.yml
+@@ -27,7 +27,7 @@
+   DEPLOY_TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_target || 'stg2' }}
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -49,7 +49,7 @@
+         path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -80,7 +80,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.Platform.Settings.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Platform.Settings.DEV.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Platform.Settings.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Platform.Settings.TEST.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Platform.STG.v2.yml
++++ b/.github/workflows/SmartFran.Cloud.Platform.STG.v2.yml
+@@ -29,7 +29,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - uses: actions/checkout@v4
+ 
+@@ -57,7 +57,7 @@
+           path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+       - name: Download artifact from build job
+@@ -91,7 +91,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+     steps:
+       - name: Set deployment result
+--- a/.github/workflows/SmartFran.Cloud.Platform.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Platform.TEST.yml
+@@ -24,7 +24,7 @@
+   WORKING_DIRECTORY: Source/Services/Platform/SmartFran.Cloud.Platform.API
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -55,7 +55,7 @@
+         name: build_status
+         path: build_status_Platform_API.txt
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -86,7 +86,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Pos.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Pos.DEV.yml
+@@ -86,7 +86,7 @@
+ 
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -98,7 +98,7 @@
+ 
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Pos.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.Pos.PRO.yml
+@@ -125,7 +125,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.Pos.STG.v2.yml
++++ b/.github/workflows/SmartFran.Cloud.Pos.STG.v2.yml
+@@ -146,7 +146,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+     steps:
+       - name: Set deployment result
+--- a/.github/workflows/SmartFran.Cloud.Pos.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Pos.TEST.yml
+@@ -86,7 +86,7 @@
+         
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Sales.DEV_win.yml
++++ b/.github/workflows/SmartFran.Cloud.Sales.DEV_win.yml
+@@ -76,7 +76,7 @@
+ 
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v4
+@@ -88,7 +88,7 @@
+   
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.Sales.PRO_win.yml
++++ b/.github/workflows/SmartFran.Cloud.Sales.PRO_win.yml
+@@ -79,7 +79,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.Sales.Settings.DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.Sales.Settings.DEV.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Sales.Settings.TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.Sales.Settings.TEST.yml
+@@ -17,7 +17,7 @@
+     CONNECTIONS_KEY: 'ConectionSource'
+ jobs:
+   update-app-service:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - name: Checkout repository
+--- a/.github/workflows/SmartFran.Cloud.Sales.STG_win.v2.yml
++++ b/.github/workflows/SmartFran.Cloud.Sales.STG_win.v2.yml
+@@ -77,7 +77,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+     steps:
+       - name: Set deployment result
+--- a/.github/workflows/SmartFran.Cloud.Sales.TEST_win.yml
++++ b/.github/workflows/SmartFran.Cloud.Sales.TEST_win.yml
+@@ -84,7 +84,7 @@
+   
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.ScheduledJobs-DEV.yml
++++ b/.github/workflows/SmartFran.Cloud.ScheduledJobs-DEV.yml
+@@ -27,7 +27,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+     - uses: actions/checkout@v4
+     - name: Setup .NET SDK
+@@ -67,7 +67,7 @@
+         path: build_status_ScheduledJobs_AzF.txt
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     - name: Download artifact from build job
+@@ -93,7 +93,7 @@
+ 
+   dispatch-tests:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     steps:
+       - name: Trigger QA API Tests
+         uses: peter-evans/repository-dispatch@v3
+@@ -105,7 +105,7 @@
+ 
+   send_email:
+     needs: [build, deploy,dispatch-tests]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.ScheduledJobs-PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.ScheduledJobs-PRO.yml
+@@ -28,7 +28,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+     - uses: actions/checkout@v4
+@@ -69,7 +69,7 @@
+         
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     
+@@ -98,7 +98,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.ScheduledJobs-STG.yml
++++ b/.github/workflows/SmartFran.Cloud.ScheduledJobs-STG.yml
+@@ -28,7 +28,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - uses: actions/checkout@v4
+@@ -68,7 +68,7 @@
+           path: functionapp.zip
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+ 
+     steps:
+@@ -96,7 +96,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.ScheduledJobs-TEST.yml
++++ b/.github/workflows/SmartFran.Cloud.ScheduledJobs-TEST.yml
+@@ -27,7 +27,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+     - uses: actions/checkout@v4
+@@ -79,7 +79,7 @@
+         path: build_status_ScheduledJobs_AzF.txt
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     
+@@ -109,7 +109,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: failure()          # ← El job solo corre si algún job anterior falló
+     steps: 
+     - name: Download statuses
+--- a/.github/workflows/SmartFran.Cloud.TicketProcessAsync.PRO.yml
++++ b/.github/workflows/SmartFran.Cloud.TicketProcessAsync.PRO.yml
+@@ -28,7 +28,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+     - uses: actions/checkout@v4
+@@ -69,7 +69,7 @@
+         
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+     steps:
+     
+@@ -98,7 +98,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:
+--- a/.github/workflows/SmartFran.Cloud.TicketProcessAsync.STG.yml
++++ b/.github/workflows/SmartFran.Cloud.TicketProcessAsync.STG.yml
+@@ -28,7 +28,7 @@
+ 
+ jobs:
+   build:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+ 
+     steps:
+       - uses: actions/checkout@v4
+@@ -68,7 +68,7 @@
+           path: functionapp.zip
+ 
+   deploy:
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     needs: build
+ 
+     steps:
+@@ -96,7 +96,7 @@
+ 
+   send_email:
+     needs: [build, deploy]
+-    runs-on: ubuntu-latest
++    runs-on: ubuntu-24.04
+     if: always()
+ 
+     steps:

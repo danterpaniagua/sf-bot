@@ -1,0 +1,90 @@
+--- azure-eventhub-to-graylog.conf
++++ azure-eventhub-to-graylog.conf
+@@ -296,6 +296,87 @@
+       end
+     '
+   }
++  # GITIN-1940: StatusCode / Path / Method / ElapsedMilliseconds — promote
++  # from the built-in ASP.NET Core "Request finished" hosting-diagnostics log
++  # line (SourceContext: Microsoft.AspNetCore.Hosting.Diagnostics). This is
++  # framework request logging, not a SmartFranLogExtensions helper — present
++  # on every HTTP request regardless of app-level enrichment. Motivated by
++  # Sales WsFeAr/CaeRequest 408s: without these fields, "endpoint X returned
++  # status Y" can only be found via full-text search over `message`, since
++  # neither field was previously promoted for any service.
++  # Same two-branch split as GITIN-1883/1892's blocks above. RequestPath
++  # duplicates Path in every sample seen so far — only Path is promoted, to
++  # avoid a redundant field. StatusCode/ElapsedMilliseconds are numeric in
++  # the CLEF payload (Integer / Float respectively), not strings — guarded
++  # accordingly, same reasoning as Recovered/Handled above.
++  ruby {
++    code => '
++      # --- Event Hub apps: Properties nested inside resultDescription ---
++      result_desc = event.get("resultDescription")
++      if result_desc.is_a?(String) && result_desc.strip.start_with?("{")
++        begin
++          parsed = JSON.parse(result_desc)
++          if parsed.is_a?(Hash) && parsed["Properties"].is_a?(Hash)
++            props = parsed["Properties"]
++            event.set("StatusCode", props["StatusCode"]) if props["StatusCode"].is_a?(Integer)
++            event.set("Path", props["Path"]) if props["Path"].is_a?(String) && !props["Path"].empty?
++            event.set("Method", props["Method"]) if props["Method"].is_a?(String) && !props["Method"].empty?
++            event.set("ElapsedMilliseconds", props["ElapsedMilliseconds"]) if props["ElapsedMilliseconds"].is_a?(Numeric)
++          end
++        rescue JSON::ParserError
++        end
++      end
++
++      # --- Sales direct-GELF: Properties already stringified by the GITIN-1883 block above ---
++      props_str = event.get("Properties")
++      if props_str.is_a?(String) && props_str.strip.start_with?("{")
++        begin
++          top_props = JSON.parse(props_str)
++          if top_props.is_a?(Hash)
++            event.set("StatusCode", top_props["StatusCode"]) if top_props["StatusCode"].is_a?(Integer)
++            event.set("Path", top_props["Path"]) if top_props["Path"].is_a?(String) && !top_props["Path"].empty?
++            event.set("Method", top_props["Method"]) if top_props["Method"].is_a?(String) && !top_props["Method"].empty?
++            event.set("ElapsedMilliseconds", top_props["ElapsedMilliseconds"]) if top_props["ElapsedMilliseconds"].is_a?(Numeric)
++          end
++        rescue JSON::ParserError
++        end
++      end
++
++      # --- AppServiceHTTPLogs: Azures own infra-level HTTP access log
++      # (Windows Event Hub apps only) — CsMethod/CsUriStem/ScStatus/TimeTaken
++      # instead of the app-level ASP.NET Core Request-finished names, but same
++      # underlying HTTP request/response metadata. lowercase "properties"
++      # arrives as a JSON-encoded STRING directly from Azure for this
++      # category (not a nested Hash like AppServiceAppLogs/
++      # AppServiceConsoleLogs resultDescription) — confirmed via a real
++      # SMARTFRAN-CLOUD-PERSON-PRO sample, 2026-08-26. Distinct field name
++      # ("properties", lowercase) from the two branches above ("Properties"/
++      # "resultDescription"), so no collision risk. ScStatus is a numeric
++      # STRING ("200"), cast to Integer to match StatusCode type from the
++      # other two branches; TimeTaken is already an Integer (milliseconds),
++      # cast to Float to match ElapsedMilliseconds type and avoid a mixed
++      # int/float field. ClientIP (from CIp) has no equivalent in the other
++      # two branches — the ASP.NET Core Request-finished line does not carry
++      # a client IP property at all — so this field only ever populates from
++      # this one source shape.
++      props_json = event.get("properties")
++      if props_json.is_a?(String) && props_json.strip.start_with?("{")
++        begin
++          http_props = JSON.parse(props_json)
++          if http_props.is_a?(Hash)
++            event.set("Method", http_props["CsMethod"]) if http_props["CsMethod"].is_a?(String) && !http_props["CsMethod"].empty?
++            event.set("Path", http_props["CsUriStem"]) if http_props["CsUriStem"].is_a?(String) && !http_props["CsUriStem"].empty?
++            if http_props["ScStatus"].is_a?(String) && http_props["ScStatus"].match?(/\A\d+\z/)
++              event.set("StatusCode", http_props["ScStatus"].to_i)
++            end
++            event.set("ElapsedMilliseconds", http_props["TimeTaken"].to_f) if http_props["TimeTaken"].is_a?(Numeric)
++            event.set("ClientIP", http_props["CIp"]) if http_props["CIp"].is_a?(String) && !http_props["CIp"].empty?
++          end
++        rescue JSON::ParserError
++        end
++      end
++    '
++  }
+   # GITIN-1924: SFC-PosWasmRelay-PRO/-DEV — TraceKey/SourceContext fallback
+   # from Properties.EntryProperties. The relay (IngestLogs.cs) nests the WASM
+   # client's own per-entry Serilog properties one level deeper than its own

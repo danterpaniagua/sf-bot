@@ -1,0 +1,49 @@
+--- azure-eventhub-to-graylog.conf
++++ azure-eventhub-to-graylog.conf
+@@ -359,21 +359,37 @@
+       # two branches — the ASP.NET Core Request-finished line does not carry
+       # a client IP property at all — so this field only ever populates from
+       # this one source shape.
++      # GITIN-2034: properties (lowercase) arrives in TWO different shapes
++      # depending on how the raw Event Hub message was batched by Azure —
++      # wrapped in a "records" array (pre-stringified by Azure inside that
++      # shape) vs. flat/unwrapped (parsed directly into a live Hash by the
++      # initial json filter at the top of this file).
++      # Confirmed via a real Sales-PRO /api/v1/Status/Health sample
++      # (_id: b4966b92-b038-11f1-be92-7c1e52beabec, index http_sales__9,
++      # flat/unwrapped shape) where the original String-only guard silently
++      # skipped all 5 fields below. Accept both shapes instead of assuming
++      # String. ScStatus also varies the same way (numeric String in the
++      # wrapped shape, bare Integer in the flat shape) — guarded for both.
+       props_json = event.get("properties")
++      http_props = nil
+       if props_json.is_a?(String) && props_json.strip.start_with?("{")
+         begin
+           http_props = JSON.parse(props_json)
+-          if http_props.is_a?(Hash)
+-            event.set("Method", http_props["CsMethod"]) if http_props["CsMethod"].is_a?(String) && !http_props["CsMethod"].empty?
+-            event.set("Path", http_props["CsUriStem"]) if http_props["CsUriStem"].is_a?(String) && !http_props["CsUriStem"].empty?
+-            if http_props["ScStatus"].is_a?(String) && http_props["ScStatus"].match?(/\A\d+\z/)
+-              event.set("StatusCode", http_props["ScStatus"].to_i)
+-            end
+-            event.set("ElapsedMilliseconds", http_props["TimeTaken"].to_f) if http_props["TimeTaken"].is_a?(Numeric)
+-            event.set("ClientIP", http_props["CIp"]) if http_props["CIp"].is_a?(String) && !http_props["CIp"].empty?
+-          end
+         rescue JSON::ParserError
+         end
++      elsif props_json.is_a?(Hash)
++        http_props = props_json
++      end
++      if http_props.is_a?(Hash)
++        event.set("Method", http_props["CsMethod"]) if http_props["CsMethod"].is_a?(String) && !http_props["CsMethod"].empty?
++        event.set("Path", http_props["CsUriStem"]) if http_props["CsUriStem"].is_a?(String) && !http_props["CsUriStem"].empty?
++        if http_props["ScStatus"].is_a?(String) && http_props["ScStatus"].match?(/\A\d+\z/)
++          event.set("StatusCode", http_props["ScStatus"].to_i)
++        elsif http_props["ScStatus"].is_a?(Integer)
++          event.set("StatusCode", http_props["ScStatus"])
++        end
++        event.set("ElapsedMilliseconds", http_props["TimeTaken"].to_f) if http_props["TimeTaken"].is_a?(Numeric)
++        event.set("ClientIP", http_props["CIp"]) if http_props["CIp"].is_a?(String) && !http_props["CIp"].empty?
+       end
+     '
+   }
