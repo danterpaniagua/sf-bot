@@ -42,6 +42,15 @@ Compose file and related scripts live locally on the host under `~/scritps/grayl
 
 **Diagnostic lesson:** when messages "stop arriving" in Graylog with nothing wrong visible on the sending side, check this cluster's own health (`GET _cluster/health`, `docker logs opensearch` for restart signatures) **before** spending significant time on the sender's config. A multi-hour investigation during `GITIN-1827` chased NXLog configuration changes before finding the real cause here.
 
+## REST API query notes (SmartPedidos / SmartLoyalty stack, confirmed 2026-10-09 and 2026-10-13, GITIN-2208, GITIN-2211)
+
+- Only `GET /api/search/universal/absolute` has answered; the histogram and terms endpoints return 404 on `graylog/graylog:5.2.12`. Count per interval with one request per interval (`limit=1`, read `total_results`).
+- Time parameters: use ISO with `Z` (`2026-10-12T01:00:00.000Z`). A plain date string is read as UTC-3 and shifts the window by 3 hours.
+- Queries: a single quoted phrase works (`"platforms-service"`); boolean queries and several terms combined with `OR`/`AND` returned HTTP 500 (also `Missing search type result!`); issue one request per term.
+- Volume: one request per minute with `limit=3000` returned complete minutes of `platforms-service` (about 1,000-1,300 messages per minute in October 2026); `total_results` equals the messages returned when the limit is not hit.
+- Message shape of `platforms-service` (JSON in `message`): `timestamp`, `service`, `level`, `category` (`PERF`, `ORDER`, `INFRA`, `INTEGRATION`), `message` and a `rest` object. `[PERF/INFO] http_response platform=<P> action=<A>` lines carry `rest.duration_ms` and `rest.status`; they are the way to measure delivery-platform latency and consumer-side activity (readyOrder, dispatchOrder, deliveryOrder, viewOrder). Raw messages can include order or account data: save them to files excluded from version control (`detail-*`).
+- Retention: per-minute messages were still available 10 days back (2026-10-03).
+
 ## Related
 
 - `loyalty/docs/infrastructure.md` — SmartLoyalty application server inventory, including the mail relay hosts.

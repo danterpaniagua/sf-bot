@@ -38,7 +38,7 @@ PedidosYa / Rappi / UberEats / MercadoPago / PediGrido
         ↓  webhook
   platforms-service
         ↓  pushNewToQueue
-  {branchId}_PlatformMessages.fifo  (per-branch, us-east-2)
+  {branchId}_PlatformMessages.fifo  (per-branch; us-east-2 in test/staging, us-east-1 in production as {branchId}PRD_PlatformMessages.fifo)
         ↓  pollFromQueue (parent consumer)
             + up to 3 child consumers (auto-scale at 200 / 400 / 600 depth)
         ↓  setNews → news state transition
@@ -49,7 +49,7 @@ PedidosYa / Rappi / UberEats / MercadoPago / PediGrido
   smartfran.deadletters  (MongoDB)
 ```
 
-**Region:** `us-east-2` (queues) — note this differs from the MongoDB Atlas cluster region (`us-east-1`).
+**Region:** `us-east-2` holds the test and staging queues (user-stated 2026-10-13; the testing queue URLs below were read from earlier work, no staging queue was listed). **Production queues are in `us-east-1`** (same region as the Atlas cluster): CloudWatch `AWS/SQS` in `us-east-1` returns `{branchId}PRD_PlatformMessages.fifo`, `PRD_BranchMessages.fifo`, `MainDeadLetter.fifo` and `DeadLetter.fifo` with live traffic (GITIN-2211 pulls, 2026-10-13). The `us-east-2` flow line above and the Auto-scaling note were not re-verified against production.
 
 **Auto-scaling (platforms-service consumers):** based on `ApproximateNumberOfMessages` — depth > 200 spawns a 2nd consumer, > 400 a 3rd, > 600 a 4th.
 
@@ -66,9 +66,22 @@ PedidosYa / Rappi / UberEats / MercadoPago / PediGrido
 | Dead letter | `https://sqs.us-east-2.amazonaws.com/382381053403/DeadLetter.fifo` |
 | Main dead letter | `https://sqs.us-east-2.amazonaws.com/382381053403/MainDeadLetter.fifo` |
 
-Production queue naming follows the same pattern without the `_TST_` segment (e.g. `{branchId}_PRD_PlatformMessages.fifo`) — confirm exact naming before use, not independently verified.
+Production queue names observed in `us-east-1` (2026-10-13): per-branch `{branchId}PRD_PlatformMessages.fifo` (no underscore before `PRD`, e.g. `5713PRD_PlatformMessages.fifo`) and the shared `PRD_BranchMessages.fifo`, plus `MainDeadLetter.fifo` and `DeadLetter.fifo`.
 
 **Stray queues in `us-west-2`:** a set of `{branchId}_PlatformMessages.fifo` queues (e.g. `1025PER_PlatformMessages.fifo`, created 2020-12-29) exist in account `382381053403` region `us-west-2`, outside the documented `us-east-2` production region. Confirmed created and unused (no active POS consumer) — likely leftover from early provisioning. Not part of the active message flow; flagged here as infra hygiene, not investigated further.
+
+### Production queue signals (GITIN-2211, 2026-10-13)
+
+Measured with CloudWatch `AWS/SQS`, `us-east-1`, queue `PRD_BranchMessages.fifo` (1-minute data; use `Maximum` for age and visible messages, `Sum` for sent/received/deleted):
+
+- **Normal:** about 380-620 messages sent per minute in the evening, received and deleted within a few messages of sent, oldest-message age 0-4 s. Daily 5-minute peak of sent: 1361-3534 at the usual ~22:45 local (weekday evenings 1361-1882, Friday-Sunday evenings 2800-3534), so a fixed threshold on volume would fire daily.
+- **Stall pattern:** consumption stops for 2-5 minutes (received and deleted at 0 while sends continue), visible messages and oldest-message age climb, then a catch-up burst (e.g. 2879 received / 2880 deleted in one minute) drains it. 12 stalls in 2026-10-03..10-12; all 12 reached age > 200 s (238-324 s), 10 reached >= 250 s and 5 reached >= 300 s. Each one coincides with a run of >= 2 minutes of zero deletions with sends > 0, and no other such run occurred in the 10 days. Cause not determined (same pattern as GITIN-2162 / GITIN-2110). Triage steps: `ops-aws` skill, F-007. Example: 2026-10-11 21:58-22:02, age 306 s at 22:03.
+- **Dead letters:** `MainDeadLetter.fifo` holds a stock of 30-77 visible messages and received 0 messages in the 10 days; `DeadLetter.fifo` visible 0-3. Neither moves during stalls.
+- **Pull limit:** a CloudWatch `SEARCH` over all SQS queues is cut at 500 series (`MaxMetricsExceeded`); request the queue by name or split by branch range.
+
+**Alerting chain on `PRD_BranchMessages.fifo` (read 2026-10-13, GITIN-2211):** CloudWatch alarm `sendMailOldestMessage` (`ApproximateAgeOfOldestMessage`, Average, 300 s period, threshold > 25 s) notifies SNS topic `Pedidos_Production` (Lambda, email and SMS subscriptions). The Lambda `IntegrationLambdaEcsTaskProd` (`us-east-1`, python3.12, timeout 3 s, ~2.9 s per run) sets `platform-service-production-service` (cluster `smartfran-pedidos-production`) to 15 desired tasks whenever fewer than 15 are running; Application Auto Scaling target tracking then scales back in (3-minute steps). The Lambda fired in all 12 stalls of 2026-10-03..10-12. A second alarm, `sendMailOldestMessage100`, has been `INSUFFICIENT_DATA` since 2025-02-22.
+
+Reported by the team, not independently checked: Grafana shows these queue metrics and alerts above 250 s of oldest-message age; 250 s was chosen because an order can be cancelled when no news arrives within 10 minutes.
 
 ---
 
@@ -82,6 +95,8 @@ Production queue naming follows the same pattern without the `_TST_` segment (e.
 | `concentrador-service` desiredCount / runningCount | `1` / `1` (steady state, confirmed via `describe-services`) — single task, no redundancy |
 | `platform-service` desiredCount / runningCount | `10` / `10` (raised from `5`/`5` on 2026-08-05 as a follow-up to the CPU/health-check incident, see below) |
 | Deployment controller / strategy | `ECS`, `ROLLING`, `maximumPercent: 200`, `minimumHealthyPercent: 100` |
+
+**Update 2026-10-13 (GITIN-2162, GITIN-2211) — the `platform-service` row above and the task-definition table below are stale:** the service ran at desired/running `5`/`5` on 2026-10-05 08:42 (after a MinCapacity of 10 applied 2026-10-04 15:24), and at 5 tasks at 22:02 on 2026-10-11. The current task definition is `platform-service-production-task:268` (registered 2026-09-28, 512 CPU units / 1024 MiB, image tag `10.9.12`), not `:253`. During queue-age alarms the service is pushed to 15 desired tasks by a Lambda and then scaled in by Application Auto Scaling in 3-minute steps (e.g. 14 at 22:05, 5 at 22:38 on 2026-10-11); see "Production queue signals" above. The table rows were not edited.
 
 **Open risk (2026-07-22, confirmed via `describe-services` event history):** `concentrador-service` is only ever run at `desiredCount: 1`, but the `ROLLING` strategy (`maximumPercent: 200`) means every deployment briefly runs the old and new task concurrently — the new task is started and **registered** to the ALB target group before the old task begins draining/deregistering. This is a real overlap window, not a hypothetical scale-out scenario. Combined with `deadLetterSave() on startup` (see Message Flow above), this means two instances can already run `deadLetterSave()` concurrently during a deploy — a duplicate-processing risk that predates and is independent of any decision to run this service at `desiredCount > 1`.
 
@@ -99,7 +114,7 @@ Production queue naming follows the same pattern without the `_TST_` segment (e.
 | Task role | `smartfran-task-role` | `smartfran-task-role` |
 | Log group | `/ecs/concentrador-service-production-task` | `/ecs/platform-service-production-task` |
 
-No infra-level safeguard (lock, leader election) against the two-tasks-briefly-registered overlap above — if `deadLetterSave()` or other startup logic is protected against double-execution, that protection would have to be in application code. **Local read-only source clones now exist** for both services (`smartpedidos/repo/dev-src-smartPedidos-concentradorService/`, `smartpedidos/repo/dev-scr-smartPedidos-platformsService/` — see `smartpedidos/CLAUDE.md`); no double-execution guard was found there either as of 2026-08-05.
+No infra-level safeguard (lock, leader election) against the two-tasks-briefly-registered overlap above — if `deadLetterSave()` or other startup logic is protected against double-execution, that protection would have to be in application code. **Local source working copies (edit and pull allowed, never commit or push) now exist** for both services (`smartpedidos/repo/dev-src-smartPedidos-concentradorService/`, `smartpedidos/repo/dev-scr-smartPedidos-platformsService/` — see `smartpedidos/CLAUDE.md`); no double-execution guard was found there either as of 2026-08-05.
 
 ### Load Balancer / Target Groups (confirmed 2026-08-05)
 
@@ -177,7 +192,7 @@ Check `events/20260902_error-message-alerting/` for detail (`ops.md`/`ops-events
 | `platforms-service` | Inbound integration layer for delivery platforms. Validates/normalises orders, persists to MongoDB (`orders` + `news`), pushes to AWS SQS. `Platform` base class with per-platform subclasses for the full order lifecycle. Manages restaurant open/close scheduling and per-platform delivery-time/rejection-reason catalogues. |
 | `concentrador-service` | Internal management and POS-facing backend. Serves SmartFran agents and the management dashboard. Owns the SQS consumer path bridging platforms-service to branch POS terminals. Handles dead-letter recovery, platform-history auditing, `news` state transitions. |
 
-Local read-only source clones exist in `smartpedidos/repo/` (see above) for architecture/root-cause lookups — see `smartpedidos/CLAUDE.md` for where actual source-level work happens (`smartfran/sp-logs`, a separate project).
+Local source working copies (edit and pull allowed, never commit or push) exist in `smartpedidos/repo/` (see above) for architecture/root-cause lookups — see `smartpedidos/CLAUDE.md` for where actual source-level work happens (`smartfran/sp-logs`, a separate project).
 
 ---
 

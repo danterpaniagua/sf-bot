@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-11
 
-Canonical source of truth for pipeline mechanics lives in the separate `sf-devops` repo (`~/Documentos/git/sf-devops/jenkins/SF-PEDIDOS/smartpedidos.md`), not in this repo — this file is a local pointer/summary so CI/CD facts don't have to be re-derived from git archaeology every session (confirmed the hard way, 2026-09-11: reading only the app repos' own in-repo `Jenkinsfile`s produced wrong conclusions about both Node version and scanning coverage, since those files are largely vestigial — the real pipelines were migrated out).
+Canonical source of truth for pipeline mechanics lives in the separate `sf-devops` repo (`sf-devops/jenkins/SF-PEDIDOS/smartpedidos.md`), not in this repo — this file is a local pointer/summary so CI/CD facts don't have to be re-derived from git archaeology every session (confirmed the hard way, 2026-09-11: reading only the app repos' own in-repo `Jenkinsfile`s produced wrong conclusions about both Node version and scanning coverage, since those files are largely vestigial — the real pipelines were migrated out).
 
 ## Branch strategy (per `sf-devops/jenkins/SF-PEDIDOS/smartpedidos.md`)
 

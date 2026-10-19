@@ -86,7 +86,7 @@ Associated with: VNet `sfcgvnet01`, prod subnet `192.168.50.0/24`
 
 **MobileAppService ingress rules (re-audited 2026-08-21, `GITIN-1909`)** — `SFCG-MOBI-01`/`SFCG-MOBI-02` sit at `192.168.50.111`/`.112`, inside this NSG's associated subnet. Port 8043 (the LB-fronted MobileAppService port, via `SFCG-MOBI-LB`) is gated by named multi-IP allow-lists, not a subnet/`*`-source rule — not present in the 2026-06-30 table above, either added since or missed in that pass:
 
-IP purpose labels below (Claro/Fibertel/APIM Grido/etc.) come from `~/Documentos/git/smartfran-documentacion/sml-sf-mobile.md` — **not independently verified, and that doc's currency relative to `bots/` is unconfirmed** (see caveat below). Treat as reported, not confirmed.
+IP purpose labels below (Claro/Fibertel/APIM Grido/etc.) come from `smartfran-documentacion/sml-sf-mobile.md` — **not independently verified, and that doc's currency relative to `bots/` is unconfirmed** (see caveat below). Treat as reported, not confirmed.
 
 | P | Name | Source (live, 2026-08-21) | Dest | DestPort | Note |
 |---|---|---|---|---|---|
@@ -94,7 +94,7 @@ IP purpose labels below (Claro/Fibertel/APIM Grido/etc.) come from `~/Documentos
 | 113 | `Grido-Mobile-Allow` | 9 named IPs, incl. **`172.191.0.208`** — the exact source IP seen throughout `GITIN-1909`'s httperr.log analysis. External doc labels it "APIM Grido" (Grido's Azure API Management egress); **not independently confirmed** — treat as reported pending verification, not settled fact | 192.168.50.111,.112 | 8043 | If the APIM label holds, Grido's MobileAppService traffic (incl. their load test) routes through their own APIM before reaching this NSG — relevant to who remediation coordination should target, but confirm before relying on it |
 | 114 | `Zabbix-MobileApp` | 192.168.50.5, 172.191.99.60, 172.173.191.212, 3.214.234.76 | 192.168.50.111,.112 | 8080,8043 | Monitoring access, separate purpose |
 
-**Possible drift vs. an older planning doc (2026-08-21), source: `~/Documentos/git/smartfran-documentacion/sml-sf-mobile.md`.** That document lists a "clean" (`Limpio`) target IP list per rule, but **`smartfran-documentacion` is not confirmed to be current** — per the user (2026-08-21), `bots/` is the actively-maintained project and may hold more up-to-date state; that external doc could be a stale/abandoned cleanup plan rather than a live target. Recording the comparison as an observation only, not a confirmed drift finding:
+**Possible drift vs. an older planning doc (2026-08-21), source: `smartfran-documentacion/sml-sf-mobile.md`.** That document lists a "clean" (`Limpio`) target IP list per rule, but **`smartfran-documentacion` is not confirmed to be current** — per the user (2026-08-21), `bots/` is the actively-maintained project and may hold more up-to-date state; that external doc could be a stale/abandoned cleanup plan rather than a live target. Recording the comparison as an observation only, not a confirmed drift finding:
 
 | Rule | Live IP count (2026-08-21) | "Clean" list in that doc | Note |
 |---|---|---|---|

@@ -70,3 +70,9 @@ All ports are published on all interfaces; whether the AWS security group restri
 ## 9. Not yet known
 
 Whether the Grafana database is SQLite; whether any account-level backup (EBS snapshot / AWS Backup) of the instance exists; whether the AWS security group restricts the published ports; compatibility of each plugin and of the `graph` panels/legacy alerts with a current Grafana release; notification-channel settings (not collected); who the four users are and whether the default `admin` login was changed.
+
+## SQS queue alerting around Grafana (2026-10-13, GITIN-2211)
+
+- User-stated, not checked in Grafana: the SQS panels alert when the oldest-message age of `PRD_BranchMessages.fifo` exceeds 250 s (an order can be cancelled when no news arrives within 10 minutes). This is separate from the CloudWatch alarm `sendMailOldestMessage` (Average over 300 s, threshold above 25 s, notifies SNS `Pedidos_Production`, whose Lambda raises `platform-service-production-service` to 15 tasks); the CloudWatch statistic was read from the alarm itself on 2026-10-13, and it is Average, not Maximum.
+- The Prometheus CloudWatch exporter lists SQS `ApproximateAgeOfOldestMessage`, `ApproximateNumberOfMessagesVisible` and `NumberOfMessagesDeleted/Received/Sent`: the panels can show a consumer stall as received and deleted at 0 while sent continues. Triage: `ops-aws` skill, F-007; evidence and episode list in `smartpedidos/docs/infrastructure.md` → "Production queue signals".
+

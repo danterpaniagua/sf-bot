@@ -2,7 +2,7 @@
 
 - Jira: https://smartit-ar.atlassian.net/browse/GITIN-2187
 - Opened: 2026-10-07
-- Status: converged for ticket purposes (repo changes pushed to develop in Platform and Concentrador; Jenkins builds, job migration and Backoffice develop merge pending)
+- Status: converged for ticket purposes (2026-10-08): repo changes pushed to `develop` in all three app repos; Jenkins builds, migration of the jobs to "Pipeline script from SCM" and alignment of the `ope` branches still pending.
 - Scope as understood: run ESLint over the SmartPedidos services (Platform and Concentrador) and feed the result to SonarQube via the JavaScript/TypeScript external analyzer property (`sonar.eslint.reportPaths`). Exact ticket scope not yet confirmed with the user.
 
 ## What is known
@@ -13,6 +13,7 @@
 - `npx eslint@8` / `npx -p eslint@8.57.1 eslint` ran an older ESLint (v6.8.0, found earlier on PATH) instead of the downloaded one; running the cached `eslint.js` with `node` gave the real 8.57.1. In the Jenkins stage ESLint 8 is installed with `npm install --prefix <tmpdir>` and its `.bin/eslint` is called by path.
 - SonarQube scanner runs in Docker with `-v ./api:/usr/src`, so ESLint's absolute host paths must be rewritten to `/usr/src/...` (done with `jq` in the stage) or the issues won't attach to files. Not yet verified on a real build.
 - Jenkinsfile edits (local `sf-devops` clone, `main` at 71a24f3, uncommitted, files already had other uncommitted edits): `develop/dev-src-pedidos-platform.jenkinsfile` and `develop/dev-src-pedidos-concentrador.jenkinsfile` (and Backoffice, below) got an `ESLint Report` stage before `Sonarqube Analisys` plus `-Dsonar.eslint.reportPaths=eslint-report.json`. The `ope` Concentrador/Platform Jenkinsfiles have no Sonar stage and were not changed.
+- Where `sonar.eslint.reportPaths` lives (checked 2026-10-08): only as a scanner argument (`-Dsonar.eslint.reportPaths=eslint-report.json`) in the Docker scan command of the three `develop` Jenkinsfiles in `sf-devops` (`main`; Platform L161, Concentrador L177, Backoffice L175; commits 2800cc8, 1a26376 and 9a7926f). No `sonar-project.properties` in the app repos carries it and it is not a SonarQube project setting, so it will not appear in the SonarQube UI. While the jobs run an inline pipeline script (not "Pipeline script from SCM"), what runs is the script stored in the job, not these files; the job configuration was not inspected.
 - Concentrador first Jenkins run failed: its `api/.eslintrc.json` extends `google` (`eslint-config-google`), which was not resolvable, ESLint exited 2 with no report, `jq` then failed on the missing file and failed the whole pipeline. Stage then changed to install `eslint-config-google` in the temp prefix, run with a copy of the config there (`--no-eslintrc -c`), and fall back to an empty report with a WARNING if ESLint produces nothing. This fix is untested.
 - Platform's stage uses the project's config in place plus the same fallback; also untested in Jenkins.
 - Backoffice (`develop/dev-src-pedidos-backoffice.jenkinsfile`, code in `app/`, not `api/`): same `ESLint Report` stage and `-Dsonar.eslint.reportPaths`, with `app/` paths and the `/app/` → `/usr/src/` rewrite (matches its `-v ./app:/usr/src` mount) and the same empty-report fallback. The Backoffice repo and its ESLint config were not seen: an absent `.eslintrc*`, TypeScript/Vue/React sources (default ESLint only lints `.js`; would need `--ext`/parser plugins), or generated folders such as `dist/` could affect the first run. Untested. No `ope`/`stg` Backoffice Jenkinsfile exists.
@@ -28,6 +29,14 @@
 
 - Platform had an uncommitted local edit adding literal AWS credentials to `api/src/config/env/staging.js` and a matching change in `api/src/platforms/provider/aws.js`. It blocked a `git pull` on `develop`; the diff was saved to a `600` patch outside the repo and the working-tree edit was discarded. Not committed anywhere. Whether those credentials need rotation is for the credentials sweep (GITIN-2169).
 
+## State on 2026-10-08 (read from the local clones and their remote-tracking refs; no fetch)
+
+- Platform `develop` @ `373144e` and Concentrador `develop` @ `01494650`: clean, equal to `origin/develop`, both direct commits ("README con seccion Operaciones, Dockerfile con npm 11.20.0 y actualizacion de paquetes"). Backoffice `develop` @ `bae5326`: clean, equal to `origin/develop`; three direct README commits (`94048cd` added the section to `app/README.md`, `2c98dad` created the root `README.md`, `bae5326` deleted `app/README.md` and fixed the commands to run from the repo root). Backoffice now has a single README at the repository root.
+- `ope` heads (remote-tracking refs): Platform `60ef2bf`, Concentrador `dc4a87e4`, Backoffice `2890a32`. They have not been brought in line with `develop`: Platform and Concentrador `ope` lack the MercadoPago work on `develop`, and Backoffice `ope` still has the README under `app/` only.
+- Pipelines repo (`sf-devops`, `main` @ `9a7926f`): the ESLint, `RUN_BUGS_REPORT` and `skipDefaultCheckout` commits are in; three uncommitted items there belong to the vault work (GITIN-1715), not to this ticket.
+- The monorepo notes were committed and pushed (`main` of the notes repository @ `88274de` at the time of the push check, plus later local commits); the PoC folders `ocultar-accountid-optA/optB` were taken out of the index.
+- Still not seen: any Jenkins build with the `ESLint Report` stage or the new Dockerfile, and any job configured as "Pipeline script from SCM".
+
 ## Open items
 
 - Confirm the ticket scope (which services/branches; report-only vs gating the quality gate).
@@ -37,5 +46,5 @@
 - Review the 4 `new-cap` and 94 `no-unused-vars` findings (list command was proposed; output not yet received).
 - Migrate one job first (`pruebas`), verify no extra `sf-devops` checkout into the app workspace and that stages run through Sonar; then the rest.
 - Check the first `develop` builds of Platform and Concentrador (new Dockerfile) and of all three (ESLint stage); decide whether Backoffice keeps the ESLint stage.
-- Backoffice: commit/push the `app/README.md` deletion, bring `ope` in line with `develop`, and decide whether to apply package/Docker updates (older Angular/Node 10 stack, separate task).
+- Bring the three `ope` branches in line with `develop` (Backoffice `ope` still has the README under `app/`), and decide whether Backoffice gets package/Docker updates (older Angular and Node 10 stack, a separate task).
 - Decide whether the Jenkins temp ESLint 8 install should instead become a pinned dev dependency of the repos.

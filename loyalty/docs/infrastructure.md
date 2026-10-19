@@ -86,6 +86,21 @@ Full task list and timing snapshot as of 2026-08-03: see `events/20260803_cpu_pe
 
 ---
 
+## Non-production TaskOperator (`SFDEV02`)
+
+Confirmed 2026-10-14 during GITIN-2223 (PREPROD TaskOperator not running tasks) and GITIN-2224 (log recommendations).
+
+| Item | Value |
+|---|---|
+| Services | `SmartLoyalty.TaskOperator.Service.Preprod` (`E:\SmartFran\PREPROD\SmartLoyalty.TaskOperatorService`) and `SmartLoyalty.TaskOperator.Service.Test02` (`E:\SmartFran\TEST02\...`); LocalSystem, Automatic start; they came back by themselves after a host reboot |
+| Environment folders | `E:\SmartFran\{DEV, PREPROD, TEST02}` contain the service; `Demo`, `PREPROD-01..04`, `Util` do not |
+| Databases (local SQL Server, default instance) | `SmartFran.Solution.SmartLoyalty-{DEV,PREPROD,TEST02}` and `SmartFran.Solution.DwTest-{DEV,PREPROD,TEST02}`; one shared SQL login (`sltest01`) used from several workstations and by the services |
+| SQL Server behavior | Time zone UTC (`+00:00`); `READ_COMMITTED_SNAPSHOT` ON in the three SmartLoyalty databases (OFF in `DwTest-*`): a SELECT does not wait for another session's uncommitted `UPDATE` and shows the last committed value, while a second `UPDATE` of the same row waits for the lock |
+| Config files read at service start | `Config\AppSettings.config`, `Config\ConnectionStrings.config`, `Config\Unity.config` (and `SystemDiagnostics.config`); a malformed XML (for example a comment containing `--`) stops the service from starting |
+| Connection strings | `ConnectionStrings.config` has one entry per EF context, named after the context class full name (8 entries in DEV and TEST02, including `SmartFran.Business.Etl.Data.Context.EtlContext`). PREPROD lacked the `EtlContext` entry, and job `EtlDwGridoPointsTransferenceProcessor` (daily 10:00 -03:00) failed in all 445 runs from 2025-01-21 to 2026-10-14 (SQL error 26 after about a minute); fixed by adding the entry. That EF looks the string up by context name is inferred from the behavior, not read in code |
+| Scheduler behavior seen | A task becomes due at `Sch.Task.ExecuteOn`; the service picked it up up to about 2 minutes later; each run creates the next occurrence; at start the service cancels/deactivates interrupted tasks with the note "Service crashed, task being reprogrammed." and reprograms them. `Done`, `ExecutionStarted`, `ExecuteOn` are `datetimeoffset`; `Failed` is `bit` |
+| Logging | Only three service lines plus e-mails on errors; no per-task result text in the database (`Failed = 1` without a reason); recommendations in GITIN-2224 |
+
 ## Databases
 
 | Database | Purpose | Query scope |
@@ -119,9 +134,11 @@ SmartLoyalty's VMs and networking sit on the **Smart IT - Grido** subscription, 
 | AADDS DC subnet | `192.168.40.0/24` |
 | AADDS DC IPs | `192.168.40.4`, `192.168.40.5` |
 
+**Reading `SFCG-MOBI-LB` metrics (`az monitor metrics list`, `GITIN-2241`, 2026-10-16):** `DipAvailability` is split per backend with `--dimension BackendIPAddress` (`192.168.50.111` = `SFCG-MOBI-01`, `192.168.50.112` = `SFCG-MOBI-02`). A backend can return points with **no `average` value** (confirmed: all 120 points of `.112` for 2026-10-15 08:30-10:30 UTC, and 17 of 300 on the afternoon of the same day): that is "no sample", not 100 % and not a drop, and a summary that only lists points below 100 prints nothing for it. Count the points with a value per backend next to the summary. The probe measures the health check, not user latency, so 100 % does not rule out slow or failing requests.
+
 ### Host naming convention and IP-range allocation (prod subnet `192.168.50.0/24`)
 
-Source: `~/Documentos/git/smartfran/ope-documentation/infrestructura-azure/infrastructura-azure.txt` (dated 2023-10-13, undocumented in `bots/` until now — folded in 2026-08-21 since every live IP confirmed this session/prior sessions fits it exactly).
+Source: `smartfran/ope-documentation/infrestructura-azure/infrastructura-azure.txt` (dated 2023-10-13, undocumented in `bots/` until now — folded in 2026-08-21 since every live IP confirmed this session/prior sessions fits it exactly).
 
 Hostnames follow `SFCG-<SVC>-<NN>` (e.g. `SFCG-WEBS-01` = SmartFran/Club Grido WebService, instance 1). IPs within `192.168.50.0/24` are pre-allocated in ranges by service:
 
@@ -152,7 +169,7 @@ SmartLoyalty hosts multiple franchise brands on the same DB instance:
 
 ## Source Code Reference
 
-A local read-only clone of the SmartLoyalty WebSite/WebService application source is available at `loyalty/repo/dev-src-sol-smartloyalty/` (`.gitignore`d via the repo-root `**/repo/` pattern — present locally, not committed). Use for architecture/root-cause lookups only, never as a deploy target.
+A local working copy (edit and pull allowed, never commit or push) of the SmartLoyalty WebSite/WebService application source is available at `loyalty/repo/dev-src-sol-smartloyalty/` (`.gitignore`d via the repo-root `**/repo/` pattern — present locally, not committed). Use for architecture/root-cause lookups only, never as a deploy target.
 
 **Confirmed relevant path (2026-07-21):** `Front/WebSite/Controllers/CatalogController.cs` — `SetListCatalog` action and its call into `Core/Domain/Domain/CustomerContext/CustomerService.cs` (`GetCustomerAvailable`) were traced to a confirmed N+1 query root cause during a WAF/backend-timeout investigation. See `operations/events/20260721_gestion_clubgrido_waf_504/` for the full trace.
 
@@ -165,3 +182,12 @@ A local read-only clone of the SmartLoyalty WebSite/WebService application sourc
 - `../docs/graylog_infrastructure.md` — the Docker Graylog/OpenSearch stack shared with SmartPedidos, including the `SFCG-SMTP-01`/`-02` mail relay hop.
 - `../docs/zabbix_observability.md` — cross-project Zabbix reference: host onboarding checklist, SSL cert monitoring architecture, the IIS request-rate tiered-alert pattern, alert-routing/action status, known Agent 2 bugs.
 - `memory/` — persistent fraud actor memory (known hubs, relays, POS actors), not infrastructure.
+
+## SFCG-WEBS load balancer, healthcheck and monitoring path (`GITIN-2250`, 2026-10-18)
+
+- **Balancer `SFCG-WEBS-LB`** (Azure Standard, `DefaultGroup01`): one rule `LB_Rule_WEBS2`, TCP 8080 → 8080, load distribution **`SourceIP`**, idle timeout 4 min; probe `healthcheck` (HTTP 8080, path `healthcheck.ashx`, every 15 s, 1 failure = unhealthy). Pool `Back_WebS2` holds the three WEBS NICs (`.101` = WEBS-01, `.102` = WEBS-02, `.103` = WEBS-03 by NIC name, consistent with probe-loss timing). `SFCG-WEBS-GroupBackend` is an empty pool used by no rule; probe `Sondeo_WEBS` (TCP 8080) is not referenced by the rule. With `SourceIP` the balancer does not react to CPU: only the probe removes a backend.
+- **`healthcheck.ashx`** (`C:\SmartFran\SmartLoyalty.WebService\healthcheck.ashx`, 2,268 B, modified 2025-11-06, read on WEBS-02): answers HTTP 400 with `"status":"Warning"` when either `Processor(_Total)\% Processor Time` (one 500 ms sample) or `Memory\Committed Bytes / Commit Limit` (commit ratio, not physical RAM) is above 80; otherwise HTTP 200 with the `cpu` and `memory` values as JSON. Exception → 500; a failed counter read returns 0. Not in the SmartLoyalty source clone.
+- **The three WEBS hosts differ** (read 2026-10-18): 4 / 2 / 2 logical processors; app pool `SmartLoyalty.WebService` web garden `maxProcesses` 5 / 3 / 1; periodic recycle off / off / 29 h. Site log directory `d:\SmartFran\inetpub`.
+- **Monitoring path:** WEBS-01/02/03 and the Zabbix host `sfcg-monitoreo` (10610) are monitored through Zabbix proxy `10609`; the machine behind that proxy reaches the three backends on `192.168.50.101-103:8080` (HTTP 200 in about 0.5 s). Web scenario `[PROD] API POS / Gestion` (httptest 6) calls the balancer name `webservice.clubgrido.com.ar:8080`, so with `SourceIP` it always lands on one backend. Alert standards and compliance: `docs/zabbix_observability.md` → "Fleet alert standards".
+- **Not monitored here:** `SFCG-DB01` (visible name "Loyalty DB CLON") is disabled in this Zabbix and not used (user decision 2026-10-18).
+

@@ -1,0 +1,104 @@
+# Investigation — 20261013_gitin2218-graylog-visibilidad
+
+**Status:** open (dashboard built and applied; waiting for data to fill). Jira: GITIN-2218 "[CLOUD] Visibilidad Graylog" (https://smartit-ar.atlassian.net/browse/GITIN-2218).
+
+## Ask (user, 2026-10-13)
+New Graylog charts: line, one per service, counting HTTP verbs. Query as given: `NOT Method: ("PUT","OPTIONS","PATCH") AND Service: SERVICES`.
+
+## Scope clarification (user)
+Application logs only, not the App Service HTTP logs (`category:AppServiceHTTPLogs`). Query becomes `_exists_:Method AND NOT Method:(PUT OR OPTIONS OR PATCH) AND NOT category:AppServiceHTTPLogs AND Service:<X>`. This also removes the possible double count with `CsMethod`. The `category` value and that app-log lines carry `Method` are from `cloud/docs/graylog-log-fields.md`; C1 prints the remaining `category` values to confirm.
+
+## Notes
+- As written, `NOT Method:(...)` also matches every log line that has no `Method` field (non-HTTP lines), so a per-verb chart would be diluted. Proposed: `_exists_:Method AND NOT Method:(PUT OR OPTIONS OR PATCH) AND Service:<X>` (Lucene syntax; commas and quotes are not needed).
+- `Method` is promoted from the "Request finished" line and from `AppServiceHTTPLogs` (`CsMethod`) per `cloud/docs/graylog-log-fields.md` (GITIN-1940, fixed GITIN-2034). The same request may appear in both sources, which could double counts; not checked.
+- `Service` values seen in earlier samples: Business, Platform, Person, Catalog, Orders, Client (Admin-PRO), Sales; also `SmartFran.Cloud.Sales.API` and `smartfran-pos-wasm`. Security not seen. The list to chart is not confirmed: C1 (`scripts.sh`) lists the values with `Method` in the last 24 h.
+
+## C1 / C2 results (2026-10-13 ~15:00 local; C2 window: last hour, `data/c2-v1..v4.json`, `data/pull-c2-log.txt`)
+- C1 (`pull-log2.txt`) ended `state: FAILED`, error description `null`, with no result; cause not isolated (the C1 request had two extra pivots, `Service`×`Method` with `rollup:false` and `category`). C2 ran the four query variants with a single `Service` pivot and all completed, so `_exists_:Method`, `NOT Method:(PUT OR OPTIONS OR PATCH)` and `NOT category:AppServiceHTTPLogs` are all valid queries.
+- Counts by `Service` (messages in the hour): `*` gives 15 values incl. (empty) 79,623. `_exists_:Method`: (empty) 63,106; Orders.API 27,624; Catalog.API 14,432; Business.API 14,030; Sales 9,381; Platform.API 7,109; Client.Web 3,370; Person.API 944; smartfran-pos-wasm 29. After the verb exclusion (v3): (empty) 40,696, Orders.API 27,620, Catalog.API 14,432, Business.API 14,012, Sales 8,832, Platform.API 5,807, Client.Web 3,370, Person.API 944, pos-wasm 29. After `NOT category:AppServiceHTTPLogs` (v4): the (empty) row is gone and the other 8 are unchanged (Orders 27,620 … pos-wasm 29).
+- So the lines with `Method` and no `Service` (40,696 after the verb exclusion) are the App Service HTTP logs; the other 8 values are the application logs. Reading from one hour, not a confirmed property.
+- `Service` holds the long assembly-style names for 7 of them (`SmartFran.Cloud.Orders.API`, `...Catalog.API`, `...Business.API`, `...Platform.API`, `...Client.Web`, `...Person.API`), plus `Sales` and `smartfran-pos-wasm`; this differs from the short names in `cloud/docs/graylog-log-fields.md` (GITIN-1883 samples), so the doc's names are stale or vary by source. `SmartFran.Cloud.Sales.API` (9,095 lines in the hour) has no `Method`; `Security` did not appear at all in the hour; the Functions (ScheduledJobs, CodeGenerator, TicketProcessAsync, Balance) have no `Method` lines in app logs in this hour.
+- Not checked: counts per verb per service (the chart's content), other hours.
+
+## C3 — Business.API application-log GET hits per day (`data/c3-result.json`, `data/c3-summary-by-day-path.txt`, `data/pull-c3-log.txt`; pull of 2026-10-13 ~15:18 local; days in UTC-3, 10-13 partial)
+Query: `_exists_:Method AND Method:GET AND NOT category:AppServiceHTTPLogs AND Service:"SmartFran.Cloud.Business.API"`.
+- GET lines per day: 10-05 2,208; 10-06 4,347; 10-07 3,894; **10-08 675,435**; **10-09 2,078,674**; 10-10 1,421,335; 10-11 1,737,277; 10-12 1,711,358; 10-13 389,014 (to ~15:18). The step is on 10-08, the peak on 10-09; nothing before 10-08.
+- `/api/v1/WalletCredentials/{id}` (ids grouped; top 15 paths per day, so a lower bound): 10-08 504,921; 10-09 1,898,817; 10-10 1,172,153; 10-11 1,484,266; 10-12 1,512,060; 10-13 337,399. About 75% of the day's GETs on 10-08 and 82–91% on the other days.
+- Three more GET paths rose from tens per day (10-06: 30–34) to tens of thousands: `Franchise/GetSaleMovementSetup` 38,588 (10-08), 39,985, 59,036, 60,541, 44,676 (10-12); `Stock/ExistStockAddForSale` and `DiscountSurchargeRule/Effective` follow the same shape (same as the ~30k/day seen in GITIN-2209). `Status/Health` is flat at about 7–10k, `TypesAllocationFranchise/GetAll` about 6–9k.
+- Not explained: GET lines on 10-07 are only 3,894 although GITIN-2209 recorded 39,683 Error-level lines that day starting about 22:30. Not checked.
+- The callers of these paths were not looked at in this pull (no `UserId`/`ClientIP` pivot), so the attribution to SmartPedidos stays as in GITIN-2209 (Platform and Concentrador share the M2M `client_id`; which one calls is not established), and it was not checked for the three other paths.
+
+## C4 — existing charts (`data/c4-dashboards-list.json`, `c4-dashboards-titles.txt`, `c4-view-6ace703e41759be0a237ff89.json`, `pull-c4-log.txt`; pull of 2026-10-13 ~16:00 local)
+- Dashboards on the SmartCloud Graylog (4): Observabilidad Cloud, **Operations** (id 6ace703e41759be0a237ff89), Pruebas, Sources. Only Operations matched "HTTP|Operations"; "HTTP" is a tab of it (tab id 01c094e8-7fdc-485a-9435-5a7705fe5bad); no other tab appeared in the output.
+- 5 widgets on the HTTP tab, all `aggregation`, visualization `line`, row `timestamp`, column `Method`, series `count(Method)`, no title set. Queries (all `_exists_:Method AND NOT Method: ("OPTIONS") AND Service:<X>`): `Sales`; `"SmartFran.Cloud.Catalog.API"`; `"SmartFran.Cloud.Orders.API"`; `"SmartFran.Cloud.Person.API"`; `"SmartFran.Cloud.Business.API"`.
+- Differences from the ticket query: only `OPTIONS` is excluded (not `PUT`/`PATCH`); no `category` filter, which in the C2 data changes nothing for these Service values (the `AppServiceHTTPLogs` lines had no `Service`).
+- Services with `Method` application logs in C2 that have no widget: `SmartFran.Cloud.Platform.API` (5,807/h), `SmartFran.Cloud.Client.Web` (3,370/h), `smartfran-pos-wasm` (29/h). `Security` did not appear.
+- Widgets have no titles, so the dashboard does not say which service each chart is for.
+
+## C5 run 1 — dashboard Operations re-read and widget queries over the last hour (`data/c5-run1/`; pull of 2026-10-13 ~15:50 local; window 17:51–18:51 UTC)
+- **Correction to the C4 note:** the widgets do have titles; they are stored in `state.<tab>.titles.widget`, not in `config.title` (the C4 script read the wrong place). Titles on the HTTP tab now: "Sales Method", "Business Method", "Catalog Method", "Orders Method", "Person Method", plus two new ones: "Sales (Status Code)" and "Business (Status Code)".
+- **Definition changed since C4** (5 widgets, now 7): the two "(Status Code)" widgets are the same query as the Method ones with `StatusCode` as the column (limit 15, skip empty values), series `count(Method)`, line. Layout: column 1, rows 1–20: Sales, Business, Catalog, Orders, Person; column 5: Sales (Status Code) row 1, Business (Status Code) row 5; each 4×4.
+- **Time ranges differ between widgets:** Sales, Business and both Status Code widgets: last 48 h (172,800 s); Catalog, Orders, Person: last 5 minutes (300 s).
+- All widgets: aggregation, line, row `timestamp` (auto interval), column limit 15, series `count(Method)`, query `_exists_:Method AND NOT Method: ("OPTIONS") AND Service:<X>`.
+- **Last-hour counts per widget query** (total lines / lines with `StatusCode` / lines with `Path`): Sales 10,859 / 5,467 / 10,859; Catalog 15,664 / 7,844 / 15,664; Orders 27,520 / 13,793 / 27,520; Person 1,043 / 528 / 1,043; Business 15,985 / 8,003 / 15,985. `StatusCode` is on about half of the lines of each service and `Path` on all of them. Consistent with two log lines carrying `Method` per request, one of them with `StatusCode` (not verified which lines); if so, the verb charts count about twice the requests.
+- Verbs in the hour: Sales POST 7,596, GET 2,646, PATCH 552, PUT 65; Catalog GET 15,492, POST 172; Orders POST 26,356, GET 1,164; Person GET 1,041, PUT 2; Business GET 10,669, POST 5,302, DELETE 8, PUT 4, PATCH 2.
+- Status codes in the hour: Sales 200 5,038, 204 271, 404 144, 210 13, 401 1; Catalog 200 7,796, 404 48; Orders 200 13,669, 404 124; Person 200 500, 404 26, 401 2; Business 200 5,290, 204 2,636, 404 74, 500 2, 401 1.
+- Top paths in the hour: Orders `/api/v1/Queue/Heartbeat` 25,598 of 27,520 lines (93%); Sales `Sale/Close` 2,441, `Sale/Create` 2,439, `WsFeAr/CaeRequest` 1,435; Catalog `CostPriceList/GetItemsCosts/<n>` and `Items/GetCacheByIdAsync/<n>` (ids in the path split the routes); Business `Oversale/GetLastUpdate` 2,572, `Stock/Create` 2,474, `Franchise/GetSaleMovementSetup` 2,454, `Stock/ExistStockAddForSale` 2,454, `DiscountSurchargeRule/Effective` 2,310 (Business `WalletCredentials` is not in the top 5 this hour).
+- This run did not include Platform.API, Client.Web, pos-wasm or Security.API: `scripts-c5.sh` was extended to cover them after this run.
+
+## C5 run 2 — same 7 widget queries plus the 4 services without a widget (`data/c5-*.json`, `data/c5-widgets.tsv`, `data/pull-c5b-log.txt`; window 17:53–18:53 UTC, 2026-10-13)
+- The 7 existing widgets give the same figures as run 1 within a few lines (e.g. Sales 10,876 lines / 5,475 with `StatusCode`; Business 15,966 / 7,994), so the "about half have `StatusCode`" ratio holds in a second hour-window.
+- Services without a widget (total lines / with `StatusCode` / with `Path`):
+  - `SmartFran.Cloud.Platform.API` 7,860 / 3,936 / 7,860; verbs GET 6,396, PUT 1,440, POST 24; statuses 200 3,911, 404 24, 401 1; top paths `Integration/GetAfipTicketCached` 2,928, `Integration/UpdateAfipQrCached` 1,440, two `/api/Tenant/...` lookups 1,208 each, `Status/Health` 360.
+  - `SmartFran.Cloud.Client.Web` 2,990 / 1,536 / 2,990; GET 2,394, POST 596; statuses 200 992, 304 192, 101 158, 404 152, 302 42; paths are the Blazor endpoints (`/_blazor`, `/_blazor/initializers`, `/_blazor/negotiate`, `/_blazor/disconnect`, `/health`).
+  - `smartfran-pos-wasm` 30 / 25 / 30; GET 23, POST 7; statuses 404 22, 500 3 (consistent with the earlier finding that this source shows no 2xx).
+  - `SmartFran.Cloud.Security.API` 0 / 0 / 0: either that `Service` name does not exist (it was a guess) or the service has no application-log lines with `Method` in the hour; not distinguished.
+- `StatusCode` is also on about half of the lines for Platform.API and Client.Web, and on 25 of 30 for pos-wasm.
+
+## C6 — query syntax check, `Service:Sales`, last hour (`data/c6-request.json`, `c6-result.json`, `pull-c6-log.txt`; window 17:58–18:58 UTC, 2026-10-13)
+- a (current widget query) 10,899; b (`_exists_:Method AND _exists_:StatusCode AND …`) 5,488; c (`_exists_:("Method" AND "StatusCode") AND …`, the user's form) 5,488; d (same unquoted) 5,488; e (`_exists_:Method AND _exists_:Path AND …`) 10,899; f (`_exists_:("Method" AND "Path") AND …`) 10,899; g (`_exists_:("Method" AND "EndPoint") AND …`) 0. No errors in any.
+- So the grouped `_exists_:(… AND …)` form, quoted or not, parses and matches the same messages as the two separate `_exists_` terms. `EndPoint` is not a field (0 results); the field is `Path`. Adding `_exists_:Path` filters nothing in this hour (all lines have it). Adding `_exists_:StatusCode` keeps 50% of the lines (5,488 of 10,899).
+- One hour for one service; not checked for the other services or other hours.
+
+## Widgets added via API (2026-10-13 ~16:30 local; `widgets_apply.py`, `data/apply-*.json`, `data/apply-run-log.txt`, `apply-run2-log.txt`, `apply-run3-log.txt`)
+- Run 1 and 2 were rejected by `PUT /views/{id}` with HTTP 400 and changed nothing: (1) the body must be wrapped as `{"entity": <view>}` (`entity cannot be null`, `CreateEntityRequest`); (2) the `state` sent was the single tab's contents instead of `{tabId: contents}` (script bug). Each run first saved a new search, so 3 unused saved searches exist (harmless).
+- Run 3: applied. The script's own check afterwards read 24 widgets. New search_id `6ace81307a81d98ca5c8a6d7`. Backup of the previous definition (7 widgets, search 6ace7bb7…): `data/c7-view.json`, `data/c7-search.json`; `widgets_apply.py rollback` restores it (untested).
+- Set: 8 services × (Method line, Status Code line, Endpoints table) = 24 widgets, all with a 24 h range; the 7 existing widgets were adjusted in place (ids kept; Sales and Business Status Code widgets got the `_exists_:("Method" AND "StatusCode") AND …` query), 17 are new. Endpoints widgets are Data Tables (rows `Path`, top 20, sorted by count): this structure was built by hand, not copied from an existing table, so how it renders was not yet verified. Each widget is scoped to the service's `PROD-<X>-AppServicePlan` stream (Platform → PROD-Platform-AppServicePlan, Client → PROD-Admin-AppServicePlan, POS WASM → PROD-PosWasmRelay-FunctionApp; checked: the 8 stream ids exist with those titles and each had messages with `Method` in the last hour: Sales 10,973; Business 15,876; Catalog 15,772; Orders 27,380; Person 1,007; Platform 7,780; Client 2,200; POS WASM 35).
+- Open: Client showed 2,200 messages in the Admin stream against 2,990 for the same Service without a stream filter in another hour (not compared at the same time).
+
+- The `NormalizedPath` work (normalizing the HTTP `Path` from the controller routes) is GITIN-2221 (https://smartit-ar.atlassian.net/browse/GITIN-2221), a subtask of this ticket.
+
+## C9 — ElapsedMilliseconds: type and presence (`scripts-c9.sh`, `data/c9-mapping.json`, `c9-request.json`, `c9-result.json`, `pull-c9-log.txt`; window 18:54–19:54 UTC, 2026-10-13)
+- Type per OpenSearch index: `ElapsedMilliseconds` is `float` in 78 indices and `long` in 5; 37 indices do not have the field (other index sets: ticketprocess, scheduledjobs, gl-system-events, top_queries, some person/pos indices). No string mapping anywhere. `StatusCode` is `long` in 86 indices, absent in 34.
+- Presence in application logs, last hour (lines with `Method` / with `StatusCode` / with `ElapsedMilliseconds`, average in ms): Sales 13,021 / 6,547 / **1** (avg 1.0); Business 18,731 / 9,482 / 9,575 (63.7); Catalog 16,524 / 8,274 / 8,250 (29.5); Client.Web 2,304 / 1,154 / 1,148 (63,524.5); Orders 27,716 / 13,888 / 13,828 (116.0); Person 1,325 / 669 / 656 (12.2); Platform 8,354 / 4,183 / 4,171 (18.8); pos-wasm 60 / 55 / 60 (1,613.1).
+- So the Sales gap noted in GITIN-2034 is nearly total in this hour (1 of 6,547 lines with `StatusCode`); the other services carry it on about as many lines as `StatusCode`. Client's average is probably skewed by long-lived Blazor connections (not verified). In the Logstash filter the Sales branch only sets the field when `top_props["ElapsedMilliseconds"].is_a?(Numeric)` (same guard as the Event Hub branch); why it fails for Sales is not known — `scripts-c10.sh` looks at the raw `Properties` of a few Sales lines (names plus the type and value of the elapsed property only).
+- Dashboard: `widgets_metrics.py` (dry run done, `data/metrics-dryrun-log.txt`) would add max, avg and percentile(…,90) to the 8 Endpoints tables; Sales' three columns would be empty for this reason.
+
+## C10 — why Sales has almost no `ElapsedMilliseconds` (`scripts-c10.sh`, `data/c10-summary.txt`, `data/pull-c10-log.txt`; window 18:57–19:57 UTC, 2026-10-13)
+- 6,639 Sales application-log lines in the hour have `StatusCode` but no `ElapsedMilliseconds`; 1 line has it. In the 5 lines without it read (raw values of other properties not printed), the stringified `Properties` JSON contains the key `ElapsedMilliseconds` as a **string in exponent notation**: `"0.453886e2"`, `"0.8515845e3"`, `"0.20398e1"`, `"0.385137e2"`, `"0.638893e2"` (45.39, 851.58, 2.04, 38.51, 63.89 ms). The single line that has the field carries it as the JSON number `1` (an integer), both in `Properties` and as the top-level field.
+- The Sales branch of the live Logstash filter (`top_props = JSON.parse(Properties)`) sets `ElapsedMilliseconds` only `if top_props["ElapsedMilliseconds"].is_a?(Numeric)`; a String fails that guard silently. `StatusCode` (Integer guard) works on the same lines. So the cause of the Sales gap documented in GITIN-2034 is, on this evidence, the value arriving as a String.
+- Why it is a String is not verified. Hypothesis: the first Sales block (GITIN-1883) parses the CLEF JSON and re-serializes `Properties`; a decimal parsed as BigDecimal is written back as a string like `0.453886e2`, while integers stay numbers — consistent with 5 of 5 fractional values being strings and the one numeric value being the integer 1. Not tested.
+- Proposed fix (not applied; needs another Logstash restart): in the Sales branch accept the string — `el = top_props["ElapsedMilliseconds"]; el = el.to_f if el.is_a?(String) && el.match?(/\A-?\d+(\.\d+)?([eE][-+]?\d+)?\z/); event.set("ElapsedMilliseconds", el) if el.is_a?(Numeric)` — and check that `"0.453886e2".to_f` gives 45.3886 in the Logstash JRuby. The same guard pattern also exists in the PosWasmRelay branch (which already converts a string with a regex) and in the Event Hub branch (parsed from `resultDescription`, Float).
+- The dashboard's Sales Endpoints columns (max, avg, P90) show 0 for this reason; the other 7 services have the field on about as many lines as `StatusCode`.
+
+## C11 — ElapsedMillisecondsOpe after the 20:03 UTC Logstash restart (`scripts-c11.sh`, `data/c11-result.json`, `c11-mapping.json`, `pull-c11-log.txt`; window 20:05:00–20:05:44 UTC, 44 seconds)
+- Sales: 30 lines with `StatusCode`, 30 with `ElapsedMillisecondsOpe` (avg 434.2 ms, max 2,045.1 ms), none with `ElapsedMilliseconds`. Orders (130 lines with `StatusCode`, 130 with `ElapsedMilliseconds`), Person (21 / 20) and Platform (40 / 39) have no `ElapsedMillisecondsOpe`, as designed (only the Sales branch fills it).
+- Type: `float` in the 2 indices that have it (`sales__10` and `graylog_10`); 118 indices do not have the field yet (it appears with new messages). Why `graylog_10` (the `graylog` index set) holds a field from Sales messages was not investigated.
+- Sample is 44 seconds and 30 lines; a longer window is needed before reading the values.
+- Next: the Sales Endpoints table on the Operations dashboard should use `ElapsedMillisecondsOpe` for its max/avg/P90 columns (the other 7 keep `ElapsedMilliseconds`): `widgets_sales_ope.py` (dry run by default).
+
+## Dashboard changes applied (2026-10-13, all through `PUT /views/{id}`; backups in `data/*-before-*.json`)
+- `widgets_path.py` (`path-apply-log.txt`): the 8 Endpoints tables group by `NormalizedPath`, top 10, query `_exists_:("Method" AND "NormalizedPath")`. Applied; search `6ace8aa8…`.
+- `widgets_metrics.py` (`metrics-apply-log.txt`): max, avg and percentile(…,90) of `ElapsedMilliseconds` added next to `count()` in the 8 Endpoints tables. Applied (the server accepted it; 4 series per table); search `6ace8cc0…`. Checked afterwards by C8b (below).
+- `widgets_sales_ope.py` (`salesope-apply-log.txt`): the Sales Endpoints table's max/avg/P90 use `ElapsedMillisecondsOpe`. Applied; search `6ace8f88…`.
+- Rollbacks: each script has a `rollback` mode that restores its own `*-before-*` backup (these restore the state before that script only, in reverse order of application).
+
+## C8b — dashboard run after all changes (`scripts-c8.sh`, `data/pull-c8b-log.txt`; 2026-10-13 ~17:08 local)
+- View Operations, search `6ace8f88…`, 24 widgets, execution `done=true`, 0 execution errors; every widget returned a `pivot` result with rows (24h range). Endpoints tables returned 5–11 rows (top 10 plus the total row, so the percentile column ran without error); Method/Status Code lines 49 rows (hourly buckets). Raw row counts in the log are lines counted by the widget, not requests.
+- Not yet checked: the Endpoints cell values (max/avg/P90, Sales included) were not printed by C8; the tables are partial until ~24 h after 2026-10-13 19:31 UTC (`NormalizedPath`) and ~20:03 UTC (`ElapsedMillisecondsOpe`).
+
+## Open
+- Message loss across the three Logstash restarts (19:31, ~19:5x, 20:03 UTC) not checked.
+- Business `WalletCredentials` rate seen at ~0.2/s in a 2m44s window after the restart vs ~17/s on 10-09..10-12: unexplained (GITIN-2220).
+- `ElapsedMillisecondsOpe` also in index `graylog_10`: not investigated. Other services do not fill it (decision pending).
+- Rerun C4 after ~24 h to count remaining `unmatched` paths.

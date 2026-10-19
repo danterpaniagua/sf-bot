@@ -178,7 +178,7 @@ Sources: [Azure Web app (Windows) console logs not showing in AppServiceConsoleL
 | CosmosDB (platform) | `smartfran-cloud-cosmos-platform-pro` | eastus |
 | CosmosDB (shared, per-tenant storage listed separately) | `smartfran-cloud-cosmos-pro-kt76igzny9q` | eastus2 — appears in tenant RG (WEISS). **Check this table for the account name before guessing** — the naming isn't the plain `smartfran-cloud-cosmos-<tenantId>` pattern implied by the "Tenant resolution mechanism" section above: it has an extra `-pro-` segment and the tenant ID is truncated to 11 chars (`kt76igzny9q`, not the full 12-char `kt76igzny9ql`). |
 | Logging VM (Graylog) | `smartfran-graylog-pro` | eastus2, own VNet/NSG/disks |
-| SendGrid | `sf-cloud-sendgrid` | Email delivery |
+| SendGrid | `sf-cloud-sendgrid` | Email delivery. The application sends through a single `IEmailProvider` implementation (`SendGridEmailService`); failures are logged and dropped (no retry or queue) and the message has no attachments. Sender domain for a replacement: `smartfran.com` (user-stated, DNS access available). Alternatives evaluation: GITIN-2201. |
 | VNets | `sfc_vnet`, `vnet_smartfrancloud` | eastus |
 | NAT Gateways | `sfc_nat_ngw`, `sfc_nat_fabric`, `sfc_nat_appservice_pro` | Outbound egress per workload tier |
 | WAF | **None** | Confirmed absent (2026-08-25, GITIN-1938) — retail App Services are reached directly via their per-tenant hostname/SNI cert binding (see "Per-franchise hostname pattern" above), no WAF in the path today. |
@@ -187,6 +187,21 @@ Sources: [Azure Web app (Windows) console logs not showing in AppServiceConsoleL
 **Sales CosmosDB layout (confirmed 2026-08-03, `20260802_promocion-invalida-weiss-franui`), WEISS:** SQL API databases per tenant follow `<Domain>-<TENANT>` (confirmed: `Sales-WEISS`, `Orders-WEISS`, `Business-WEISS`, `PersonsDB-WEISS`, `Audit-WEISS` — note these Cosmos "Business"/"Orders" databases are separate from the same-named SQL Server databases, don't conflate). `Sales-WEISS` containers: `Sales`, `SaleOrders`, `Shifts`, `Movements`, `MovementCurrentAccount`, `PaymentMethods`, `KdsOrders`, `DeliveryRoutes`, `WalletNotifications`. `Sales` container partition key confirmed via `az cosmosdb sql container show`: `MultiHash` on `[/FranchiseeCode, /FranchiseCode, /PosCode]`. No `az` CLI command exists for ad-hoc SQL API queries against document content — use Data Explorer in the Azure Portal (or the SDK) for that; `az cosmosdb sql *` commands only manage account/database/container *metadata*.
 
 ---
+
+## SmartCloud Graylog — retention, index sets and volume (GITIN-2209, confirmed 2026-10-14)
+
+Read from the Graylog API of the SmartCloud instance (`GET /api/system/indices/index_sets?stats=true`) and from OpenSearch (`_cat/indices` on the VM), not from the repo.
+
+| Item | Value |
+|---|---|
+| Index sets | 25: an application set `SFC-<Service>-prod` per service and, for Admin, Business, Catalog, Orders, Person, Platform, Pos and Sales, a second `SFC-<Service>-prod-http` set; CodeGenerator, PosWasmRelay, ScheduledJobs and TicketProcess have the application set only; plus `DEV`, `DEV-http`, `Default index set`, `Graylog Events` and `Graylog System Events` |
+| Retention | Data Tiering `hot_only` per set: index lifetime **P30D to P40D** (minimum 30, maximum 40 days) for the application, default and events sets; **P7D to P9D** for the `*-http` sets and `DEV`. The legacy `rotation_strategy` / `retention_strategy` fields (`max_number_of_indices: 20`) are inherited and do not govern while `data_tiering` is present (`use_legacy_rotation: false`) |
+| Stored size on 2026-10-14 | 571 GB in 101 indices (113.5 million documents): Business 217 GB (38 %), Orders 111 GB (19 %), Sales 53 GB, ScheduledJobs 43 GB, CodeGenerator 26 GB, Default 19 GB, PosWasmRelay 16 GB; the `*-http` sets together about 36 GB |
+| Disk | Grown to 768 GB on 2026-10-09 (GITIN-2209); free space after that date not measured |
+| Volume (estimates from stored index size, each index spread evenly over its active period; not raw ingest) | About 9 to 12 GB per day on 1 to 6 October; 37 to 52 GB per day on 8 to 12 October; Business about 1.8 GB per day before 7 October and about 30 at the peak; Orders 2 to 3 GB per day before 7 October and 6 to 8 after (cause not determined) |
+| Sizing at project time (June 2026, cloud-graylog repo) | About 37 million records per day measured on 7 services (Orders excluded), 30 days of retention, 1 TB for the full fleet, 350 bytes per event (about 13 to 16 GB per day) |
+| API gotcha | With `?stats=true` the statistics are in the top-level `stats` object keyed by index set id, not inside each entry of `index_sets` |
+| Alerting | A Zabbix low-disk alert triggered GITIN-2209 (user statement; its threshold and firing time were not checked). A per-index-set rate-of-ingest alert is an idea, not decided |
 
 ## Service Bus
 
@@ -222,7 +237,7 @@ Confirmed from source 2026-09-17 (GITIN-2068) — previously undocumented anywhe
 
 ## Source Code Reference
 
-A local read-only clone of the application codebase is available at `cloud/repo/SmartFran.Cloud/` (`.gitignore`d from this monorepo — present locally, not committed here). Solution layout:
+A local working copy (edit and pull allowed, never commit or push) of the application codebase is available at `cloud/repo/SmartFran.Cloud/` (`.gitignore`d from this monorepo — present locally, not committed here). Solution layout:
 
 ```
 Source/
