@@ -1,0 +1,81 @@
+--- a/azure-eventhub-to-graylog.conf
++++ b/azure-eventhub-to-graylog.conf
+@@ -764,6 +764,78 @@
+       '
+     }
+   }
++  # GITIN-2221: NormalizedPath — the HTTP Path with the route parameters removed, so
++  # /api/v1/WalletCredentials/2024771231 and /api/v1/WalletCredentials/1357013702
++  # both become api_v1_WalletCredentials (route literals joined with "_"). Built from
++  # the route templates of the SmartFran.Cloud controllers, loaded from
++  # /etc/logstash/normalized-paths.json (generated, see the GITIN-2221 event folder;
++  # regenerate it when the controllers' routes change). Path that matches no template
++  # gets "unmatched" (keeps the field cardinality bounded). Must stay AFTER every
++  # block that sets Path (Event Hub apps, Sales, AppServiceHTTPLogs, PosWasmRelay).
++  ruby {
++    init => '
++      require "json"
++      tbl = JSON.parse(File.read("/etc/logstash/normalized-paths.json"))
++      @routes = tbl["routes"].map do |r|
++        segs = r["t"].split("/").reject { |s| s.empty? }.map do |s|
++          if s.start_with?("{*")
++            [:rest, nil]
++          elsif s.start_with?("{") && s.end_with?("?}")
++            [:opt, nil]
++          elsif s.start_with?("{")
++            [:one, nil]
++          else
++            [:lit, s.downcase]
++          end
++        end
++        [segs, r["n"], segs.count { |k, _| k == :lit }, segs.count { |k, _| k != :lit }]
++      end
++      @routes.sort_by! { |_, _, lit, par| [-lit, par] }
++      @cache = {}
++    '
++    code => '
++      path = event.get("Path")
++      if path.is_a?(String) && !path.empty?
++        norm = @cache[path]
++        if norm.nil?
++          low = path.split("?", 2)[0].split("/").reject { |s| s.empty? }.map { |s| s.downcase }
++          norm = "unmatched"
++          @routes.each do |segs, n, _, _|
++            i = 0
++            ok = true
++            segs.each do |k, v|
++              if k == :lit
++                if i < low.length && low[i] == v
++                  i += 1
++                else
++                  ok = false
++                  break
++                end
++              elsif k == :one
++                if i < low.length
++                  i += 1
++                else
++                  ok = false
++                  break
++                end
++              elsif k == :opt
++                i += 1 if i < low.length
++              else
++                i = low.length
++              end
++            end
++            if ok && i == low.length
++              norm = n
++              break
++            end
++          end
++          @cache.clear if @cache.length >= 20000
++          @cache[path] = norm
++        end
++        event.set("NormalizedPath", norm)
++      end
++    '
++  }
+   # properties varies in shape across log categories (string vs nested object)
+   # — force to a consistent JSON string to avoid OpenSearch mapping conflicts.
+   # Runs last: message-building above needs properties as a live Hash.

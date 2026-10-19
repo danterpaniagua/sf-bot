@@ -1,0 +1,12 @@
+--- a/azure-eventhub-to-graylog.conf
++++ b/azure-eventhub-to-graylog.conf
+@@ -381,6 +381,9 @@
+             event.set("Path", top_props["Path"]) if top_props["Path"].is_a?(String) && !top_props["Path"].empty?
+             event.set("Method", top_props["Method"]) if top_props["Method"].is_a?(String) && !top_props["Method"].empty?
+             event.set("ElapsedMilliseconds", top_props["ElapsedMilliseconds"]) if top_props["ElapsedMilliseconds"].is_a?(Numeric)
++            el = top_props["ElapsedMilliseconds"]
++            el = el.to_f if el.is_a?(String) && el.match?(/\A-?\d+(\.\d+)?([eE][-+]?\d+)?\z/)
++            event.set("ElapsedMillisecondsOpe", el) if el.is_a?(Numeric)
+           end
+         rescue JSON::ParserError
+         end

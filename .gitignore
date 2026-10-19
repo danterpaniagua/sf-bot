@@ -32,3 +32,9 @@ __pycache__/
 # Entornos virtuales de Python dentro de events/
 **/venv/
 **/.venv/
+
+# Temporales de descarga de aws s3 cp (sufijo .XXXXXXXX)
+*.[0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F][0-9A-F]
+
+# Configs de Logstash capturadas de produccion: contienen claves de Event Hub y Storage
+cloud/events/*/data/*azure-eventhub-to-graylog*.conf

@@ -1,0 +1,6 @@
+[2026-10-13T20:02:59,783][WARN ][logstash.config.source.multilocal] Ignoring the 'pipelines.yml' file because modules or command line options are specified
+[2026-10-13T20:03:01,859][INFO ][org.reflections.Reflections] Reflections took 68 ms to scan 1 urls, producing 150 keys and 530 values
+/usr/share/logstash/vendor/bundle/jruby/3.1.0/gems/logstash-output-gelf-3.1.7/lib/logstash/outputs/gelf.rb:111: warning: key "e" is duplicated and overwritten on line 118
+[2026-10-13T20:03:02,071][INFO ][logstash.javapipeline    ] Pipeline `main` is configured with `pipeline.ecs_compatibility: v8` setting. All plugins in this pipeline will default to `ecs_compatibility => v8` unless explicitly configured otherwise.
+Configuration OK
+[2026-10-13T20:03:02,072][INFO ][logstash.runner          ] Using config.test_and_exit mode. Config Validation Result: OK. Exiting Logstash

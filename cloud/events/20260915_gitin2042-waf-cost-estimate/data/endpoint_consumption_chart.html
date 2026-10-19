@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Consumo de requests por servicio — GITIN-2042</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --page: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --gridline: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-blue: #2a78d6;
+    --series-blue-muted: #86b6ef;
+    --status-warning: #fab219;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .viz-root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --page: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --gridline: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255,255,255,0.10);
+      --series-blue: #3987e5;
+      --series-blue-muted: #184f95;
+      --status-warning: #fab219;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255,255,255,0.10);
+    --series-blue: #3987e5;
+    --series-blue-muted: #184f95;
+    --status-warning: #fab219;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .viz-root { background: var(--surface-1); max-width: 900px; margin: 24px auto; padding: 24px 28px 20px; border-radius: 8px; border: 1px solid var(--border); }
+  h1 { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0 0 2px; }
+  .subtitle { font-size: 12.5px; color: var(--text-secondary); margin: 0 0 20px; }
+  .chart { display: flex; flex-direction: column; gap: 2px; }
+  .row { display: grid; grid-template-columns: 190px 1fr 92px; align-items: center; gap: 10px; height: 26px; position: relative; }
+  .cat { font-size: 12px; color: var(--text-secondary); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat.flag { color: var(--text-primary); font-weight: 600; }
+  .track { position: relative; height: 24px; background: transparent; }
+  .bar { position: absolute; left: 0; top: 0; height: 24px; border-radius: 4px; background: var(--series-blue); transition: filter .1s; }
+  .bar.warning { background: var(--status-warning); }
+  .bar.muted { background: var(--series-blue-muted); }
+  .row:hover .bar, .row:focus-within .bar { filter: brightness(0.92); }
+  .val { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .val strong { color: var(--text-primary); font-weight: 600; }
+  .hit { position: absolute; inset: -1px 0; }
+  .hit:focus { outline: 2px solid var(--series-blue); outline-offset: 2px; }
+  .tooltip {
+    position: absolute; z-index: 5; pointer-events: none; opacity: 0; transition: opacity .08s;
+    background: var(--text-primary); color: var(--surface-1); font-size: 11.5px; line-height: 1.4;
+    padding: 6px 9px; border-radius: 5px; white-space: nowrap; transform: translate(-50%, -100%);
+    top: -8px; left: 50%;
+  }
+  .row:hover .tooltip, .hit:focus + .tooltip { opacity: 1; }
+  .tooltip b { font-variant-numeric: tabular-nums; }
+  .note { display: flex; gap: 6px; align-items: flex-start; margin-top: 16px; padding: 10px 12px; border-radius: 6px; background: color-mix(in srgb, var(--status-warning) 14%, var(--surface-1)); border: 1px solid color-mix(in srgb, var(--status-warning) 40%, transparent); font-size: 12px; color: var(--text-primary); }
+  .note b { font-weight: 600; }
+  .legend { display: flex; gap: 16px; margin-top: 14px; font-size: 11.5px; color: var(--text-muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .foot { margin-top: 14px; font-size: 11px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="viz-root" data-palette="#2a78d6">
+  <h1>Consumo de requests por servicio / función — GITIN-2042</h1>
+  <p class="subtitle">Ventana 2026-09-11T18:20Z – 2026-09-15T14:00Z (91.67h), 8 App Services PROD + 4 Function Apps · total 4.211.511 requests</p>
+
+  <div class="chart" id="chart"></div>
+
+  <div class="note">⚠️ <span><b>Heartbeat (Orders/Queue/Heartbeat)</b> es el 29,7% de todo el tráfico medido — más que Sales completo. No tiene valor de negocio por request (no hay venta ni interacción de cliente detrás): es tráfico de keepalive de POS abiertos e inactivos. Ver alerta completa en <b>ops.md</b> / <b>email_ops.md</b>.</span></div>
+
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--series-blue)"></i>Tráfico normal</span>
+    <span><i class="swatch" style="background:var(--status-warning)"></i>Heartbeat — alerta</span>
+    <span><i class="swatch" style="background:var(--series-blue-muted)"></i>Cota superior (no confirmado)</span>
+  </div>
+  <p class="foot">Fuente: Graylog (Admin/Business/Catalog/Orders/Person/Platform/Pos/Sales) + Azure Monitor FunctionExecutionCount (CodeGenerator/ScheduledJobs/TicketProcess/PosWasmRelay). ScheduledJobs combina 1 endpoint HTTP real (RegisterBusinessLog) con 4 jobs internos por timer — cota superior, no tráfico WAF confirmado.</p>
+</div>
+
+<script>
+const data = [
+  {label: "Heartbeat (Orders/Queue)", value: 1251110, kind: "warning", flag: true},
+  {label: "PosWasmRelay (relay de logs)", value: 712172, kind: "normal"},
+  {label: "Sales", value: 698431, kind: "normal"},
+  {label: "Business", value: 583054, kind: "normal"},
+  {label: "Catalog", value: 310206, kind: "normal"},
+  {label: "Platform", value: 201779, kind: "normal"},
+  {label: "ScheduledJobs (cota superior)", value: 155145, kind: "muted"},
+  {label: "Orders (resto)", value: 139566, kind: "normal"},
+  {label: "CodeGenerator", value: 112951, kind: "normal"},
+  {label: "Person", value: 36967, kind: "normal"},
+  {label: "Pos (health-check)", value: 9926, kind: "normal"},
+  {label: "TicketProcess", value: 183, kind: "normal"},
+  {label: "Admin", value: 21, kind: "normal"},
+];
+
+const total = data.reduce((s, d) => s + d.value, 0);
+const max = Math.max(...data.map(d => d.value));
+const chart = document.getElementById("chart");
+
+data.forEach((d, i) => {
+  const pct = (100 * d.value / total).toFixed(1);
+  const widthPct = Math.max(0.4, 100 * d.value / max);
+
+  const row = document.createElement("div");
+  row.className = "row";
+
+  const cat = document.createElement("div");
+  cat.className = "cat" + (d.flag ? " flag" : "");
+  cat.textContent = d.label;
+  row.appendChild(cat);
+
+  const track = document.createElement("div");
+  track.className = "track";
+
+  const bar = document.createElement("div");
+  bar.className = "bar " + d.kind;
+  bar.style.width = widthPct + "%";
+  track.appendChild(bar);
+
+  const hit = document.createElement("div");
+  hit.className = "hit";
+  hit.tabIndex = 0;
+  hit.style.width = "100%";
+  track.appendChild(hit);
+
+  const tip = document.createElement("div");
+  tip.className = "tooltip";
+  const tipValue = document.createElement("b");
+  tipValue.textContent = d.value.toLocaleString("es-AR") + " req";
+  const tipSep = document.createTextNode(" · " + pct + "% del total — ");
+  const tipLabel = document.createElement("span");
+  tipLabel.textContent = d.label;
+  tip.appendChild(tipValue);
+  tip.appendChild(tipSep);
+  tip.appendChild(tipLabel);
+  track.appendChild(tip);
+
+  row.appendChild(track);
+
+  const val = document.createElement("div");
+  val.className = "val";
+  const strong = document.createElement("strong");
+  strong.textContent = d.value.toLocaleString("es-AR");
+  val.appendChild(strong);
+  row.appendChild(val);
+
+  chart.appendChild(row);
+});
+</script>
+</body>
+</html>

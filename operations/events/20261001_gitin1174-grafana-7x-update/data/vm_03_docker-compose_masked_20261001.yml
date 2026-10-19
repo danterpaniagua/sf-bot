@@ -1,0 +1,112 @@
+version: '3'
+
+services: 
+  grafana: 
+    image: 
+      grafana/grafana:7.3.7
+    ports: 
+      - 3000:3000
+    environment: 
+      #Installing mongodb plugin
+    # - GF_INSTALL_PLUGINS=https://github.com/valiton/grafana-mongodb-atlas-datasource/releases/latest/download/grafana-mongodb-atlas-datasource.zip;"grafana-mongodb-atlas-plugin"
+      #Installing flowcharting plugin
+      - GF_INSTALL_PLUGINS=https://algenty.github.io/flowcharting-repository/archives/agenty-flowcharting-panel-0.5.0.zip;"grafana-flowcharting-plugin"
+      - "GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=grafana-mongodb-atlas-datasource,mtanda-aws-athena-datasource" #este esta bien
+     #Installing Athena plugin
+      - GF_INSTALL_PLUGINS=https://github.com/mtanda/grafana-aws-athena-datasource/releases/download/2.2.7/grafana-aws-athena-datasource-2.2.7.zip;"grafana-aws-athena-datasource"
+        # - "GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=mtanda-aws-athena-datasource" #prueba athena
+     #Installing Json plugin
+     #GF_INSTALL_PLUGINS= plugins install grafana-simple-json-datasource
+    volumes: 
+      - ./db:/var/lib/grafana
+        #- ./plugins:/var/lib/grafana/plugins 
+    privileged: true
+    labels: 
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`monitoreo.ross.com.ar`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+        #- "traefik.http.routers.grafana.middlewares=redirect-to-https@docker"
+      - "traefik.http.routers.grafana-secured.rule=Host(`monitoreo.ross.com.ar`)"
+      - "traefik.http.routers.grafana-secured.entrypoints=websecure"
+      - "traefik.http.routers.grafana-secured.tls=true"
+      - "traefik.http.routers.grafana-secured.tls.certresolver=myresolver"
+        # - "traefik.http.routers.grafana.tls.certresolver=myresolver"
+    restart: always
+    depends_on:
+      - prometheus
+     
+  prometheus:
+    image: 
+      prom/prometheus:v2.24.1
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=180d'
+      #- '--storage.tsdb.retention.size=10GB'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports: 
+      - 9090:9090
+    volumes: 
+      - ./prometheus-configuration:/etc/prometheus
+      - ./prometheus-data:/prometheus
+    privileged: true
+    restart: always
+
+  blackbox_exporter:
+    image: prom/blackbox-exporter
+    ports:
+      - "9115:9115"
+    dns: 8.8.8.8
+    restart: always
+    ports:
+      - "9115:9115"
+  
+  cloudwatch-exporter:
+    image: prom/cloudwatch-exporter:latest
+    ulimits:
+      nproc: 8192
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      - JAVA_OPTS=-Xss512k
+    ports:
+      - "9106:9106"
+    volumes:
+      - ./cloudwatch-exporter/cloudwatch-exporter-config.yml:/config/config.yml
+    environment:
+      - AWS_REGION=us-east-1
+    depends_on:
+      - grafana
+    restart: always
+  
+  reverse-proxy:
+    image: traefik:v2.4
+    restart: always
+    container_name: traefik
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entryPoint.permanent=true"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      #- "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.myresolver.acme.email=luis.soria@ross.com.ar"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    depends_on:
+      - grafana
+

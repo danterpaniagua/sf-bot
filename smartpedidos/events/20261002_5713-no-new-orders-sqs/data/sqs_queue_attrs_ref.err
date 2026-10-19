@@ -1,0 +1,2 @@
+
+aws: [ERROR]: An error occurred (AWS.SimpleQueueService.NonExistentQueue) when calling the GetQueueAttributes operation: The specified queue does not exist.

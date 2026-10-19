@@ -1,0 +1,31 @@
+--- a/azure-eventhub-to-graylog.conf
++++ b/azure-eventhub-to-graylog.conf
+@@ -769,8 +769,8 @@
+   # both become api_v1_WalletCredentials (route literals joined with "_"). Built from
+   # the route templates of the SmartFran.Cloud controllers, loaded from
+   # /etc/logstash/normalized-paths.json (generated, see the GITIN-2221 event folder;
+-  # regenerate it when the controllers' routes change). Path that matches no template
+-  # gets "unmatched" (keeps the field cardinality bounded). Must stay AFTER every
++  # regenerate it when the controller routes change). A path that matches no template
++  # gets "static" if it ends in a static-file extension (table key static_suffixes), else "unmatched" (keeps the field cardinality bounded). Must stay AFTER every
+   # block that sets Path (Event Hub apps, Sales, AppServiceHTTPLogs, PosWasmRelay).
+   ruby {
+     init => '
+@@ -791,6 +791,7 @@
+         [segs, r["n"], segs.count { |k, _| k == :lit }, segs.count { |k, _| k != :lit }]
+       end
+       @routes.sort_by! { |_, _, lit, par| [-lit, par] }
++      @static = (tbl["static_suffixes"] || []).map { |x| x.downcase }
+       @cache = {}
+     '
+     code => '
+@@ -829,6 +830,9 @@
+               break
+             end
+           end
++          if norm == "unmatched" && !low.empty? && @static.any? { |x| low.last.end_with?(x) }
++            norm = "static"
++          end
+           @cache.clear if @cache.length >= 20000
+           @cache[path] = norm
+         end

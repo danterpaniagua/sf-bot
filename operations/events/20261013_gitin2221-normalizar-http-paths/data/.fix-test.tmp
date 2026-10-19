@@ -1,0 +1,13 @@
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": 12.5}","@timestamp":"2026-10-13T20:02:47.551452879Z","ElapsedMillisecondsOpe":12.5,"ElapsedMilliseconds":12.5,"StatusCode":200,"id":7}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": 1}","@timestamp":"2026-10-13T20:02:47.551312654Z","ElapsedMillisecondsOpe":1,"ElapsedMilliseconds":1,"StatusCode":200,"id":6}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": \"0.8515845e3\"}","@timestamp":"2026-10-13T20:02:47.550377811Z","ElapsedMillisecondsOpe":851.5845,"StatusCode":200,"id":1}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": \"\"}","@timestamp":"2026-10-13T20:02:47.551737469Z","StatusCode":200,"id":9}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": \"12.5\"}","@timestamp":"2026-10-13T20:02:47.551001223Z","ElapsedMillisecondsOpe":12.5,"StatusCode":200,"id":4}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": \"7\"}","@timestamp":"2026-10-13T20:02:47.551164142Z","ElapsedMillisecondsOpe":7.0,"StatusCode":200,"id":5}
+{"@timestamp":"2026-10-13T20:02:47.552173892Z","id":12}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": \"0.20398e1\"}","@timestamp":"2026-10-13T20:02:47.550638432Z","ElapsedMillisecondsOpe":2.0398,"StatusCode":200,"id":2}
+{"Properties":"{\"StatusCode\": 200}","@timestamp":"2026-10-13T20:02:47.551873804Z","StatusCode":200,"id":10}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": \"0.453886e2\"}","@timestamp":"2026-10-13T20:02:47.548854874Z","ElapsedMillisecondsOpe":45.3886,"StatusCode":200,"id":0}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": \"abc\"}","@timestamp":"2026-10-13T20:02:47.551597935Z","StatusCode":200,"id":8}
+{"Properties":"{\"StatusCode\": 200, \"ElapsedMilliseconds\": \"-0.5e1\"}","@timestamp":"2026-10-13T20:02:47.550826848Z","ElapsedMillisecondsOpe":-5.0,"StatusCode":200,"id":3}
+{"Properties":"no es json","@timestamp":"2026-10-13T20:02:47.552026229Z","id":11}
