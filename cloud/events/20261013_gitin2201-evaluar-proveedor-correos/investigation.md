@@ -48,3 +48,25 @@ Jira: GITIN-2201 "[CLOUD] Evaluar Proveedor de Envio de Correos" (https://smarti
 - Recommendation for a dedicated sending domain (example `comprobantes.smartfran.com`).
 - Recommendation (2026-10-13): take the email-sending responsibility away from the POS; the sale flow publishes the bill data to a queue and another process, for example an Azure Function, consumes it, generates the bill or its link and sends it through the chosen provider. In the ticket as a recommendation: retries with backoff, dead-letter queue, idempotency per bill id, consume rate matched to the provider quota and the warm-up ramp, data read at processing time instead of copied into the message; Service Bus and Functions costs at this volume are not calculated (action 13); when the message is published and what it carries are Dev's to answer (question 1); which existing Function App, if any, would host it was not evaluated.
 - Storage, format and provider are not decided.
+
+## LaTeX bill demo (2026-10-19, local, nothing sent)
+
+- Folder `outputs/factura-demo/`: `plantilla-factura.tex` (narrow one-column ticket that follows a printed example ticket, Factura A; it holds no data), the folder `datos/` (one JSON file per section: meta, emisor, comprobante, cliente, detalle, descuentos_recargos, impuestos, pagos, totales, autorizacion, pie), `render.py` (writes `datos.tex` from the data and compiles with `latexmk` when given `--compile`) and `build/factura-demo.pdf` with its PNG preview.
+- The data is invented (all-zero CUITs, fake CAE, `example.com` email); nothing was copied from the example ticket. The fields of comprobante, impuestos, descuentos, pagos, detalle and cliente follow `SaleBill`, `SaleDetail` and `SaleClient` of Cloud (`main`, 2026-09-30); the issuer, cash register and authorization fields are examples (where they would come from in production was not checked).
+- It corresponds to the option "bill data (already in Cosmos) plus a template version, rendered on demand". The fiscal QR of the demo has 13 fields and a 313-character URL, as in this ticket's estimate; the encoding was not validated against the fiscal validator. The one-page PDF is about 110 KB, mostly embedded fonts: the same order as the 50 to 100 KB assumed, not compared with the real Cloud bill or with the 17 to 50 KB PDFs of the on-premise system.
+- The script checks that the amounts add up (items minus discounts equal the total, net plus IVA equals the total, payments equal the total).
+
+## User clarification about the printed ticket (2026-10-19)
+
+- User-stated: the example ticket is printed by an Argentine fiscal printer. So the layout of the ticket (narrow column, fixed-width font, order of the sections) is defined by the printer and not by SmartFran; the LaTeX demo imitates it for the email and is not the document the printer issues.
+- To confirm (not verified): the PDF of the email would be a representation of the bill generated from the sale data (`SaleBill`: number, CAE, expiry, amounts, QR data). Whether it replaces or complements the printed fiscal ticket, and what the regulation requires for a bill sent by email, is a question for Accounting and Legal, already listed above (whether the official fiscal PDF exists in the flow).
+- Still unknown: what the fiscal printer returns to Cloud (only number, CAE and date, or also the text of the ticket), and whether the width and content of the printed ticket vary by printer model.
+
+## PDF width of the demo (2026-10-19)
+
+- User decisions in sequence: first "10 cm", then "12mm", read as 12 cm because 12 mm cannot hold any text (an assumption, not confirmed by the user). The demo ended at 12 cm wide (340.157 pt), about 21 cm tall, one page, 110,711 bytes; the content area is 114 mm.
+- The ticket printed by the fiscal printer is narrower (58 or 80 mm paper, width not confirmed; the example photo holds about 33 to 37 characters per line). To imitate the printed ticket, the real paper width or the printer model has to be fixed.
+
+## LaTeX bill demo: closed (2026-10-19)
+
+- Closed by the user ("bill latex closed"). Still unconfirmed: the 12 cm width (the user wrote "12mm", read as cm), the real paper width of the fiscal printer, what the printer returns to Cloud, and the QR validation against the fiscal validator. The files stay in `outputs/factura-demo/`.

@@ -12,7 +12,7 @@ La deuda técnica es trabajo que hoy no se ve en ningún tablero pero que ya pro
 
 | # | Story | Proyecto | Tickets existentes | ¿Requiere DEV? | Prioridad OPE (criticidad / esfuerzo) | Estimación |
 |---|---|---|---|---|---|---|
-| 1 | Mejoras de despliegue | INFRA SRE | [GITIN-2169](https://smartit-ar.atlassian.net/browse/GITIN-2169) | Parcial | Alta / Alta | SRE: 13–25 días; Dev a estimar |
+| 1 | Mejoras de despliegue | INFRA SRE | [GITIN-2169](https://smartit-ar.atlassian.net/browse/GITIN-2169) | Parcial | Alta / Alta | SRE: 13–25 días, sin la tarea del escenario web de Zabbix (a estimar); Dev a estimar |
 | 2 | AWS WAF | INFRA SRE | No hay ticket aún | No (validación con Dev) | Alta / Media | SRE: 7–13 días; Dev a estimar |
 | 3 | Credenciales en código | INFRA SRE + Platform + Concentrador | [GITIN-2129](https://smartit-ar.atlassian.net/browse/GITIN-2129), [GITIN-1606](https://smartit-ar.atlassian.net/browse/GITIN-1606) | Sí | Alta / Alta | SRE: 13–25 días; Dev a estimar |
 | 4 | Escalado con múltiples umbrales para Platform | INFRA SRE (Platform) | [GITIN-2170](https://smartit-ar.atlassian.net/browse/GITIN-2170) (relacionados: [GITIN-2110](https://smartit-ar.atlassian.net/browse/GITIN-2110), [GITIN-2162](https://smartit-ar.atlassian.net/browse/GITIN-2162)) | No | Alta / Media | SRE: 7–13 días |
@@ -20,7 +20,7 @@ La deuda técnica es trabajo que hoy no se ve en ningún tablero pero que ya pro
 | 6 | Contratos SP–SRE (logs y consultas a Mongo) | INFRA SRE | No hay ticket aún | Parcial | Media / Media | SRE: 6–11 días; Dev a estimar |
 | 7 | Nuevas alertas en Zabbix | INFRA SRE | [GITIN-2229](https://smartit-ar.atlassian.net/browse/GITIN-2229), [GITIN-2171](https://smartit-ar.atlassian.net/browse/GITIN-2171) | No | Media / Baja | SRE: 3–6 días |
 | 8 | Graylog en los ambientes DEV | INFRA SRE | No hay ticket aún | Parcial | Baja / Media | SRE: 5–10 días; Dev a estimar |
-| 9 | Refactor del controlador de sucursales de Concentrador | Concentrador | No hay ticket aún | Sí | Media / Alta | SRE: 12–23 días de acompañamiento; Dev a estimar |
+| 9 | Refactor del controlador de sucursales de Concentrador | Concentrador | No hay ticket aún | Sí | Media / Alta | SRE: 3–6 días de validación; Dev a estimar |
 | 10 | Fallas silenciosas en el cron de pedidos rechazados | Concentrador | No hay ticket aún | Depende: si no se modifica código de negocio, se puede hacer sin Dev | Alta / Baja | SRE: 4–8 días; Dev a estimar si se toca código de negocio |
 | 11 | Deuda de logging en Platform | Platform | No hay ticket aún | Depende: si no se modifica código de negocio, se puede hacer sin Dev | Baja a media / Media | SRE: 5–11 días; Dev a estimar si se toca código de negocio |
 | 12 | Gestión de la deuda técnica | Platform + Concentrador | No hay ticket aún | No | Media / Baja | SRE: 3–6 días |
@@ -32,6 +32,7 @@ La deuda técnica es trabajo que hoy no se ve en ningún tablero pero que ya pro
 - **Por qué es necesario:** hoy los desarrolladores comparten credenciales genéricas y pueden desplegar desde sus máquinas; separar roles por ambiente reduce el riesgo de un cambio accidental en producción.
 - **Objetivo:** que sea transparente para los desarrolladores, con un rol por ambiente y, una vez automatizado el despliegue, sin deploy a PROD desde máquinas personales.
 - **Comentarios:** los usuarios trabajan en Windows, por lo que el entorno local y el README deben contemplarlo.
+- **Escenario web de Zabbix:** en la lista de escenarios web de Zabbix leída el 2026-10-19 (16 escenarios) no hay ninguno de SmartPedidos; SmartLoyalty sí tiene. Un escenario web pide, después de cada despliegue y cada minuto, las direcciones que se le indiquen y falla si la respuesta no es la esperada, de modo que la persona que despliega puede confirmar el resultado en Zabbix. Qué direcciones y qué respuesta confirman que el despliegue quedó bien lo define Desarrollo junto con SRE; los escenarios de SmartLoyalty solo comprueban en su mayoría el código 200 y no validan el certificado, por lo que conviene decidir qué se espera de este.
 
 | Tarea | Proyecto | Ticket existente | ¿Requiere DEV? |
 |---|---|---|---|
@@ -41,6 +42,7 @@ La deuda técnica es trabajo que hoy no se ve en ningún tablero pero que ya pro
 | README para levantar el ambiente local | Platform + Concentrador | No hay ticket aún | Sí |
 | Un rol por ambiente | INFRA SRE | No hay ticket aún | No |
 | Automatizar el despliegue y quitar el deploy a PROD desde máquinas personales | INFRA SRE | No hay ticket aún | Parcial: SRE arma la automatización; Dev adapta su flujo |
+| Escenario web de Zabbix que verifique cada despliegue (agregada el 2026-10-19) | INFRA SRE | No hay ticket aún | Parcial: SRE crea el escenario; Dev indica las direcciones y la respuesta que confirma que el despliegue quedó bien |
 
 ### 2. AWS WAF
 

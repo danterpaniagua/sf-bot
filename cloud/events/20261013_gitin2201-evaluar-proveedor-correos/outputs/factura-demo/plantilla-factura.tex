@@ -1,0 +1,87 @@
+% Plantilla de ticket de factura de SmartFran, demo de GITIN-2201 (una columna angosta, como el ticket impreso en el POS).
+% No contiene datos: todos los valores vienen de datos.tex, que genera render.py a partir de los archivos de la carpeta datos/ (uno por sección).
+% Secciones, en el orden del ticket: logo, emisor, comprobante, cliente, detalle, descuentos, impuestos y total, pagos, mensaje, QR, CAE, aviso de demo.
+\documentclass[varwidth=114mm,border=3mm]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish,es-noshorthands]{babel}
+\usepackage{lmodern}
+\usepackage[table]{xcolor}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{qrcode}
+
+\definecolor{sf}{HTML}{0B5FA5}
+\definecolor{demo}{HTML}{B3261E}
+
+\input{datos.tex}
+
+\begin{document}
+\ttfamily\small
+\setlength{\parindent}{0pt}
+\renewcommand{\arraystretch}{1.15}
+
+% ---------------------------------------------------------------- Logo (marca de la franquicia: aquí, un texto de ejemplo)
+\begin{center}
+  {\sffamily\bfseries\huge\color{sf}SmartFran}\\[-0.5mm]
+  {\sffamily\tiny\color{gray}LOGO DE LA FRANQUICIA (EJEMPLO)}
+\end{center}
+\vspace{1mm}
+
+% ---------------------------------------------------------------- Emisor
+\raggedright
+{\bfseries\EmisorRazonSocial}\\
+CUIT: \EmisorCuit\\
+Ing.\,Brutos: \EmisorIibb\\
+Domicilio: \EmisorDomicilio\\
+Inicio de Actividades: \EmisorInicio\\
+IVA: \EmisorCondicionIva\\
+
+% ---------------------------------------------------------------- Comprobante
+{\bfseries \CompNombre\ \CompTipo\ NRO: \CompNumero}\\
+Fecha: \CompFecha\ \CompHora\\
+
+% ---------------------------------------------------------------- Cliente
+Cliente: \ClienteNombre\ \ClienteDocumento\\
+\ClienteDomicilio
+
+\vspace{3mm}
+
+% ---------------------------------------------------------------- Detalle
+\begin{tabularx}{\linewidth}{@{}r X r r r@{}}
+  \bfseries Unds & \bfseries Descripción & \bfseries Iva & \bfseries Precio & \bfseries Importe \\
+  \DetalleFilas
+\end{tabularx}
+
+\vspace{2mm}
+
+% ---------------------------------------------------------------- Descuentos, impuestos y total
+\begin{flushright}
+  \DescuentoLineas
+  SUBTOTAL: \ImpNeto\\
+  \IvaLineas
+  {\bfseries TOTAL: \TotTotal}
+\end{flushright}
+
+% ---------------------------------------------------------------- Pagos
+\begin{tabularx}{\linewidth}{@{}X r@{}}
+  \bfseries Medio de Pago & \bfseries Importe \\
+  \PagoFilas
+\end{tabularx}
+
+% ---------------------------------------------------------------- Mensaje y QR
+\begin{center}
+  \PieMensaje\\[1.5mm]
+  \qrcode[height=54mm]{\QrUrl}
+\end{center}
+
+% ---------------------------------------------------------------- CAE
+CAE: \AutCae\\
+Vto. CAE: \AutCaeVto
+
+% ---------------------------------------------------------------- Aviso de demo
+\vspace{2mm}
+{\color{demo}\rule{\linewidth}{0.4pt}}\\
+{\sffamily\tiny\bfseries\color{demo}\PieAviso}\\[0.5mm]\hfill{\sffamily\tiny plantilla v\VersionPlantilla}
+
+\end{document}

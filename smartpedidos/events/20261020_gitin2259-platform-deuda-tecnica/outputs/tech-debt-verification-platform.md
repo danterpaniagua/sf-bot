@@ -1,0 +1,13 @@
+# Tech debt verification — platform
+
+Verified on 20-10-2026 against `dev-scr-smartPedidos-platformsService`, branch `develop`, HEAD `643d17f` (2026-10-19), working tree clean, read-only greps and file reads, no `git fetch`. The register entries were written against the `sp-logs` branch clone (`413558c`, 2026-07-07).
+
+| Ref | Found | Status on `develop` | Current location / size | Difference with the register |
+|---|---|---|---|---|
+| PGAP-001 | 10-06-2026 | open | `const t0` timers in 6 provider files under `api/src/platforms/management/platform/`: `thirdParty.js` 16, `rapiboy.js` 10, `mercadoPago.js` 6, `rappi.js` 5, `pedidosYa.js` 1, `uberEats.js` 1 = 39 (register: ~40). `[PERF/INFO]` appears 46 times (`thirdParty` 16, `rapiboy` 10, `mercadoPago` 6, `rappi` 5, `pedidosYa` 5, `uberEats` 4). No `api/src/utils/httpClient.js`, no `interceptors` in `api/src` | Total close to the register, but the per-file table of the entry does not match (pedidosYa 10, rappi 10, mercadoPago 12, uberEats 8, others ~10). Why `pedidosYa.js` and `uberEats.js` have `[PERF/INFO]` logs with a single `t0` each was not looked at. |
+| PGAP-002 | 22-06-2026 | open | "Platform Communication Error" 30 sites: `pedidosYa.js` 6, `thirdParty.js` 6, `rapiboy.js` 6, `rappi.js` 4, `uberEats.js` 4, `mercadoPago.js` 3, `controllers/thirdParty.js` 1; "Platform Auth Error" 1 in `app.js`; 31 in total | The entry says 28, but its own per-file list adds up to 30 (4+6+4+6+3+5+1+1). `rapiboy.js` has 6 sites now, 5 in the entry. The 6 `rapiboy.js` sites still concatenate `order.id` into the message. The 31 sites were counted by message text, the order id inside each one was not checked. |
+| PGAP-003 | 22-06-2026 | resolved | `api/src/platforms/provider/aws.js`: the four `setNews_processing failed` logs (parent, parent `no_id`, child, child `no_id`) include `order_id: JSON.parse(newToSet.Body)?.id ?? 'unknown'`; commit `649b426` (2026-06-22), contained in `develop` | The register lists it as open and names three call sites; there are four. Moved to the `## Resolved` section of `tech-debt.md`. |
+
+Related change found while verifying (not a register item): Platform `index.js`, function `logFatalAndExit` (line 121), had `process.exit(1)` commented out in commit `643d17f` (2026-10-19, "Comment out process.exit(1) in logFatalAndExit"). The `[INFRA/FATAL]` lines are still logged (lines 131, 136, 140). The CGAP-010 entry says Platform ends the process after logging FATAL; that is no longer the case on `develop`. Whether that is deployed was not checked.
+
+Not verified: the volumes from the 2026-06-19 incident and the references to `sp-logs` documents and Jira folders.

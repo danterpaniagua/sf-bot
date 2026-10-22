@@ -187,6 +187,7 @@ Skills never execute queries — output SQL blocks for the user to run and paste
 | `doc-audit` | `/doc-audit` | Documentation and context integrity audit |
 | `context-sync` | `/context-sync` | Post-session audit and update of context files (accuracy, redundancy, token efficiency, completeness) |
 | `voice-check` | `/voice-check` | Mechanized first-person/tense audit of `ops-events.md` files |
+| `summary-report` | `/summary-report` | Multi-day work summary written by the user (`resumen.md`: `## Project`, then `**item**`), built from what the user dictates; differs from `status-report` (one problem) |
 | `status-report` | `/status-report` | Short-form stakeholder status update (Detectado/Corregido/Pendiente) from one or more tickets |
 | `status-email` | `/status-email` | Multi-ticket email showing what Operations did over a period, with Dev/Ops attribution (template: plain-text deploy email) |
 

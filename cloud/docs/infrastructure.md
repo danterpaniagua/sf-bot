@@ -203,6 +203,21 @@ Read from the Graylog API of the SmartCloud instance (`GET /api/system/indices/i
 | API gotcha | With `?stats=true` the statistics are in the top-level `stats` object keyed by index set id, not inside each entry of `index_sets` |
 | Alerting | A Zabbix low-disk alert triggered GITIN-2209 (user statement; its threshold and firing time were not checked). A per-index-set rate-of-ingest alert is an idea, not decided |
 
+### Update 2026-10-21 (GITIN-2228: Graylog disk latency, retention options)
+
+Read-only checks against the Graylog API and the VM, run by the user; evidence in the GITIN-2228 event folder.
+
+| Item | Value |
+|---|---|
+| VM and disks | VM `sfcloud-monitoreo` (Azure `smartfran-graylog-pro`, `Standard_D8s_v6`; the two names are matched by disk size, not confirmed on the VM). OpenSearch disk `nvme0n3`: 768 GB, Premium P30 (5,000 IOPS / 200 MB/s, no bursting), host caching `ReadOnly`. MongoDB disk: 64 GB, P6, host caching `ReadWrite`. `read_ahead_kb` is 65,536 on all three NVMe devices (usual value 128); no definition found |
+| Stored size on 2026-10-21 | 583 GB reported by Graylog (C13). Application sets (GB): Business 226.7, Orders 117.8, Sales 51.0, ScheduledJobs 49.3, CodeGenerator 28.3, TicketProcess 21.1, Default 20.6, Platform 17.9, PosWasmRelay 17.7, Catalog 12.8, Admin 9.1, Pos 8.0, Person 2.5; the 8 business applications add up to 445.8 GB. The `*-http` sets and `DEV` add up to about 6 GB, against about 36 GB recorded on 2026-10-14 above: not reconciled |
+| Streams to index sets | `PROD-<Service>-AppServicePlan` -> `SFC-<Service>-prod`; `PROD-<Service>-AppServiceHTTPLogs` -> `SFC-<Service>-prod-http`; Function App streams -> their own sets. All streams have "remove from default stream" on; the Default index set still holds 20.6 GB (12 million documents) whose content was not looked at. A stream writes to exactly one index set; several can share one |
+| Level field | `AppLevel` (Serilog level). `Unknown` is a real value (HTTP access records, the `-http` sets); `Information` is about 96 % of the application messages. 24 h counts (8 services): 2.74 million messages, `Information` 60.9 %, `Warning` + `Error` + `Fatal` 2.6 %, `Unknown` 36.5 % (count by `name:`, which undercounts; see `cloud/CLAUDE.md`) |
+| `Information` older than 7 days (OpenSearch dry run, `_count`) | 50.7 million of 79.0 million documents (64 %) in the 8 application sets' indices; about 286 GB of 446 GB by document share (estimate, assumes equal document size). Older non-`Information` documents that would stay: 10.0 million (Business 6.5 million, Platform 2.8 million) |
+| Search limits (`SearchesClusterConfig`) | Before: no range limit, no timeout, presets up to "all messages". Since 2026-10-21: range limit `P15D`, timeout 60 s (`cancel_after_seconds`) |
+| Search time baseline (first run, 15 days, ms) | `Information`: Business 24,864, Orders 36,196, Sales 12,522. `Warning`/`Error`: Business 3,577, Orders 2,683, Sales 3,667. Repeated runs are served from cache and are much faster |
+| Open | Cause of the disk latency (candidates: `read_ahead_kb`, host caching `ReadOnly`, per-request latency of the disk); retention decision (7 days `Information`, 30 days `Warning` and above: new streams and index sets, or a daily deletion of old `Information`) |
+
 ## Service Bus
 
 | Field | Value |
