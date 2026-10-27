@@ -1,3 +1,5 @@
+**Asunto:** Context Rot e Instruction Drift: cómo trabajar mejor con herramientas de IA
+
 Hola equipo,
 
 Estuve leyendo sobre algunos conceptos relacionados con el uso de herramientas de IA: **Context Rot** e **Instruction Drift**.

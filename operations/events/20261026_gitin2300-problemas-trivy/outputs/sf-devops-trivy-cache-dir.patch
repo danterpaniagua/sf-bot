@@ -1,0 +1,75 @@
+diff --git a/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-backoffice.jenkinsfile b/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-backoffice.jenkinsfile
+index 9920bc4..de42c52 100644
+--- a/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-backoffice.jenkinsfile
++++ b/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-backoffice.jenkinsfile
+@@ -217,8 +217,8 @@ pipeline {
+                 echo 'Starting Test'
+                 sh 'if [ ! -d reports ]; then mkdir reports; fi'
+                 sh 'wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl'
+-                sh "trivy fs --scanners vuln,secret --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json ./app"
+-                sh "trivy fs --scanners vuln,secret --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html ./app"
++                sh "trivy fs --cache-dir \"$WORKSPACE/.trivycache\" --scanners vuln,secret --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json ./app"
++                sh "trivy fs --cache-dir \"$WORKSPACE/.trivycache\" --scanners vuln,secret --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html ./app"
+                 publishHTML target: [
+                     allowMissing: true,
+                     alwaysLinkToLastBuild: true,
+diff --git a/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-concentrador.jenkinsfile b/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-concentrador.jenkinsfile
+index 6eede45..82ac58c 100644
+--- a/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-concentrador.jenkinsfile
++++ b/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-concentrador.jenkinsfile
+@@ -230,8 +230,8 @@ pipeline {
+                 echo 'Starting Test'
+                 sh 'if [ ! -d reports ]; then mkdir reports; fi'
+                 sh 'wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl'
+-                sh "trivy image --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json --vuln-type os,library $DOCKER_TAG:$LOCAL_GIT_BRANCH"
+-                sh "trivy image --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html --vuln-type os,library $DOCKER_TAG:$LOCAL_GIT_BRANCH"
++                sh "trivy image --cache-dir \"$WORKSPACE/.trivycache\" --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json --vuln-type os,library $DOCKER_TAG:$LOCAL_GIT_BRANCH"
++                sh "trivy image --cache-dir \"$WORKSPACE/.trivycache\" --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html --vuln-type os,library $DOCKER_TAG:$LOCAL_GIT_BRANCH"
+                 publishHTML target: [
+                     allowMissing: true,
+                     alwaysLinkToLastBuild: true,
+diff --git a/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-platform.jenkinsfile b/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-platform.jenkinsfile
+index 680642b..c5f6163 100644
+--- a/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-platform.jenkinsfile
++++ b/jenkins/SF-PEDIDOS/jenkinsfiles/develop/dev-src-pedidos-platform.jenkinsfile
+@@ -214,8 +214,8 @@ pipeline {
+                 echo 'Starting Test'
+                 sh 'if [ ! -d reports ]; then mkdir reports; fi'
+                 sh 'wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl'
+-                sh "trivy image --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json --vuln-type os,library $DOCKER_TAG:$LOCAL_GIT_BRANCH"
+-                sh "trivy image --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html --vuln-type os,library $DOCKER_TAG:$LOCAL_GIT_BRANCH"
++                sh "trivy image --cache-dir \"$WORKSPACE/.trivycache\" --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json --vuln-type os,library $DOCKER_TAG:$LOCAL_GIT_BRANCH"
++                sh "trivy image --cache-dir \"$WORKSPACE/.trivycache\" --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html --vuln-type os,library $DOCKER_TAG:$LOCAL_GIT_BRANCH"
+                 publishHTML target: [
+                     allowMissing: true,
+                     alwaysLinkToLastBuild: true,
+diff --git a/jenkins/SF-PEDIDOS/jenkinsfiles/ope/dev-src-pedidos-concentrador.jenkinsfile b/jenkins/SF-PEDIDOS/jenkinsfiles/ope/dev-src-pedidos-concentrador.jenkinsfile
+index e4dcf26..5371ae6 100644
+--- a/jenkins/SF-PEDIDOS/jenkinsfiles/ope/dev-src-pedidos-concentrador.jenkinsfile
++++ b/jenkins/SF-PEDIDOS/jenkinsfiles/ope/dev-src-pedidos-concentrador.jenkinsfile
+@@ -73,8 +73,8 @@ pipeline {
+             steps {
+                 sh 'if [ ! -d reports ]; then mkdir reports; fi'
+                 sh 'wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl'
+-                sh "trivy image --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json --vuln-type os,library $DOCKER_TAG:${env.IMAGE_TAG}"
+-                sh "trivy image --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html --vuln-type os,library $DOCKER_TAG:${env.IMAGE_TAG}"
++                sh "trivy image --cache-dir \"$WORKSPACE/.trivycache\" --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json --vuln-type os,library $DOCKER_TAG:${env.IMAGE_TAG}"
++                sh "trivy image --cache-dir \"$WORKSPACE/.trivycache\" --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html --vuln-type os,library $DOCKER_TAG:${env.IMAGE_TAG}"
+                 publishHTML target: [
+                     allowMissing: true,
+                     alwaysLinkToLastBuild: true,
+diff --git a/jenkins/SF-PEDIDOS/jenkinsfiles/ope/dev-src-pedidos-platform.jenkinsfile b/jenkins/SF-PEDIDOS/jenkinsfiles/ope/dev-src-pedidos-platform.jenkinsfile
+index 1ba2c7e..b788980 100644
+--- a/jenkins/SF-PEDIDOS/jenkinsfiles/ope/dev-src-pedidos-platform.jenkinsfile
++++ b/jenkins/SF-PEDIDOS/jenkinsfiles/ope/dev-src-pedidos-platform.jenkinsfile
+@@ -73,8 +73,8 @@ pipeline {
+             steps {
+                 sh 'if [ ! -d reports ]; then mkdir reports; fi'
+                 sh 'wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl'
+-                sh "trivy image --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json --vuln-type os,library $DOCKER_TAG:${env.IMAGE_TAG}"
+-                sh "trivy image --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html --vuln-type os,library $DOCKER_TAG:${env.IMAGE_TAG}"
++                sh "trivy image --cache-dir \"$WORKSPACE/.trivycache\" --format json --severity CRITICAL,HIGH -o reports/trivy_vuln.json --vuln-type os,library $DOCKER_TAG:${env.IMAGE_TAG}"
++                sh "trivy image --cache-dir \"$WORKSPACE/.trivycache\" --format template --template \"@html.tpl\" --severity CRITICAL,HIGH -o reports/trivy_vuln.html --vuln-type os,library $DOCKER_TAG:${env.IMAGE_TAG}"
+                 publishHTML target: [
+                     allowMissing: true,
+                     alwaysLinkToLastBuild: true,

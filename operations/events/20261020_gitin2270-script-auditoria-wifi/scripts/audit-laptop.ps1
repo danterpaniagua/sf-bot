@@ -12,6 +12,7 @@
                            eventos de navegador, reportes de cierre de navegador, eventos WLAN
     wlan-networks.txt      salida cruda de "netsh wlan show networks mode=bssid" (redes vecinas; incluye sus nombres)
     wlan-interfaces.txt    salida cruda de "netsh wlan show interfaces" (WiFi actual: senal, canal, tipo de radio)
+    routes.csv, ip-interfaces.csv, vpn-connections.csv, proxy.csv, proxy-winhttp.txt  tabla de rutas IPv4, metricas de las interfaces, perfiles de VPN de Windows (solo lectura) y proxy
     ping-results.csv       prueba de ping y jitter al gateway (muestras en la columna SamplesMs)
     windows-update-*.csv   Windows Update: historial y actualizaciones instaladas
     av-*.csv, defender-*.csv  antivirus: productos, amenazas detectadas y eventos de Defender (solo lectura; no inicia ningun analisis)
@@ -773,6 +774,41 @@ $gateway = Get-Section 'gateway' {
         MediaType   = $(if ($ad) { $ad.PhysicalMediaType } else { $null })
     }
 }
+$netExtra = Get-Section 'rutas, proxy y VPN' {
+    $ifIdx = @{}
+    foreach ($ni in @(Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue)) { $ifIdx[[int]$ni.InterfaceIndex] = $ni }
+    $adIdx = @{}
+    foreach ($ad2 in @(Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue)) { $adIdx[[int]$ad2.ifIndex] = $ad2 }
+    $routes = @(Get-NetRoute -AddressFamily IPv4 -ErrorAction Stop | Where-Object {
+            $_.DestinationPrefix -notlike '224.*' -and $_.DestinationPrefix -notlike '127.*' -and
+            $_.DestinationPrefix -ne '255.255.255.255/32' -and $_.DestinationPrefix -notlike '169.254.*' } | ForEach-Object {
+            $ni = $ifIdx[[int]$_.InterfaceIndex]; $ad2 = $adIdx[[int]$_.InterfaceIndex]
+            [pscustomobject]@{
+                Destination = $_.DestinationPrefix; NextHop = [string]$_.NextHop; Interface = $_.InterfaceAlias
+                AdapterStatus = $(if ($ad2) { [string]$ad2.Status } else { $null })
+                RouteMetric = $_.RouteMetric; InterfaceMetric = $(if ($ni) { $ni.InterfaceMetric } else { $null })
+                Protocol = [string]$_.Protocol; Store = [string]$_.Store
+            } } | Sort-Object Destination, RouteMetric)
+    $ipIf = @(Get-NetIPInterface -AddressFamily IPv4 -ErrorAction SilentlyContinue | ForEach-Object {
+            [pscustomobject]@{ Interface = $_.InterfaceAlias; ConnectionState = [string]$_.ConnectionState; InterfaceMetric = $_.InterfaceMetric; AutomaticMetric = [string]$_.AutomaticMetric; Dhcp = [string]$_.Dhcp } })
+    $vpn = New-Object System.Collections.Generic.List[object]
+    foreach ($allUsers in @($true, $false)) {
+        try {
+            foreach ($v in @(Get-VpnConnection -AllUserConnection:$allUsers -ErrorAction Stop)) {
+                $vpn.Add([pscustomobject]@{ Name = $v.Name; Scope = $(if ($allUsers) { 'all users' } else { 'current user' }); Server = $v.ServerAddress; Status = [string]$v.ConnectionStatus; TunnelType = [string]$v.TunnelType; SplitTunneling = [string]$v.SplitTunneling })
+            }
+        } catch { }
+    }
+    $proxy = $null
+    try {
+        $reg = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction Stop
+        $proxy = [pscustomobject]@{ ProxyEnable = $reg.ProxyEnable; ProxyServer = $reg.ProxyServer; AutoConfigURL = $reg.AutoConfigURL; AutoDetect = $reg.AutoDetect }
+    } catch { }
+    $winhttp = ''
+    try { $winhttp = ((& netsh winhttp show proxy 2>&1 | Out-String).Trim()) } catch { }
+    [System.IO.File]::WriteAllText((Join-Path $runDir 'proxy-winhttp.txt'), $winhttp, $utf8)
+    [pscustomobject]@{ Routes = $routes; IpInterfaces = $ipIf; Vpn = @($vpn.ToArray()); Proxy = $proxy; WinHttpProxy = $winhttp }
+}
 $pingResults = Get-Section 'ping y jitter' {
     $out = New-Object System.Collections.Generic.List[object]
     if ($gateway -and $gateway.Address) {
@@ -812,6 +848,7 @@ if ($eventViewer) { Export-Table $eventViewer.Summary 'events-summary.csv'; Expo
 Export-Table $pingResults 'ping-results.csv'
 Export-Table $wifi 'wifi-connected.csv'
 if ($wifiSat) { Export-Table $wifiSat.Channels 'wifi-channels.csv'; Export-Table $wifiSat.AccessPoints 'wifi-access-points.csv' }
+if ($netExtra) { Export-Table $netExtra.Routes 'routes.csv'; Export-Table $netExtra.IpInterfaces 'ip-interfaces.csv'; Export-Table $netExtra.Vpn 'vpn-connections.csv'; Export-Table @($netExtra.Proxy) 'proxy.csv' }
 
 # ---------- Observaciones (reglas simples; son avisos para mirar, no diagnosticos) ----------
 $flags = New-Object System.Collections.Generic.List[object]
@@ -836,6 +873,18 @@ if ($processes) {
     if ($hot.Count -gt 0) { Add-Flag 'warn' ("Procesos con CPU alta en la muestra de {0} s: {1}." -f $processes.SampleSeconds, (($hot | ForEach-Object { "$($_.Name) $($_.CpuPercent) %" }) -join ', ')) }
 }
 if ($browserEvents -and $browserEvents.Count -gt 0) { Add-Flag 'warn' ("{0} cierres/cuelgues de navegador en los ~u~ltimos {1} d~i~as." -f $browserEvents.Count, $EventDays) }
+if ($netExtra) {
+    $badDef = @($netExtra.Routes | Where-Object { $_.Destination -eq '0.0.0.0/0' -and $_.AdapterStatus -and $_.AdapterStatus -ne 'Up' })
+    if ($badDef.Count -gt 0) { Add-Flag 'warn' ("Ruta predeterminada sobre un adaptador que no esta conectado: {0}." -f (($badDef | ForEach-Object { "$($_.Interface) via $($_.NextHop)" }) -join ', ')) }
+    $defCount = @($netExtra.Routes | Where-Object { $_.Destination -eq '0.0.0.0/0' }).Count
+    if ($defCount -gt 1) { Add-Flag 'info' ("Hay {0} rutas predeterminadas (ver routes.csv): decide la de menor metrica sumada." -f $defCount) }
+    $vpnUp = @($netExtra.Vpn | Where-Object { $_.Status -eq 'Connected' })
+    if ($vpnUp.Count -gt 0) { Add-Flag 'warn' ("VPN conectada: {0}." -f (($vpnUp | ForEach-Object { $_.Name }) -join ', ')) }
+    elseif (@($netExtra.Vpn).Count -gt 0) { Add-Flag 'info' ("Perfiles de VPN de Windows definidos pero desconectados: {0}." -f (($netExtra.Vpn | ForEach-Object { $_.Name }) -join ', ')) }
+    if ($netExtra.Proxy -and $netExtra.Proxy.ProxyEnable -eq 1) { Add-Flag 'info' 'Proxy de usuario activo en Internet Settings (ver proxy.csv).' }
+    if ($netExtra.Proxy -and $netExtra.Proxy.AutoConfigURL) { Add-Flag 'info' 'Hay un script de configuracion automatica de proxy (PAC) en Internet Settings (ver proxy.csv).' }
+    if ($netExtra.WinHttpProxy -and $netExtra.WinHttpProxy -notmatch '(?i)direct|directo|acceso directo') { Add-Flag 'info' 'WinHTTP tiene un proxy distinto de acceso directo (ver proxy-winhttp.txt).' }
+}
 if ($wlan -and ($wlan.Disconnected + $wlan.Failed) -gt 0) { Add-Flag 'info' ("WiFi en los ~u~ltimos {0} d~i~as: {1} conexi~o~nes, {2} desconexi~o~nes, {3} conexi~o~nes fallidas." -f $EventDays, $wlan.Connected, $wlan.Disconnected, $wlan.Failed) }
 if ($wu) {
     $nowUtc = (Get-Date).ToUniversalTime()
@@ -924,6 +973,7 @@ Set-ReportPart 'EventViewer' $eventViewer
 Set-ReportPart 'WifiConnected' $wifi
 Set-ReportPart 'WifiChannels' $wifiSat
 Set-ReportPart 'Gateway' $gateway
+Set-ReportPart 'RoutesProxyVpn' $netExtra
 Set-ReportPart 'PingToGateway' $pingResults
 Set-ReportPart 'Flags' $flags.ToArray()
 Set-ReportPart 'Notes' $notes.ToArray()
@@ -990,6 +1040,10 @@ if ($browserEvents) {
 }
 if ($crashReports) { [void]$h.Append((Section 'Navegadores: reportes de cierre (solo metadatos)' (ConvertTo-HtmlTable $crashReports @('Browser','Files','NewestUtc','OldestUtc','SizeKB')))) }
 if ($adapters) { [void]$h.Append((Section 'Adaptadores de red' (ConvertTo-HtmlTable $adapters @('Name','Description','Status','LinkSpeed','MediaType','DriverVersion','DriverDate','DriverProvider')))) }
+if ($netExtra) {
+    [void]$h.Append((Section 'Rutas IPv4 (sin multicast ni link-local)' (ConvertTo-HtmlTable $netExtra.Routes @('Destination','NextHop','Interface','AdapterStatus','RouteMetric','InterfaceMetric','Protocol','Store'))))
+    [void]$h.Append((Section 'Interfaces IP, VPN y proxy' ((ConvertTo-HtmlTable $netExtra.IpInterfaces @('Interface','ConnectionState','InterfaceMetric','AutomaticMetric','Dhcp')) + '<h3>VPN de Windows</h3>' + (ConvertTo-HtmlTable $netExtra.Vpn @('Name','Scope','Server','Status','TunnelType','SplitTunneling')) + '<h3>Proxy (Internet Settings)</h3>' + (ConvertTo-HtmlTable @($netExtra.Proxy) @('ProxyEnable','ProxyServer','AutoConfigURL','AutoDetect')))))
+}
 if ($wlan) { [void]$h.Append((Section ("WiFi: eventos de conexi~o~n (~u~ltimos {0} d~i~as)" -f $EventDays) (ConvertTo-HtmlTable $wlan.Events @('TimeUtc','Kind','EventId')))) }
 if ($wu) {
     $wuBody = ConvertTo-HtmlTable @($wu) @('LastSearchSuccess','LastInstallSuccess','LastSuccessfulInstallHistory','FailedOrCancelledRecent','ClientFailureEvents','PendingReboot','ServiceStatus','ServiceStartType')
