@@ -22,6 +22,7 @@ Same pattern as `loyalty/repo/` and `cloud/repo/` — `.gitignore`d, lookups and
 ## Directory Layout
 
 - `docs/` — reference documents (architecture, infrastructure). Write analysis/report files here, never to the project root.
+- `docs/todo.md` — open work of the project (one entry per piece of work, may span several tickets; not tied to an event) and `docs/tech-debt.md` — standing fragilities (here the append-only log written by `/sp-tech-debt`, rows are not edited by hand). When an entry is done, record the fact in the doc it belongs to and delete the entry.
 - `events/` — write-only artifact archive. Layout: `events/YYYYMMDD_description/` (or `YYYYMMDD_gitinXXXX-description/` — see root `CLAUDE.md` → "Investigation Files" for the folder naming convention).
 - `repo/` — local working copies (edit and pull allowed, never commit or push) of `concentrador-service` and `platforms-service` for source lookups. See "Project" section above.
 
@@ -36,7 +37,7 @@ SmartPedidos is a **franchise food delivery hub** that:
 | Service | Description |
 |---|---|
 | **platforms-service** | Inbound integration layer for delivery platforms. Validates/normalises orders, persists to MongoDB (`orders` + `news`), pushes to AWS SQS. `Platform` base class with per-platform subclasses for the full order lifecycle (receive → confirm → dispatch → delivery / reject). Manages restaurant open/close scheduling and syncs delivery-time/rejection-reason catalogues per platform. |
-| **concentrador-service** | Internal management and POS-facing backend. Serves SmartFran agents and the management dashboard. Routes: branch/chain/user/region CRUD, `news` state transitions, software-version distribution (`activeSoftware`), dead-letter recovery, platform-history auditing. Owns the SQS consumer path bridging platforms-service to branch POS terminals. |
+| **concentrador-service** | Internal management and POS-facing backend. Serves SmartFran agents and the management dashboard. Routes: branch/chain/user/region CRUD, `news` state transitions, software-version distribution (`activeSoftware`), dead-letter recovery, platform-history auditing. Does not consume `PRD_BranchMessages.fifo` (platforms-service does, `docs/infrastructure.md` → "Message flow"); it runs `deadLetterSave()` on startup. |
 
 Key MongoDB collections: `orders`, `news`, `logerrors`, `deadletters`, `branches`, `chains`, `platforms`, `newsStates`, `newsTypes`. The `news` collection is the internal event/notification model — each document has a `traces` array tracking state transitions.
 
@@ -102,11 +103,11 @@ Apply to all skills and commands, not just `/sp-static-analysis`:
 - User inputs: keep original language (do not translate)
 - **Jira tickets** (`docs/jira/**`): always **Spanish**
 - **Tech debt files** (`docs/tech-debt/**`): always **English**
-- Content written to `events/`: **Spanish**
+- Human-facing content written to `events/` (`ops.md`, `ops-events.md`, emails): **Spanish**; `investigation.md`: **English**
 
 ## Confirmed Gotchas (cross-event)
 
-- **Production SQS is in `us-east-1`** (queues `{branchId}PRD_PlatformMessages.fifo`, `PRD_BranchMessages.fifo`, `MainDeadLetter.fifo`, `DeadLetter.fifo`); `us-east-2` is test and staging (user-stated 2026-10-13; the URLs in `docs/infrastructure.md` are the testing ones). Queue-age behavior, the alarm/Lambda/Auto Scaling chain and the signals that detect a consumer stall are in `docs/infrastructure.md` → "Production queue signals" (GITIN-2211, GITIN-2162).
+- **Production SQS is in `us-east-1`** (queues `{branchId}PRD_PlatformMessages.fifo`, `PRD_BranchMessages.fifo`, `MainDeadLetter.fifo`, `DeadLetter.fifo`); `us-east-2` is test and staging (user-stated; the URLs in `docs/infrastructure.md` are the testing ones). Queue-age behavior, the alarm/Lambda/Auto Scaling chain and the signals that detect a consumer stall are in `docs/infrastructure.md` → "Production queue signals" (GITIN-2211, GITIN-2162).
 - **CloudWatch pulls:** `get-metric-data` with `SEARCH` over all SQS queues stops at 500 series (`MaxMetricsExceeded` in `.Messages`) — request a queue by name. `get-metric-statistics` rejects more than 1440 datapoints per call. Print `.Messages` from every `get-metric-data` result.
 - **Graylog (this project's stack):** query and time-format rules in `docs/graylog_infrastructure.md` → "REST API query notes". Latency and consumer activity can be measured from `[PERF/INFO] http_response` lines.
 - **AWS CLI profile:** production SmartPedidos is account `382381053403`; the user's profile is `dpaniagua.smartfran`. The pull scripts call `aws` without `--profile`, so run them as `AWS_PROFILE=dpaniagua.smartfran bash <script>`. `InvalidClientTokenId` on `sts get-caller-identity` means stale or expired credentials in that shell (2026-10-18): fix the shell, not the script; every AWS script opens with an account guard.
@@ -115,6 +116,10 @@ Apply to all skills and commands, not just `/sp-static-analysis`:
 - **ECS CPU (AWS/ECS `CPUUtilization`, service level):** `Maximum` and `Average` per minute differ a lot (platform-service 2026-10-16/18: Average at most 31 %, Maximum 87-89 % with 28-49 minutes above 75 %; concentrador-service, one task, Maximum 99.6-100 %). Always say which statistic a CPU threshold refers to. platform-service minimum capacity is 10 since 2026-10-17 11:28:38 -03:00 (was 5); "Running < Desired" counts before and after are not directly comparable.
 - **MongoDB Atlas in Zabbix:** host `Zabbix server`, items `[pedidossmartfran-shard-00-0N-narx2.mongodb.net] ...` (CPU, RAM, data size, network in/out), updated every 10 minutes (`{$MONGO_ATLAS_UPD_INT}`); the nine CPU triggers carry no tags. The `AVG Reads Latency` items hold the same values as RAM (not usable). Connections, replication lag, operation latency, IOPS and elections are not collected; they live in Atlas or Grafana (whose Atlas plugin is unmaintained, GITIN-1748).
 - **platform-service exits through one function (GITIN-2248, 2026-10-19):** `logFatalAndExit` in `api/src/index.js` is the only `process.exit` in `api/src`; it is called from the `unhandledRejection` and `uncaughtException` handlers and from `start().catch(...)`: any unhandled rejection writes a FATAL line and ends the task. It came with commit `b56d403` (2026-10-08), first merged into `develop` by PR #135 (2026-10-09); before it the handlers did not exit (and the `uncaughtException:` event name had a typo, so it never fired). Production date of the first build with it was not established. Read on `develop` HEAD `2f12a3c` (2026-10-16), not fetched.
+
+## Imported Reference
+
+@docs/zabbix_alert_matrix.md
 
 ## Behavioral Guidelines
 

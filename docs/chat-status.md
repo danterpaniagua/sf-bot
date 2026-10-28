@@ -2,7 +2,7 @@
 
 The only status file for continuing a chat: overwrite it, do not create dated copies. To resume after `/clear`, read this file first, then the `investigation.md` of the event you pick up.
 
-**Last update:** 2026-10-19, about 13:00 (-03:00). Built from the chat context only; no event folder was re-checked. Window: the chat since `/clear`, 8 events (the audio event was removed from this list at the user's request: solved, see its investigation). Jira: GITIN-2251 (child of 2250), 2248, 2236, 2201; the Zabbix web scenarios doc and the Loyalty roadmap have no ticket yet. "Unverified" lists what only the user said or was not checked.
+**Last update:** 2026-10-19, about 13:00 (-03:00). Built from the chat context only; no event folder was re-checked. Window: the chat since `/clear`, 8 events. Jira: GITIN-2251 (child of 2250), 2248, 2236, 2201; the Zabbix web scenarios doc and the Loyalty roadmap have no ticket yet. "Unverified" lists what only the user said or was not checked.
 
 ## Events
 

@@ -1,337 +1,156 @@
 # SmartFran Cloud — Graylog Log Fields Reference
 
-**Last updated:** 2026-10-13 (GITIN-2221 — new derived field `NormalizedPath` (the HTTP `Path` with the route parameters removed) added to the live Logstash filter and confirmed arriving in Graylog on every message that carries `Path`; GITIN-2218 — observed `Service` values, stream layout and the Operations dashboard recorded. See "`NormalizedPath`" and "Service values, streams and the Operations dashboard" below)
+Which application-level fields (from Serilog's CLEF `Properties`) actually reach SmartCloud Graylog as flat, top-level, searchable fields, per source, and the known gaps. `docs/devs-log-structure.md` is the dev-authored schema of what the app *should* emit; this file is the narrower SRE-side view of what is confirmed to arrive. Keep it in step with what is live.
 
-**2026-09-23 (GITIN-2098 — `TraceId`/`SpanId`/`ParentId` promoted to bare top-level fields. Confirmed in application source (`Provider.Logger.Core/W3CAndAmbientTraceEnricher.cs`, registered in `SerilogBootstrap.cs` alongside `Service`/`Environment`/`Version`) that these W3C distributed-tracing ids are stamped from `Activity.Current` onto **every log line**, for every service on the shared bootstrap — same universal reach as `TraceKey`, not confined to one specific log line. Never targeted by any prior promotion ticket (GITIN-1883/1892/1940 promoted `TraceKey` and other fields, but not this triplet) and never listed in `devs-log-structure.md` as its own schema key (only as `TraceKey`'s W3C fallback source — see that doc's own correction below). Same two-branch pattern as GITIN-1883/1892: Event Hub apps via `resultDescription`-nested `Properties`, Sales/PosWasmRelay via top-level `Properties`. Deployed and confirmed live same day: Sales-PRO (138 hits/5min, 10/10 sampled with `TraceId`+`SpanId`, `ParentId` on 6/10) and Business-PRO (106 hits/5min, 10/10 with all 3). Full detail in `cloud/events/20260923_gitin2098-traceid-not-promoted-graylog/`)
+## Sources and raw shapes
 
-**2026-09-15 (GITIN-2050 — `FunctionAppLogs` field promotion — first time this category has had any field promotion at all; previously every Function App message landed with the generic `message` fallback `"Microsoft.Web/sites/functions/log"`, unsearchable. Covers the 4 Function Apps onboarded to Graylog the same day: `SFC-CodeGenerator-PRO`, `SFC-ScheduledJobs-PRO`, `SFC-PosWasmRelay-PRO`, `SFC-TicketProcess-PRO`, each its own dedicated stream/index set. Full detail in `cloud/events/20260915_functionapp-onboarding/` (migrated into this repo 2026-09-15) — see new section below)
-
-**2026-09-14 (GITIN-2034 — fixed a real regression-shaped gap in GITIN-1940's `AppServiceHTTPLogs` branch: it only handled `properties` arriving pre-stringified by Azure, silently promoting nothing for the flat/unwrapped ingestion shape where this pipeline's own initial parse leaves `properties` as a live Hash instead. Confirmed via a real Sales-PRO message with all 5 fields missing. Fixed and reverified live. Separately, the `Service:"Sales"` direct-GELF branch's `ElapsedMilliseconds` specifically remains unexplained-missing on some live messages even though `StatusCode`/`Path`/`Method` from the same source work — not the same bug, not resolved by this ticket, still open. See updated section below)
-
-**2026-08-26 (GITIN-1940 — `StatusCode`/`Path`/`Method`/`ElapsedMilliseconds`/`ClientIP` promoted from the built-in ASP.NET Core "Request finished" hosting-diagnostics log line and from Azure's own `AppServiceHTTPLogs` category. Motivated by Sales `WsFeAr/CaeRequest` 408s having no structured field to query on. Deployed and confirmed live at the time — see GITIN-2034 correction above for a gap found later)
-
-**2026-08-24 (GITIN-1924 — `SFC-PosWasmRelay-PRO`/`-DEV` added as a confirmed live source, previously undocumented/marked out of scope. Not a new promotion ticket — Logstash's existing GITIN-1883/1892 Sales-branch logic already promotes 7 fields for this source with zero pipeline changes, since the relay's raw shape happens to present `Properties` as a top-level Hash just like Sales does. `TraceKey`/`SourceContext` are the one confirmed gap — nested one level deeper than this pipeline's promotion logic reaches, see new section below)
-
-**2026-08-19 (GITIN-1892):** 13 more fields promoted: `Version`, `UserId`, `ProcessType`, `Component`, `RequestId`, `SourceContext`, `Category`, `ErrorCode`, `Operation`, `Recovered`, `Handled`, `AuditAction`, `AuditOutcome`. 5 confirmed active on real traffic (`Version`/`ProcessType`/`Component`/`RequestId`/`SourceContext`), `UserId` confirmed correctly inactive by design (always empty in practice, guard skips it), 7 deployed but not yet observed on real traffic (`Category` + the 6 helper-conditional fields)
-
-Tracks the application-level fields (from Serilog's CLEF `Properties` object) that are expected to be searchable as flat, top-level Graylog fields — across the `AppServiceConsoleLogs` Event Hub ingestion path and Sales' separate direct-GELF path. Update whenever a ticket confirms a new field's location or promotes one to top-level.
-
-**See `docs/devs-log-structure.md`** for the full canonical log schema as designed by the dev team (all 6 logging helpers, `Properties` composition layers, PII redaction, exception formatting, anti-patterns) — that document is the source of truth for what the app *should* emit. This document is narrower: it tracks specifically what's confirmed to actually reach Graylog as a flat, searchable field on the SRE/pipeline side, including gaps between the two where they're been found.
-
-## Scope
-
-- **Event Hub path** (`cloud-graylog/docs/azure-eventhub-to-graylog.conf`, via Logstash): `Business`, `Admin`, `Platform`, `Person`, `Catalog`, `Orders`. Each app's `AppServiceConsoleLogs` record carries a Serilog CLEF payload (`Timestamp`/`Level`/`MessageTemplate`/`Properties`) as a JSON **string** inside `resultDescription` — one layer of nesting deeper than Sales.
-- **Sales**: separate direct Serilog→Event-Hub CLEF sink (GITIN-1811/1835), bypassing Diagnostic Settings' `records` envelope entirely. Its CLEF payload arrives as the message's own top-level body, so GELF auto-flattens any nested `Properties` object into `Properties_<Key>` fields automatically — no pipeline rule needed for that flattening itself (confirmed via `_exists_:Properties` = 0 hits everywhere, GITIN-1835).
-- **Pos** (the `SmartFran-Cloud-Pos-PRO`/`-DEV` Windows App Service itself): still out of scope. `AppServiceConsoleLogs` is structurally unsupported for .NET apps on Windows App Service (GITIN-1811, Microsoft-confirmed) — confirmed 0 messages in this category for both Sales and Pos (both Windows-hosted) before Sales' GITIN-1811 workaround. Pos has not adopted the same direct-GELF workaround.
-- **`SFC-PosWasmRelay-PRO`/`-DEV`** (added 2026-08-24, GITIN-1924): a separate Linux Function App, not the Pos App Service above — receives the POS Blazor WASM client's own operational/HTTP-call logs (batched client-side, `WasmForwardingSink`) and re-emits them via `IngestLogs.cs`'s own Serilog pipeline → `FunctionAppLogs` (not `AppServiceConsoleLogs`) → same shared Event Hub → Graylog. See "SFC-PosWasmRelay traffic" section below — a genuinely different raw shape from both the Event Hub apps and Sales, confirmed to reuse the Sales-branch promotion logic incidentally, not by any pipeline change made for it.
-- **`FunctionAppLogs` category, all 4 Function Apps** (`SFC-CodeGenerator-PRO`, `SFC-ScheduledJobs-PRO`, `SFC-PosWasmRelay-PRO`, `SFC-TicketProcess-PRO`, added 2026-09-15): a structurally different raw shape from every category above — `properties` arrives as a Python dict-repr **string** (single-quoted keys/values), not JSON, so none of the `JSON.parse` guards used elsewhere in the pipeline ever match it. Dedicated Ruby parser added 2026-09-15 (see new section below) — first field promotion this category has ever had.
-
-## Tracked fields
-
-All fields below are **bare, identically-named top-level fields across every service** — Event Hub apps and Sales alike, no `Properties_` prefix anywhere (unified 2026-08-18, GITIN-1883, at explicit request). GITIN-1892 (2026-08-19) extended the same unified-naming pattern to 13 more fields.
-
-### Always-present when scoped (GITIN-1883 + part of GITIN-1892)
-
-| Field | Event Hub apps (Business/Admin/Platform/Person/Catalog/Orders) | Sales (direct GELF) | CLEF source | Ticket |
-|---|---|---|---|---|
-| `TraceKey` | Top-level `TraceKey` | Top-level `TraceKey` | `Properties.TraceKey` | GITIN-1883 |
-| `AppLevel` | Top-level `AppLevel` | Top-level `AppLevel` | `Level` — nested inside `resultDescription` for Event Hub apps, top-level for Sales | GITIN-1835 |
-| `TenantId` | Top-level `TenantId` | Top-level `TenantId` | `Properties.TenantId` — opaque 12-char alphanumeric id, matches `Organization.tenantId` in `docs/infrastructure.md` (e.g. `d3186bc6d7b2`, confirmed same literal value in a real GITIN-1883 sample) | GITIN-1883 |
-| `Service` | Top-level `Service` | Top-level `Service` | `Properties.Service` | GITIN-1883 |
-| `Environment` | Top-level `Environment` | Top-level `Environment` | `Properties.Environment` | GITIN-1883 |
-| `Version` | Top-level `Version` | Top-level `Version` | `Properties.Version` — confirmed live 2026-08-19 (10,686 hits, 9 services PRO/DEV incl. Sales, 30-min window) | GITIN-1892 |
-| `UserId` | Top-level `UserId`, when non-empty | Top-level `UserId`, when non-empty | `Properties.UserId` — **legitimately always empty in every real sample seen so far** (Auth0 `sub` claim absent on every observed request); guard correctly skips promoting it, 0 live hits is the expected/correct state, not a bug | GITIN-1892 |
-| `ProcessType` | Top-level `ProcessType` | Top-level `ProcessType` | `Properties.ProcessType` — confirmed live 2026-08-19 (104,527 hits) | GITIN-1892 |
-| `Component` | Top-level `Component` | Top-level `Component` | `Properties.Component` — confirmed live 2026-08-19 (104,875 hits). **Value discrepancy, unresolved:** real observed values are `Api`/`Web`, not the business-domain name (`Sales`, `Catalog`, ...) that current source code (`dev` and `main`, confirmed 2026-08-19) actually passes via `UseSmartFranLogEnrichment(component: "<Domain>")`. Root cause not confirmed — see `devs-log-structure.md` §3.2 note and `cloud/events/20260819_promote-remaining-clef-fields/` H2 | GITIN-1892 |
-| `RequestId` | Top-level `RequestId` | Top-level `RequestId` | Automatic ASP.NET Core MEL field (`HttpContext.TraceIdentifier`), not `EnrichmentMiddleware` — confirmed live 2026-08-19 (109,213 hits) | GITIN-1892 |
-| `SourceContext` | Top-level `SourceContext`, when present | Top-level `SourceContext`, when present | Automatic MEL field (`ILogger<T>` name) — confirmed live 2026-08-19 (103,101 hits), but **inconsistent even within the same service**: present on repository/controller-class logs, absent on `RequestHandlingMiddleware`-originated logs. Genuinely varies by call site, not a bug | GITIN-1892 |
-| `TraceId` | Top-level `TraceId` | Top-level `TraceId` | `Properties.TraceId` — W3C distributed-tracing id, stamped by `W3CAndAmbientTraceEnricher` from `Activity.Current` on every log line, distinct from the app's own `TraceKey`. Confirmed live 2026-09-23 (Sales 138 hits/5min, Business 106 hits/5min) | GITIN-2098 |
-| `SpanId` | Top-level `SpanId` | Top-level `SpanId` | `Properties.SpanId` — same enricher as `TraceId`, always present alongside it in the samples checked | GITIN-2098 |
-| `ParentId` | Top-level `ParentId`, when present | Top-level `ParentId`, when present | `Properties.ParentId` — same enricher; **not always present alongside `TraceId`/`SpanId`** (6/10 on the Sales sample, same "not always present" behavior already documented for `FunctionAppLogs`' copy of this field) | GITIN-2098 |
-
-`TenantId`/`UserId` are legitimately empty on system/background messages with no active tenant/user context — not a bug, don't treat an empty value as a pipeline failure.
-
-### Conditional on a specific `SmartFranLogExtensions` helper (GITIN-1892)
-
-Only appear when the log was raised through one of `LogBusinessEvent`/`LogSystemEvent`/`LogDomainError`/`LogTransientFailure`/`LogUnrecoverableFailure`/`LogSecurityAudit` — absent on plain `ILogger` or middleware-originated logs, confirmed on every sample checked. **Not yet observed on real live traffic** as of 2026-08-19 (0 hits, both a 7-day pre-deploy window and a 30-min post-deploy window) — none of these 6 helpers fired in the sampled windows. Logic validated in isolation (5 test scenarios), deployment confirmed structurally sound; live confirmation is a standing follow-up whenever one of these helpers actually fires.
-
-| Field | CLEF source key (confirmed against `SmartFranLogExtensions.cs`, not the same as the promoted name) | Helper | Ticket |
+| Source | Path | Raw shape | Handling |
 |---|---|---|---|
-| `Category` | `Properties.Category` — matches promoted name exactly | All 6 helpers | GITIN-1892 |
-| `ErrorCode` | `Properties._error_code` — **note the `_` prefix**, does not match promoted name | `LogDomainError` | GITIN-1892 |
-| `Operation` | `Properties.Operation` — matches promoted name exactly (arrives via message-template placeholder, not the helper's scope dict) | `LogTransientFailure`, `LogUnrecoverableFailure` | GITIN-1892 |
-| `Recovered` | `Properties._recovered` (boolean) — **note the `_` prefix** | `LogTransientFailure` | GITIN-1892 |
-| `Handled` | `Properties._handled` (boolean) — **note the `_` prefix** | `LogUnrecoverableFailure` | GITIN-1892 |
-| `AuditAction` | `Properties._audit_action` — **note the `_` prefix**; a separate `Properties.Action` (bare, from message-template placeholder) also exists but is not promoted | `LogSecurityAudit` | GITIN-1892 |
-| `AuditOutcome` | `Properties._audit_outcome` — **note the `_` prefix**; a separate `Properties.Outcome` (bare) also exists but is not promoted | `LogSecurityAudit` | GITIN-1892 |
+| Event Hub apps: Business, Admin (`SmartFran.Cloud.Client.Web`), Platform, Person, Catalog, Orders | `AppServiceConsoleLogs` via Diagnostic Settings → Event Hub → Logstash (`cloud-graylog/docs/azure-eventhub-to-graylog.conf`) | CLEF payload is a JSON **string** in `records[0].resultDescription` (one level deeper than Sales) | Logstash parses and promotes fields to bare names |
+| Sales | Direct Serilog→Event-Hub CLEF sink (GITIN-1811/1835), no Diagnostic Settings envelope | CLEF is the message body; `Properties` is a live Hash | Logstash promotes bare names, then **stringifies** the leftover `Properties` so GELF stops auto-flattening it into `Properties_*` duplicates |
+| Pos (`SmartFran-Cloud-Pos-PRO`/`-DEV`, Windows App Service) | none | `AppServiceConsoleLogs` is unsupported for .NET on Windows (GITIN-1811, Microsoft-confirmed) | Out of scope; Pos has not adopted the direct-GELF workaround |
+| `SFC-PosWasmRelay-PRO`/`-DEV` (Linux Function App receiving the POS Blazor WASM client's logs) | `FunctionAppLogs` → shared Event Hub | `Properties` is a live top-level Hash, like Sales | Reuses the Sales-branch promotion logic incidentally (7 fields); `EntryProperties` handled by the `FunctionAppLogs` parser |
+| 4 Function Apps (`SFC-CodeGenerator-PRO`, `SFC-ScheduledJobs-PRO`, `SFC-PosWasmRelay-PRO`, `SFC-TicketProcess-PRO`) | `FunctionAppLogs` | `properties` is a **Python dict-repr string** (single-quoted), not JSON: every `JSON.parse` guard in the pipeline silently skips it | Dedicated hand-rolled Ruby parser (`if [category] == "FunctionAppLogs"` block) |
+| Azure `AppServiceHTTPLogs` (Windows apps' infra-level HTTP access log) | Diagnostic Settings | Two shapes: `records`-wrapped with `properties` pre-stringified, and flat with `properties` as a live Hash | Branch accepts both |
 
-**Why the `_` prefix matters here:** `devs-log-structure.md` originally documented all 6 of these as plain PascalCase (`ErrorCode`, `Recovered`, etc.) — that was wrong for 5 of them, discovered only after a first deploy of this exact pipeline promoted the wrong source key and silently produced zero data. Corrected in both the doc and the pipeline the same day (2026-08-19) — see `devs-log-structure.md` §3.3/§3.6 and `cloud/events/20260819_promote-remaining-clef-fields/` H9 for the full incident.
+Sales' `_exists_:Properties` returns 0 everywhere (GITIN-1835): no `Properties_*` fields remain after promotion.
 
-### Per-service confirmation (2026-08-19)
+## Fields promoted to bare top-level (identical name on every source)
 
-One real message per service, last 30 minutes, no category filter — the 6 Event Hub apps plus Sales:
+### Always present when the source carries them (GITIN-1883, GITIN-1892, GITIN-2098)
 
-```
-┌───────────┬──────────┬──────────┬───────────┬───────────┬───────────────┬─────────┐
-│  Service  │ TenantId │ Version  │ ProcessTy │ Component │ SourceContext │ Category│
-├───────────┼──────────┼──────────┼───────────┼───────────┼───────────────┼─────────┤
-│ Sales     │ ✅       │ ✅       │ ✅ Api    │ ✅ Api    │ ✅            │ —       │
-│ Business  │ ✅       │ ✅       │ ✅ Api    │ ✅ Api    │ ✅            │ —       │
-│ Admin     │ —        │ ✅       │ ✅ Api    │ ✅ Web    │ ✅            │ —       │
-│ Platform  │ —        │ ✅       │ ✅ Api    │ ✅ Api    │ —             │ —       │
-│ Person    │ ✅       │ ✅       │ ✅ Api    │ ✅ Api    │ —             │ —       │
-│ Catalog   │ ✅       │ ✅       │ ✅ Api    │ ✅ Api    │ ✅            │ —       │
-│ Orders    │ ✅       │ ✅       │ ✅ Api    │ ✅ Api    │ —             │ —       │
-└───────────┴──────────┴──────────┴───────────┴───────────┴───────────────┴─────────┘
-```
+| Field | CLEF source | Notes |
+|---|---|---|
+| `TraceKey` | `Properties.TraceKey` | Incoming `TraceKey` header, else W3C `Activity.TraceId`; propagated across services, so `TraceKey:"<key>"` finds the related lines in every service |
+| `AppLevel` | `Level` (nested in `resultDescription` for Event Hub apps, top-level for Sales) | Logstash-derived (GITIN-1835); no application-level source exists. `Unknown` is a real value when no level is parsed |
+| `TenantId` | `Properties.TenantId` | Opaque 12-char id matching `Organization.tenantId` in `docs/infrastructure.md` (`org_...`-shaped on PosWasmRelay: unresolved format discrepancy). Empty on system/background messages: not a pipeline failure |
+| `Service` | `Properties.Service` | See "Service values". Meaning: the thing doing the logging |
+| `Environment` | `Properties.Environment` | |
+| `Version` | `Properties.Version` | |
+| `UserId` | `Properties.UserId` | Always empty in every real sample (Auth0 `sub` claim absent); the guard skips empty strings, so 0 hits is the correct state |
+| `ProcessType` | `Properties.ProcessType` | `Api`, `Web`, `Function`, `PosWasm` |
+| `Component` | `Properties.Component` | **Unresolved discrepancy:** real values are `Api`/`Web`, not the domain name the source passes via `UseSmartFranLogEnrichment(component: "<Domain>")` (see `devs-log-structure.md` §3.2 and `cloud/events/20260819_promote-remaining-clef-fields/` H2) |
+| `RequestId` | automatic ASP.NET Core MEL field (`HttpContext.TraceIdentifier`) | |
+| `SourceContext` | automatic MEL field (`ILogger<T>` name) | Varies by call site: present on repository/controller logs, absent on `RequestHandlingMiddleware` logs |
+| `TraceId`, `SpanId`, `ParentId` | `Properties.TraceId`/`SpanId`/`ParentId` | W3C ids stamped from `Activity.Current` on every line by `W3CAndAmbientTraceEnricher`; distinct from `TraceKey`. `ParentId` is not always present (6/10 on a Sales sample, absent on PosWasmRelay). Confirmed live on Sales-PRO and Business-PRO; not verified on PosWasmRelay. Detail: `cloud/events/20260923_gitin2098-traceid-not-promoted-graylog/` |
 
-`AppLevel`/`TraceKey`/`Service`/`Environment`/`RequestId` present in all 7, omitted from the table for brevity. `TenantId` absent on Admin/Platform in this sample — system/background messages, consistent with the known empty-value behavior, not a gap. `SourceContext` present on 4/7 — genuinely varies by call site (repository/controller class vs. generic middleware), not a bug. `Component` confirms the value discrepancy above with fleet-wide data: 6/7 show `Api`, none show a business-domain name. `Category` and the 6 conditional fields: 0/7, consistent with "not yet observed on real live traffic" above. Full detail: `cloud/events/20260819_promote-remaining-clef-fields/` C11.
+### Only when the log came through a `SmartFranLogExtensions` helper (GITIN-1892)
 
-### Conditional on the ASP.NET Core "Request finished" hosting-diagnostics line, or Azure's own AppServiceHTTPLogs (GITIN-1940)
+Absent on plain `ILogger` or middleware logs. As of 2026-09-14 only `Category` has been seen live (638 hits/24 h); the other six had 0 hits (the helpers had not fired in the windows checked, not a pipeline fault).
 
-Not a `SmartFranLogExtensions` helper — this is the built-in ASP.NET Core hosting-diagnostics request logger (`SourceContext: Microsoft.AspNetCore.Hosting.Diagnostics`), present on every HTTP request regardless of app-level enrichment. Motivated by Sales `WsFeAr/CaeRequest` returning `408`s — before this, endpoint/status-code queries had no structured field to filter on, only full-text search over `message`. Deployed 2026-08-26 and confirmed live at the time via a handful of samples — but see the GITIN-2034 correction below, found 2026-09-14, for a real gap that slipped past that initial verification.
+| Field | CLEF source key (not always the promoted name) | Helper |
+|---|---|---|
+| `Category` | `Properties.Category` | all 6 helpers (`LogBusinessEvent`, `LogSystemEvent`, `LogDomainError`, `LogTransientFailure`, `LogUnrecoverableFailure`, `LogSecurityAudit`) |
+| `ErrorCode` | `Properties._error_code` | `LogDomainError` |
+| `Operation` | `Properties.Operation` (message-template placeholder) | `LogTransientFailure`, `LogUnrecoverableFailure` |
+| `Recovered` | `Properties._recovered` (bool) | `LogTransientFailure` |
+| `Handled` | `Properties._handled` (bool) | `LogUnrecoverableFailure` |
+| `AuditAction` | `Properties._audit_action` (bare `Properties.Action` exists, not promoted) | `LogSecurityAudit` |
+| `AuditOutcome` | `Properties._audit_outcome` (bare `Properties.Outcome` exists, not promoted) | `LogSecurityAudit` |
 
-Unified into the same 4 field names from a second source shape (added 2026-08-26): Azure's own `AppServiceHTTPLogs` diagnostic category (Windows Event Hub apps' infra-level HTTP access log, distinct from the app-level Request-finished line above), which carries the same request/response metadata under Azure's own key names. `ScStatus`/`TimeTaken` are cast (String→Integer, Integer→Float respectively) to match the types already used by the other source.
+**Pitfall:** the `_` prefix. `devs-log-structure.md` first documented these as plain PascalCase, which was wrong for 5 of them; the first deploy promoted the wrong keys and silently produced zero data (`cloud/events/20260819_promote-remaining-clef-fields/` H9). Always validate a promotion against `SmartFranLogExtensions.cs`. `Attempt`/`Action`/`Outcome` are not promoted by any ticket.
 
-| Field | Source key(s) | Type | Ticket |
+### HTTP request fields (GITIN-1940, GITIN-2034)
+
+Two sources, same four names: the built-in ASP.NET Core "Request finished" line (`SourceContext: Microsoft.AspNetCore.Hosting.Diagnostics`, every HTTP request) and Azure's `AppServiceHTTPLogs`.
+
+| Field | "Request finished" key | `AppServiceHTTPLogs` key | Type |
 |---|---|---|---|
-| `StatusCode` | `Properties.StatusCode` (Request-finished, Integer) or `properties.ScStatus` (AppServiceHTTPLogs, String **or** Integer — see GITIN-2034 below) | Integer | GITIN-1940 |
-| `Path` | `Properties.Path` (Request-finished — `RequestPath` duplicates this, not separately promoted) or `properties.CsUriStem` (AppServiceHTTPLogs) | String | GITIN-1940 |
-| `Method` | `Properties.Method` (Request-finished) or `properties.CsMethod` (AppServiceHTTPLogs) | String | GITIN-1940 |
-| `ElapsedMilliseconds` | `Properties.ElapsedMilliseconds` (Request-finished, Float) or `properties.TimeTaken` (AppServiceHTTPLogs, Integer cast to Float) | Float | GITIN-1940 |
-| `ClientIP` | `properties.CIp` (AppServiceHTTPLogs only — the Request-finished line has no equivalent property) | String | GITIN-1940 |
+| `StatusCode` | `Properties.StatusCode` | `properties.ScStatus` (String or Integer) | Integer |
+| `Path` | `Properties.Path` (`RequestPath` not promoted) | `properties.CsUriStem` | String |
+| `Method` | `Properties.Method` | `properties.CsMethod` | String |
+| `ElapsedMilliseconds` | `Properties.ElapsedMilliseconds` | `properties.TimeTaken` (Integer → Float) | Float |
+| `ClientIP` | none | `properties.CIp` | String |
 
-AppServiceHTTPLogs scope **confirmed for Sales** (GITIN-2034, 2026-09-14) — still unconfirmed for Pos specifically. Pos's known `AppServiceConsoleLogs` gap (GITIN-1811, unsupported on Windows/.NET) is a different diagnostic category; whether Pos emits `AppServiceHTTPLogs` at all still hasn't been checked.
+- Confirmed for Sales (24 h: `StatusCode` 1.04M, `Path`/`Method` ~1.1M, `ElapsedMilliseconds` 921K, `ClientIP` 848K). Whether Pos emits `AppServiceHTTPLogs` at all has not been checked.
+- `AppServiceHTTPLogs` lines carry no `Service` value (`NOT category:AppServiceHTTPLogs` removes exactly the lines with an empty `Service`).
+- **Sales `ElapsedMilliseconds` gap:** on the Sales direct-GELF branch the field is mostly absent because `Properties` carries it as an exponent-notation string (`"0.453886e2"`) and the filter only sets it for a `Numeric` (1 of 6,640 Sales lines with `StatusCode` in an hour had it). Why it becomes a string is unverified (hypothesis: decimal re-serialized as BigDecimal). Workaround (GITIN-2221): the Sales branch also converts the string and writes a new float field **`ElapsedMillisecondsOpe`**; only Sales fills it, `ElapsedMilliseconds` is unchanged. Checked 44 s on live traffic (30/30 lines, avg 434 ms); only messages indexed after the restart have it. The Operations dashboard's Sales Endpoints table uses it.
+- `StatusCode` is on about half of the application-log lines that have `Method` (probably two lines per request, one being "Request finished"; unverified): counting by `Method` likely overstates requests, counting with `_exists_:StatusCode` does not. `Path` is on all of them.
 
-**Correction (2026-09-14, GITIN-2034):** the `AppServiceHTTPLogs` branch's original guard (`props_json.is_a?(String)`) only handled one of two raw ingestion shapes Azure actually sends for this category — a `"records"`-array-wrapped shape (where Azure pre-stringifies `properties`) and a flat/unwrapped shape (where this pipeline's own initial `json` filter leaves `properties` as a live Hash instead, since no `records` key exists to trigger the wrapping logic). For the flat shape, the guard silently failed and **none** of the 5 fields above promoted — not a partial gap, the whole branch no-op'd. Confirmed via a real Sales-PRO message (`_id: b4966b92-b038-11f1-be92-7c1e52beabec`, `/api/v1/Status/Health`) with all 5 fields absent. Also fixed in the same change: `ScStatus` arrives as a bare Integer in the flat shape (not the numeric String the original cast expected). Fixed, deployed, and reconfirmed live both on Sales-PRO-specific samples and fleet-wide 24h counts (`StatusCode` 1.04M, `Path`/`Method` ~1.1M each, `ElapsedMilliseconds` 921K, `ClientIP` 848K hits). Full detail: `cloud/events/20260914_gitin2034-timetaken-elapsedms-promotion/`.
+### `NormalizedPath` — derived field (GITIN-2221)
 
-**Separate, still-open issue found in the same investigation (not resolved by GITIN-2034):** on the `Service:"Sales"` **direct-GELF** branch (not `AppServiceHTTPLogs` — the plain "Request finished" line via Sales' own Serilog→Event-Hub sink), real live messages have been observed with `StatusCode`/`Path`/`Method` correctly promoted but `ElapsedMilliseconds` specifically absent, despite reading from the exact same `Properties` hash with the same guard pattern. Traced through the pipeline — the Ruby logic itself looks correct and unchanged from its original working state, so the cause isn't understood yet. Not the same bug as the `AppServiceHTTPLogs` issue above (different branch, different failure shape — partial not total). Flagged as an open follow-up, not yet filed as its own ticket. **Update 2026-10-13 (GITIN-2218, C10):** on the Sales lines without the field, the stringified `Properties` JSON carries `ElapsedMilliseconds` as a string in exponent notation (`"0.453886e2"`), while the one line that has it carries the integer `1`; the Sales branch of the Logstash filter only sets the field for a `Numeric`, so a String is skipped silently (1 of 6,640 Sales lines with `StatusCode` in an hour had the field; the other seven services have it on about as many lines as `StatusCode`). Why the value becomes a string is not verified (hypothesis: a decimal re-serialized as BigDecimal). **Fix deployed 2026-10-13 ~20:03 UTC (GITIN-2221):** the Sales branch of the live Logstash filter now also converts that string to a number and writes it to a new field, `ElapsedMillisecondsOpe` (float); `ElapsedMilliseconds` is unchanged, so on Sales it is still mostly absent, and only Sales fills the new field (the other services keep using `ElapsedMilliseconds`). Checked on live traffic for 44 seconds only: 30 of 30 Sales lines with `StatusCode` carried it (average 434 ms, max 2,045 ms), mapped as `float`; only messages indexed after the restart have it. The Sales Endpoints table on the Operations dashboard uses it for its max/avg/P90 columns. Why the value becomes a string is not verified. Patch, tests and `deploy.sh fix` are in `operations/events/20261013_gitin2221-normalizar-http-paths/`.
+The HTTP `Path` with route parameters removed and the remaining segments joined with `_`: `/api/v1/WalletCredentials/2024771231` → `api_v1_WalletCredentials`; `/api/Tenant/<hash>` → `api_Tenant`; `/` → `root`. Lets endpoint tables and terms aggregations group one route into one row.
 
-### `NormalizedPath` — derived field (GITIN-2221, 2026-10-13)
+- **Built by** a Ruby filter in the live Logstash config (`/etc/logstash/conf.d/azure-eventhub-to-graylog.conf` on the SmartCloud Graylog VM), right before the final `properties`-stringify step, after all blocks that set `Path`; runs on every event with `Path`. Not retroactive (live since 2026-10-13 19:31 UTC).
+- **Route table** `/etc/logstash/normalized-paths.json`, read once in `init` (changing it needs a Logstash restart): 921 templates from the `SmartFran.Cloud` controller `[Route]`/`[Http*]` attributes (`origin/main` @ f88d6d743, 2026-10-07: 128 controller files, 792 distinct templates), 4 hand-added extras (root, `_blazor/{*rest}`, `health`, `notificationsCloud/{*rest}`), 120 Razor/Blazor `@page` routes, 6 SignalR hubs (`notificationsCloud`, `notifications`, `kdsordershub`, `hubs/saleorder`, `hubs/cash-alerts`, `hubs/walletnotifications`), `_content/{*}` and `_framework/{*}` (value `static`). Most specific template wins (most literal segments).
+- **Fallbacks:** no template but a `static_suffixes` match (`.css .js .json .map .png .jpg .jpeg .gif .svg .ico .webmanifest .woff .woff2 .ttf .wasm .dll .pdf`) → `static`; anything else → `unmatched`. Routes defined other than by those attributes are missing. First check before the second pass: 6.7% `unmatched` (static files, Blazor pages, SignalR hubs); the `unmatched` share after the second pass is not measured (rerun GITIN-2218 C4 after ~24 h). Throughput and per-index-set mapping not verified.
+- **Operating notes:** regenerate the table when controller routes change. The pre-change config is `azure-eventhub-to-graylog.conf.bak-GITIN-2221` (a backup name must not end in `.conf`). Patch, generator, tests and `deploy.sh` (`stage`, `apply`, `test`, `rollback`): `operations/events/20261013_gitin2221-normalizar-http-paths/`.
 
-`NormalizedPath` is the HTTP `Path` with the route parameters removed and the remaining route segments joined with `_`: `/api/v1/WalletCredentials/2024771231` and `/api/v1/WalletCredentials/1357013702` both give `api_v1_WalletCredentials`; `/api/Tenant/<tenant hash>` gives `api_Tenant`; the root `/` gives `root`. It exists so a table or a terms aggregation on endpoints does not split one route into one row per id.
+## `FunctionAppLogs` (GITIN-2050)
 
-- **Where it is built:** a Ruby filter in the live Logstash config (`/etc/logstash/conf.d/azure-eventhub-to-graylog.conf` on the SmartCloud Graylog VM), inserted right before the final `properties`-stringify step, i.e. after all four blocks that set `Path` (Event Hub apps, Sales direct-GELF, `AppServiceHTTPLogs` `CsUriStem`, PosWasmRelay `EntryProperties`). It runs on every event that has `Path`, so the application logs and the `AppServiceHTTPLogs` lines both get it. It was deployed 2026-10-13 19:31 UTC; only messages indexed after that have the field (not retroactive).
-- **Where the routes come from:** the route templates of the `SmartFran.Cloud` controllers (`origin/main` @ f88d6d743, 2026-10-07: 128 controller files, 827 routes extracted by a regex over `[Route]`/`[Http*]` attributes, 792 distinct templates) plus 4 hand-added extras (root, `_blazor/{*rest}`, `health`, `notificationsCloud/{*rest}`), stored in `/etc/logstash/normalized-paths.json`. The file is read once in the filter's `init`, so changing it needs a Logstash restart. The most specific template wins (most literal segments); a path that matches no template gets the value `unmatched`. Routes defined in some other way than those attributes are not in the table.
-- **Second pass (deployed 2026-10-13, GITIN-2221):** the table has 921 templates. It adds 120 Razor/Blazor page routes (the `@page` directives in `*.razor`/`*.cshtml`), 6 SignalR hubs (`notificationsCloud`, `notifications`, `kdsordershub`, `hubs/saleorder`, `hubs/cash-alerts`, `hubs/walletnotifications`), `_content/{*}` and `_framework/{*}` (value `static`), and a `static_suffixes` list (`.css .js .json .map .png .jpg .jpeg .gif .svg .ico .webmanifest .woff .woff2 .ttf .wasm .dll .pdf`). A path that matches no template but ends in one of those suffixes gets `static`; anything else stays `unmatched`. Tested on 83 sample paths (83 of 83 as expected). The `unmatched` share on live traffic after this pass has not been measured yet (rerun GITIN-2218 C4 after about 24 h).
-- **First check (2 min 44 s window right after the restart, before the second pass):** 7,983 messages with `Path`, 7,983 with `NormalizedPath`; 532 (6.7%) `unmatched`, all non-controller paths: front-end static files (`/service-worker.js`, `*.css`, `/_content/...`, `/_framework/...`), Blazor/Razor pages (`/users/index`, `/login`) and SignalR hubs (`/hubs/cash-alerts/negotiate`). Not verified: behavior at longer windows, throughput, and the field's mapping in each index set.
-- **Operating notes:** the pre-change config is kept as `azure-eventhub-to-graylog.conf.bak-GITIN-2221` (a backup name must not end in `.conf`: `pipelines.yml` loads `/etc/logstash/conf.d/*.conf`). The table must be regenerated when controller routes change. Patch, generator, tests and `deploy.sh` (modes `stage`, `apply`, `test`, `rollback`) are in `operations/events/20261013_gitin2221-normalizar-http-paths/`.
+Before the parser every Function App message fell back to `message = "Microsoft.Web/sites/functions/log"` (the `operationName` fallback), unsearchable. Parser verified against real captured messages of all 4 apps. Detail: `cloud/events/20260915_functionapp-onboarding/`.
 
-### Service values, streams and the Operations dashboard (GITIN-2218, 2026-10-13)
+Two `properties.message` shapes, both handled:
 
-- **`Service` values seen on application logs that carry `Method`** (1-hour window, SmartCloud Graylog): `SmartFran.Cloud.Orders.API`, `SmartFran.Cloud.Catalog.API`, `SmartFran.Cloud.Business.API`, `Sales`, `SmartFran.Cloud.Platform.API`, `SmartFran.Cloud.Client.Web`, `SmartFran.Cloud.Person.API`, `smartfran-pos-wasm`. These are the long assembly-style names (not the short names in the GITIN-1883 samples above, which were taken on 2026-08-18; why they differ now is not known). `SmartFran.Cloud.Security.API` returned 0 lines (the name was a guess).
-- **`AppServiceHTTPLogs` lines have no `Service` value** but do carry `Method`/`Path`/`StatusCode`; excluding them from a query with `NOT category:AppServiceHTTPLogs` removes exactly the lines with an empty `Service`. For application-log charts it is enough to filter on `Service`, or to scope the widget to the service's `PROD-<X>-AppServicePlan` stream (the HTTP logs are in `PROD-<X>-AppServiceHTTPLogs`; `Client.Web` is the Admin app, stream `PROD-Admin-AppServicePlan`; pos-wasm is `PROD-PosWasmRelay-FunctionApp`).
-- **`StatusCode` is on about half of the application-log lines that have `Method`** (for example Sales 5,475 of 10,876 in an hour); `Path` is on all of them. Consistent with two log lines carrying `Method` per request, one of them the "Request finished" line with `StatusCode`; not verified. A line count by `Method` therefore probably overstates requests, and a count with `_exists_:StatusCode` does not.
-- **Query syntax confirmed on this Graylog (7.1.3):** `_exists_:("Method" AND "StatusCode")` and the unquoted form match the same messages as `_exists_:Method AND _exists_:StatusCode`. `_exists_:` with a field that does not exist (`EndPoint`) returns 0 without error.
-- **Operations dashboard (id `6ace703e41759be0a237ff89`), tab "HTTP":** 8 services (Sales, Business, Catalog, Orders, Person, Platform, Client, POS WASM) × 3 widgets (line chart by `Method`, line chart by `StatusCode`, Data Table of the top 10-20 `Path`), 24 h range, each widget scoped to the service's application stream. Query pattern: `_exists_:Method AND NOT Method: ("OPTIONS") AND Service:<service>` (the Status Code widgets add `_exists_:("Method" AND "StatusCode")`, the table widgets `_exists_:("Method" AND "Path")`).
-- **Dashboard API quirks (Graylog 7.1.3, found by editing it through the API):** `PUT /api/views/{id}` needs the body wrapped as `{"entity": <view>}`; the view's `state` is a map keyed by tab id; widget titles live in `state.<tab>.titles.widget` (not `config.title`); each widget's data comes from a search type in the view's saved search (`search_id`), linked by `state.<tab>.widget_mapping`, so adding a widget means saving a new search (`POST /api/views/search`) with the extra search types and pointing `search_id` at it; every widget carries its own `streams`, `timerange` and `query`.
+| Shape | Content |
+|---|---|
+| `Host.Function.Console` | `properties.message` is itself a nested Python dict-repr string: `Timestamp`/`Level`/`MessageTemplate`/`Properties` (`SourceContext`/`Service`/`Environment`/`Version`/`TraceId`/`SpanId`/`ParentId`; PosWasmRelay also a nested `EntryProperties` hash with the POS client's own `Method`/`Path`/`StatusCode`/`ElapsedMs`/`TraceKey`) |
+| `Function.<name>` / `Function.<name>.User` | `properties.message` is a plain string (`Executed Functions.X (Succeeded, Id=.., Duration=3ms)`); `functionInvocationId`/`functionName`/`eventId`/`eventName` are flat siblings |
 
-### `SFC-PosWasmRelay-PRO`/`-DEV` traffic (GITIN-1924, 2026-08-24)
+| Promoted field | Source |
+|---|---|
+| `FunctionName` | `properties.functionName`, else `Properties.AzureFunctions_FunctionName` (separates e.g. ScheduledJobs' `RegisterBusinessLog` HTTP endpoint from its timer jobs) |
+| `FunctionInvocationId` | `properties.functionInvocationId`, else `Properties.AzureFunctions_InvocationId` |
+| `FunctionEventName` | `properties.eventName` (not promoted when the placeholder `"0"` on `.User` lines) |
+| `message` | `nested.MessageTemplate`, or the plain string |
+| `AppLevel` | `nested.Level`, or `properties.level` |
+| `Service`, `Environment`, `Version`, `SourceContext`, `TraceId`, `SpanId`, `ParentId` | `inner_props.*` (`ParentId` absent on PosWasmRelay, present on CodeGenerator/ScheduledJobs) |
+| `PosCode`, `ShiftCode` | `inner_props.*` or `ep.*` |
+| `Method`, `Path`, `StatusCode`, `ElapsedMilliseconds`, `TraceKey`, `SourceContext`, `ClientService` | `ep.*` (`EntryProperties`, **PosWasmRelay only**); same names as `AppServiceHTTPLogs`, so the same query shape works |
 
-One real PROD message audited in full (`_id: c23310a3-9fcb-11f1-8f28-7c1e52beabec`, 2026-08-24T14:54:50Z, an HTTP-call log the POS client's own `HttpLoggingHandler` forwarded through the relay).
+- **Quoting quirk:** every string inside `EntryProperties` (`Method`, `Path`, `TraceKey`, `SourceContext`, `Service`, `Environment`, `Version`, `PosCode`, `ShiftCode`; not `StatusCode`/`ElapsedMs`) carries a literal wrapping `"`; the parser strips them.
+- **`Service` vs `ClientService`:** the relay's own `Properties.Service` stays `Service`; the POS client's `EntryProperties.Service` (`SmartFran.Cloud.Pos.Wasm`) becomes `ClientService`, so neither overwrites the other.
+- **`name` casing gotcha:** `name` (used for stream routing, from `resourceId`) is indexed **uppercase**; a query with Azure's casing returns 0 silently. Likely affects every category. Query `category:"FunctionAppLogs" AND name:"<APP>"` in uppercase.
+- **Not extracted:** `Duration=Xms`/`Succeeded`/`Failed` on completion lines stay free text in `message`. Unpromoted nested fields: `CorrelationId`, `SessionId`.
+- **Streams/index sets** (one pair per app): `SFC-CodeGenerator-prod`, `SFC-ScheduledJobs-prod`, `SFC-PosWasmRelay-prod`, `SFC-TicketProcess-prod`. Stream-id hex values of these streams are not recorded anywhere: pull via `GET /streams` before scripting. (The stream ids of the 8 `PROD-<App>-AppServiceHTTPLogs` streams are in the `cloud-appservice-perf-report` skill.) All 4 apps verified live; `SFC-CodeGenerator-PRO`'s `Service` shows the deployed source is `LiteEditionV2`; `SFC-TicketProcess-PRO` runs `ProcessTicketsHourly` (`Service: SmartFran.Cloud.Functions.Sales.TicketProcessAsync`).
 
-**Confirmed promoted (bare top-level), no pipeline change needed:**
+## `SFC-PosWasmRelay-PRO`/`-DEV` traffic (GITIN-1924, GITIN-2134)
 
-| Field | Value in sample | Note |
-|---|---|---|
-| `Service` | `smartfran-pos-wasm` | Relay's own override (`batch.SourceKey`), **not** the client's own `Service` (`SmartFran.Cloud.Pos.Wasm` — buried in `EntryProperties`, see below) |
-| `Environment` | `Production` | Relay process's own `ASPNETCORE_ENVIRONMENT` |
-| `TenantId` | `org_g4qPlLbxcJZx5e7U` | **Format discrepancy** — an Auth0 `org_id`-shaped string, not the 12-char opaque hash every other service's `TenantId` uses (e.g. `d3186bc6d7b2`). Not yet raised with dev — flagged here, not confirmed intentional. |
-| `ProcessType` | `PosWasm` | New value, not in the existing `Api`/`Web`/`Function` set |
-| `Component` | `Pos` | |
-| `Version` | `1.0.0.0` | |
-| `AppLevel`/`Level` | `Information` | Standard `AppLevel` block, unaffected |
-| `TraceId`/`SpanId`/`ParentId` | Expected top-level, **not independently verified on this source** | GITIN-2098's new Ruby block reads `top_props["TraceId"]` etc. directly, unconditional on `top_props.is_a?(Hash)`, same as the 7 fields above — should fire for this traffic incidentally by the same mechanism, but GITIN-2098 only verified live on Sales-PRO and Business-PRO, not PosWasmRelay specifically |
+- **Promoted without a pipeline change** (Sales-branch logic fires incidentally): `Service` = `smartfran-pos-wasm` (the relay's `batch.SourceKey`, not the client's own), `Environment` (`Production`), `TenantId` (`org_...`-shaped, unlike other services; not raised with dev), `ProcessType` = `PosWasm`, `Component` = `Pos`, `Version`, `AppLevel`.
+- **Not promoted at top level** (nested one level deeper under `Properties.EntryProperties`): `TraceKey`, `SourceContext`. Promoting them needs a Logstash change (an `EntryProperties`-aware fallback in the Sales-branch block, or a Graylog Pipeline Rule on the stringified `Properties`/`event_original`). `Category` is present but empty (HTTP-call log, not a helper), correctly skipped. (The `FunctionAppLogs` parser above does read `ep.*` for the fields it lists.)
+- **Errors only:** over 7 days `Service:smartfran-pos-wasm AND StatusCode:*` returned only 404 (4,123), 500 (1,012), 408 (432), 400 (194), 403 (70) — **no 2xx**. This source cannot give a "worked before" baseline; use the receiving service's logs. `UserId` is empty; `PosCode`/`ShiftCode` live in `EntryProperties`. A client HTTP log also arrives a second time as a raw `FunctionAppLogs` line without promoted fields, so message counts can be about doubled.
+- **Cross-service lookups work** (`SmartFran.Cloud.Platform.API`, `Client.Web`, `Business.API`, Functions log `/api/Tenant/…`; the client's `TraceKey` is propagated).
+- **REST usage that worked** on `https://sfcloud-monitoreo.smartfran.com/graylog/api/`: `POST /search/aggregate` (JSON body with `query`, `timerange`, `group_by:[{field,limit}]`, `metrics:[{function:"count"}]`, header `X-Requested-By`) and `GET /search/universal/relative`; auth `curl -u "$GRAYLOG_API_KEY:token"`. The token of `sf-monitoreo.smartfran.com` (SmartPedidos/SmartLoyalty stack) returns 401 here.
 
-**Confirmed NOT promoted — nested one level deeper than this pipeline's logic reaches:**
+## Service values, streams and the Operations dashboard (GITIN-2218)
 
-| Field | Where it actually lives | Why the guard misses it |
-|---|---|---|
-| `TraceKey` | `Properties.EntryProperties.TraceKey` | GITIN-1883's Sales-branch guard reads `top_props["TraceKey"]` directly — the relay nests all client-supplied per-entry properties one level deeper, under `EntryProperties`, to avoid colliding with the relay's own canonical fields |
-| `SourceContext` | `Properties.EntryProperties.SourceContext` | Same reason |
-| `Category` | `Properties.Category`, present but empty (`""`) | Correctly skipped by the empty-string guard — not a nesting issue, just genuinely empty on this message shape (an HTTP-call log, not one of the 6 canonical helpers) |
+- **`Service` values** on application logs with `Method` (1-hour window, Graylog 7.1.3): `SmartFran.Cloud.Orders.API`, `SmartFran.Cloud.Catalog.API`, `SmartFran.Cloud.Business.API`, `Sales`, `SmartFran.Cloud.Platform.API`, `SmartFran.Cloud.Client.Web`, `SmartFran.Cloud.Person.API`, `smartfran-pos-wasm`. `SmartFran.Cloud.Security.API` returned 0. These are the long assembly-style names; the 2026-08-18 GITIN-1883 samples showed short names (`Business`, `Platform`, `Person`, `Catalog`, `Orders`, `Client`). Why they differ is unknown, and the source predicts the long form (`SerilogBootstrap.Configure(cfg, serviceName)`; `EnrichmentMiddleware` uses `serviceName: env.ApplicationName`); no `ApplicationName`/`AssemblyName` override was found in the repo. Ask the dev team rather than guessing from source. Do not hardcode either form in a filter; check what is live. A `Service:Orders` filter returning 0 (reported in `cloud/CLAUDE.md`) is probably this: the live value is `SmartFran.Cloud.Orders.API`; not verified.
+- **Streams:** application logs in `PROD-<X>-AppServicePlan`, HTTP logs in `PROD-<X>-AppServiceHTTPLogs`; `Client.Web` is the Admin app (`PROD-Admin-AppServicePlan`); pos-wasm is `PROD-PosWasmRelay-FunctionApp`. For application-log charts filter on `Service` or scope the widget to the application stream.
+- **Query syntax confirmed:** `_exists_:("Method" AND "StatusCode")` and the unquoted form match the same messages as `_exists_:Method AND _exists_:StatusCode`; `_exists_:` on a nonexistent field returns 0 without error.
+- **Operations dashboard** (id `6ace703e41759be0a237ff89`), tab "HTTP": 8 services (Sales, Business, Catalog, Orders, Person, Platform, Client, POS WASM) × 3 widgets (line chart by `Method`, line chart by `StatusCode`, Data Table of the top 10-20 `Path`), 24 h, each widget scoped to the service's application stream. Query pattern: `_exists_:Method AND NOT Method: ("OPTIONS") AND Service:<service>` (status widgets add `_exists_:("Method" AND "StatusCode")`, table widgets `_exists_:("Method" AND "Path")`).
+- **Dashboard API quirks (Graylog 7.1.3):** `PUT /api/views/{id}` needs `{"entity": <view>}`; `state` is keyed by tab id; widget titles are in `state.<tab>.titles.widget` (not `config.title`); each widget's data comes from a search type in the view's saved search (`search_id`, linked by `state.<tab>.widget_mapping`), so a new widget needs a new saved search (`POST /api/views/search`) whose id goes into `search_id`; each widget has its own `streams`, `timerange`, `query`.
 
-**Mechanism — why this worked without any pipeline change:** the relay's raw event shape presents `Properties` as a live top-level Hash directly on the Logstash event (same as Sales' direct-GELF shape), **not** nested inside `resultDescription` (the Event Hub apps' shape) — despite the relay going through the same Diagnostic-Settings-via-shared-Event-Hub path as the Event Hub apps, not a direct-GELF sink like Sales. Root cause not investigated (would require comparing `FunctionAppLogs`' raw Azure record schema against `AppServiceConsoleLogs`' — out of scope for this ticket). Practical effect: GITIN-1883/1892's Sales-branch Ruby block (`azure-eventhub-to-graylog.conf`, unconditional on `top_props.is_a?(Hash)`, no per-app check) fires for this traffic incidentally and promotes the 7 fields above for free.
+## Where the fields come from (application source)
 
-**Fields this doc has never tracked, present only nested (not promoted, not in scope for any prior ticket):** `CorrelationId`, `SessionId` (both `Properties.*`, relay-set via `IngestLogs.cs`'s own `LogContext.PushProperty`), `AzureFunctions_InvocationId`/`AzureFunctions_FunctionName` (`Properties.*`, Azure Functions runtime-injected). W3C `TraceId`/`SpanId`/`ParentId` (`Properties.*`, lowercase-hex form) were in this list until GITIN-2098 (2026-09-23) — now promoted, see the confirmed-promoted table above (verification pending specifically on this source, see note there).
+Checked 2026-08-18 against `cloud/repo/SmartFran.Cloud` (`origin/dev`) and `devs-log-structure.md`. All web-facing services (Business, Catalog, Platform, Orders, Security, Person, Sales, plus `SmartFran.Cloud.Client.Web` behind `SmartFran-Cloud-Admin-PRO`) share the providers in `Source/Common/Providers/`. `Properties` is composed in layers (fuller detail in `devs-log-structure.md` §3):
 
-**If `TraceKey`/`SourceContext` promotion is needed for this source**, it requires an actual Logstash filter change (a new `EntryProperties`-aware fallback in the Sales-branch Ruby block, or a Graylog-side Pipeline Rule parsing the already-present stringified `Properties`/`event_original` field) — not attempted in this ticket, flagged as an open follow-up.
+1. **Process-level enrichers** (`Provider.Logger.Core/SerilogBootstrap.cs`): `Service`, `Environment`, `Version` on every line of the process, including outside HTTP requests.
+2. **`EnrichmentMiddleware`** (`Provider.Logging.AspNetCore/Middleware/`, `app.UseSmartFranLogEnrichment(component: "<Name>")`): per request, overwrites with `Service`, `Environment`, `Version`, `TraceKey`, `TenantId`, `UserId`, `ProcessType`, `Component`. `TenantId` = `X-Tenant-Id` header, else `HttpContext.Items["tenantId"]` (set by each API's `TenantHandlingMiddleware`, resolving `org_id` → `tenant_id` via App Configuration `OrgTenant:{orgId}`), never straight from the Auth0 claims.
+3. **`LogContextPushPropertyMiddleware`**: the equivalent for Service Bus / Event Grid consumers; pushes `TraceKey` (message `ApplicationProperty`, else `Activity.TraceId`, else a new GUID), `Service`, `Component`, `ProcessType` = `Function`.
 
-**Mechanism note (why unification required more than adding fields):** Sales previously had these same fields accessible, but under `Properties_`-prefixed names (`Properties_TraceKey`, etc.) — an artifact of GELF's own automatic flattening of any nested JSON object it receives, not something Logstash controlled. Achieving true bare-name unification required the Logstash pipeline to also read Sales' top-level `Properties` object directly, then **stringify** it afterward so GELF stops auto-flattening it into `Properties_*` duplicates (same technique already used for Azure's own lowercase `properties` field). That stringification silently broke 2 Graylog Pipeline Rules from GITIN-1835 that keyed on the literal `Properties_Service`/`Properties_Environment` field names (Sales' `source` formatting and its Stage 1 stream-routing rule) — both updated in the same change to read the new bare `Service`/`Environment` fields instead. Confirmed on live traffic post-deploy: no regression in Sales' `source`/`name`/stream routing.
+## Where they sit in the Graylog JSON
 
-### What `smartfran-pos-wasm` forwards — errors only (GITIN-2134, 2026-09-30)
+- **Event Hub apps:** `event_original` → `records[0].resultDescription` (CLEF string) → `.Properties.*` and `.Level`. After Logstash the promoted fields are flat siblings of `resultDescription`, which stays unmodified for the full raw CLEF blob.
+- **Sales:** the CLEF body is the message; `.Level` → `AppLevel`, `.Properties.{TraceKey,TenantId,Service,Environment}` (and the later fields) → bare top-level fields, leftover `Properties` stringified.
+- **Why Sales' unification needed more than adding fields:** Sales' fields used to be `Properties_*`-prefixed by GELF's automatic flattening. Stringifying `Properties` stopped that and silently broke two Graylog Pipeline Rules from GITIN-1835 that keyed on `Properties_Service`/`Properties_Environment` (Sales `source` formatting and its stage-1 stream routing); both now read the bare fields.
+- **Open gap:** the stage-1 rule that resolves `name`/`resource_group`/`resource_path` and routes into `PROD-Sales-AppServicePlan` (`GITIN-1835: CLEF Azure resource fields for Sales PRO`, id `6a7f2cb84814bcaed30c8de3`) only matches `Service:"Sales"` + `Environment:"Production"`. Other combinations (150 messages `Sales`/`Development`, 2 `SmartFran.Cloud.Sales.API`/empty on 2026-08-18) have `Service` but no resolved `name`; not fixed (GITIN-1835 open item 3).
 
-An aggregation over 7 days (`Service:smartfran-pos-wasm AND StatusCode:*`, grouped by `StatusCode`) returned only 404 (4,123), 500 (1,012), 408 (432), 400 (194) and 403 (70) — **no 2xx at all**. This source therefore cannot show which calls/tenants/users succeed or give a "worked before" baseline; use the receiving service's own logs for that. `UserId` is empty on this source and the client's `PosCode`/`ShiftCode` are nested in `EntryProperties` (not searchable). A single client HTTP log also arrives a second time as a raw `FunctionAppLogs` line from the relay (no promoted fields), so message counts can be ≈ doubled.
+## Query reference
 
-**Cross-service lookups work:** `SmartFran.Cloud.Platform.API`, `Client.Web`, `Business.API` and the Functions log `/api/Tenant/…` calls too (24 h sample: Platform.API 200 ×504, Client.Web 200 ×6,156, Business.API 200 ×8). The client's `TraceKey` is propagated: `TraceKey:"<key>"` across all services returns the related messages (sample: 1 Platform.API line, a `RequestHandlingMiddleware` `LogOriginalRequest` warning with no status).
+Every promoted field is searchable with `_exists_:<field>`:
 
-**Graylog REST usage that worked on the SmartCloud instance** (`https://sfcloud-monitoreo.smartfran.com/graylog/api/`): `POST /search/aggregate` (JSON body with `query`, `timerange`, `group_by:[{field,limit}]`, `metrics:[{function:"count"}]`, header `X-Requested-By`), and `GET /search/universal/relative` for raw messages; auth `curl -u "$GRAYLOG_API_KEY:token"`. A token from the other Graylog instance (`sf-monitoreo.smartfran.com`, SmartPedidos/SmartLoyalty stack) returns 401 here — the two instances do not share tokens.
+- **Always present:** `Service`, `Environment`, `TraceKey`, `AppLevel`, `Version`, `ProcessType`, `Component`, `RequestId`, `TraceId`, `SpanId`.
+- **Conditional:** `TenantId` (not on system/background messages), `SourceContext` (varies by call site), `ParentId`, `UserId` (never seen), `Category` (seen live).
+- **Helper-only, 0 hits as of 2026-09-14:** `ErrorCode`, `Operation`, `Recovered`, `Handled`, `AuditAction`, `AuditOutcome`.
+- **HTTP:** `StatusCode`, `Path`, `Method`, `ElapsedMilliseconds` (often absent on Sales, see `ElapsedMillisecondsOpe`), `ClientIP` (`AppServiceHTTPLogs` only), `NormalizedPath`.
+- **`FunctionAppLogs` only:** `FunctionName`, `FunctionInvocationId`, `FunctionEventName`, `ClientService` (PosWasmRelay).
 
-### `FunctionAppLogs` — 4 Function Apps (GITIN-2050, 2026-09-15)
+## Detail per ticket (event folders under `cloud/events/` unless noted)
 
-First field promotion this category has ever had. Root cause of the prior gap: `properties` arrives as a **Python dict-repr string** (single-quoted keys/values, e.g. `{'functionName': 'RegisterBusinessLog', ...}`), not JSON — every `JSON.parse`-based guard elsewhere in the pipeline silently rescues and skips it, so every Function App message fell back to the generic `message` value `"Microsoft.Web/sites/functions/log"` (the `operationName` fallback), unsearchable. Fixed with a dedicated hand-rolled Python-literal parser (`azure-eventhub-to-graylog.conf`, the `if [category] == "FunctionAppLogs"` block) — verified against real captured messages from all 4 apps via a standalone Ruby test script before touching the live pipeline, not guessed from the shape alone.
-
-**Two distinct `properties.message` shapes**, both handled:
-
-| Shape | `properties.category` example | `message` content |
-|---|---|---|
-| `Host.Function.Console` | Function runtime's own structured log | `properties.message` is itself a **nested** Python dict-repr string — `Timestamp`/`Level`/`MessageTemplate`/`Properties`, the latter holding `SourceContext`/`Service`/`Environment`/`Version`/`TraceId`/`SpanId`/`ParentId`, and (PosWasmRelay only) a further-nested `EntryProperties` hash with the original POS client request's own `Method`/`Path`/`StatusCode`/`ElapsedMs`/`TraceKey`/etc. |
-| `Function.<name>` / `Function.<name>.User` | Execution lifecycle / app-level log line | `properties.message` is a **plain string** (e.g. `"Executed Functions.X (Succeeded, Id=.., Duration=3ms)"`) — `functionInvocationId`/`functionName`/`eventId`/`eventName` arrive as flat sibling keys of `properties` itself, not nested |
-
-**Promoted fields:**
-
-| Field | Source | Note | 
-|---|---|---|
-| `FunctionName` | `properties.functionName`, or `Properties.AzureFunctions_FunctionName` (Host.Function.Console shape, when the flat key is absent) | Which function fired — the field that makes it possible to separate, e.g., a ScheduledJobs HTTP endpoint from its timer-triggered siblings |
-| `FunctionInvocationId` | `properties.functionInvocationId`, or `Properties.AzureFunctions_InvocationId` fallback | |
-| `FunctionEventName` | `properties.eventName` | Literal string `"0"` on `Function.<name>.User` lines (real app log statements, not a lifecycle marker) — a meaningless placeholder, not promoted when equal to `"0"` |
-| `message` | `nested.MessageTemplate` (Host.Function.Console) or the plain string directly (`Function.<name>`) | |
-| `AppLevel` | `nested.Level` (Host.Function.Console) or `properties.level` (`Function.<name>`) | Same universal field as every other category, just a different source path here |
-| `Service` | `inner_props.Service` | The Function App's own identity (e.g. `smartfran-pos-wasm` for the relay) |
-| `Environment`, `Version`, `SourceContext`, `TraceId`, `SpanId`, `ParentId` | `inner_props.*` | `ParentId` not always present alongside `TraceId`/`SpanId` — confirmed absent on PosWasmRelay samples, present on CodeGenerator/ScheduledJobs |
-| `PosCode`, `ShiftCode` | `inner_props.*` or `ep.*` (whichever level has it) | |
-| `Method`, `Path`, `StatusCode`, `ElapsedMilliseconds`, `TraceKey`, `SourceContext`, `ClientService` | `ep.*` (`EntryProperties`, **PosWasmRelay only** — the original POS client's own request data, one level deeper than the relay's own fields) | Same field names as `AppServiceHTTPLogs` (GITIN-1940) by design — a PosWasmRelay query can reuse the exact same query shape as the 8 App Services |
-
-**`ep`/`EntryProperties` quoting quirk (verified, not assumed):** every string value inside `EntryProperties` — `Method`, `Path`, `TraceKey`, `SourceContext`, `Service`, `Environment`, `Version`, `PosCode`, `ShiftCode`, but **not** `StatusCode`/`ElapsedMs` — carries a literal wrapping `"` character as part of the value itself (e.g. `Path` arrives as `"\"/api/v1/...\""`, not the clean path alone). Same class of quirk already documented for Sales/PosWasmRelay's `TraceKey`/`SourceContext` (GITIN-1924, see below) but confirmed here to hit every other `EntryProperties` string field too — stripped uniformly by the new parser.
-
-**`Service`/`ClientService` collision, resolved by design:** `Properties.Service` (the relay Function App's own identity) and `Properties.EntryProperties.Service` (the original POS client's own declared identity) are two different values at two nesting depths — promoting both to the same flat `Service` field would silently let one overwrite the other. Resolved: the outer one stays `Service` (consistent with every other category in this pipeline, where `Service` means "the thing doing the logging"), the inner one promotes to a distinct `ClientService` field.
-
-**Known gap, not fixed in this change:** the `name` field (used for stream routing) is indexed **uppercase** (comes from `resourceId`) — a query using Azure's exact casing for a Function App name returns 0 results silently, no error. Caused a real false negative during this onboarding's own verification. Not specific to `FunctionAppLogs` — same mechanism likely affects every category, just newly hit here.
-
-**Scoped out of this change, flagged as follow-up:** `Duration=Xms`/`Succeeded`/`Failed` on `Function.<name>` completion lines remain free text inside `message`, not extracted to structured fields — real but moderate-effort follow-up.
-
-**Streams/index sets** (one dedicated pair per app, same convention as GITIN-1940's `AppServiceHTTPLogs` split — see `cloud-appservice-perf-report` skill for that pattern): `SFC-CodeGenerator-prod`, `SFC-ScheduledJobs-prod`, `SFC-PosWasmRelay-prod`, `SFC-TicketProcess-prod`. Raw Graylog stream-id hex values not captured in either repo as of this writing — pull via `GET /streams` before scripting against them, same as any other stream referenced by name only.
-
-**Verification status:** end-to-end delivery and field promotion confirmed live for all 4 apps (re-verified 2026-09-15 against real messages on each dedicated stream, `category:"FunctionAppLogs" AND name:"<APP>"` — `name` queried uppercase per the gotcha above). `SFC-TicketProcess-PRO` had no live run during the original onboarding session; confirmed separately afterward (`ProcessTicketsHourly`, `Service: SmartFran.Cloud.Functions.Sales.TicketProcessAsync`). Live config re-pulled from the VM and diffed against this repo's copy at the same time — identical except the two connection-string fields this repo redacts by design; the `FunctionAppLogs` parser block matches exactly. `SFC-CodeGenerator-PRO`'s `Service` field confirms the deployed source is `LiteEditionV2`, resolving the ambiguity between the two CodeGenerator projects noted below. `SFC-ScheduledJobs-PRO`'s `FunctionName` cleanly distinguishes `RegisterBusinessLog` (real HTTP traffic) from its other timer-triggered jobs — closes the estimation gap flagged in `cloud/events/20260915_gitin2042-waf-cost-estimate/investigation.md` (H6), not yet re-run against this ticket's cost model.
-
-## Where they come from (application source)
-
-Confirmed 2026-08-18 against `cloud/repo/SmartFran.Cloud` (`origin/dev`, pulled fresh this session) and cross-checked against `docs/devs-log-structure.md` (dev-team-authored, cites the same source files independently). All 7 web-facing services (Business, Catalog, Platform, Orders, Security, Person, Sales) — plus `SmartFran.Cloud.Client.Web`, the actual project behind the `SmartFran-Cloud-Admin-PRO` App Service (see naming note below) — build on the **same shared providers** in `Source/Common/Providers/`.
-
-`Properties` is composed in **layers**, each able to add or overwrite keys from the one before (`devs-log-structure.md` §3, fuller detail there):
-
-1. **Process-level enrichers** (`Provider.Logger.Core/SerilogBootstrap.cs`, `.Enrich.WithProperty(...)`, applied once at logger construction) — set `Service`, `Environment`, `Version` on **every** log line for the process, including ones outside any HTTP request (startup, Kestrel hosting events). `Service` here is whatever string each `Program.cs` passes to `SerilogBootstrap.Configure(cfg, serviceName)` — confirmed for Business: `"SmartFran.Cloud.Business.API"` (the long assembly-style form, read directly from `Program.cs:47`).
-2. **`EnrichmentMiddleware`** (`Provider.Logging.AspNetCore/Middleware/EnrichmentMiddleware.cs`), registered per-service via `app.UseSmartFranLogEnrichment(component: "<Name>")` near the start of the HTTP pipeline — overwrites the process-level scope, per request, with `Service`, `Environment`, `Version`, `TraceKey`, `TenantId`, `UserId`, `ProcessType`, `Component`. This is the intended source of `TraceKey`/`TenantId` for HTTP-request-driven logs:
-   - `TraceKey` = incoming `TraceKey` HTTP header if the caller sent one, else falls back to the W3C `Activity.TraceId`. Cross-service calls propagate it via each service's `Application`-layer `Proxy.cs` (seen in a `grep`, not read in detail this session).
-   - `TenantId` = incoming `X-Tenant-Id` header, else `HttpContext.Items["tenantId"]` (set upstream by each API's own `TenantHandlingMiddleware`, which resolves `org_id` → `tenant_id` via App Configuration's `OrgTenant:{orgId}` section) — **never** from the Auth0 token's claims directly, per the middleware's own doc comment.
-   - `Service` here should, per the code's constructor overload (`serviceName: env.ApplicationName`) and per `devs-log-structure.md`'s own §3.2/§6.1/§9 examples, also resolve to the long assembly-style name (e.g. `"SmartFran.Cloud.Sales.API"`). **Confirmed discrepancy:** every real GITIN-1883 production sample instead shows a **short** name — `Business`, `Platform`, `Person`, `Catalog`, `Orders`, and `Client` for the Admin-PRO app (source project `SmartFran.Cloud.Client.Web`). No override of `ApplicationName`/`AssemblyName` was found anywhere in the repo (Program.cs, appsettings, .csproj) to explain this — the mechanism is unconfirmed (possibly an App Service-level setting outside the repo), only the fact that observed behavior doesn't match either the code-as-read or the devs' own documented example. Worth a direct question to the dev team rather than further guessing from source alone.
-- **`LogContextPushPropertyMiddleware`** (`Middleware/LogContextPushPropertyMiddleware.cs`) — the equivalent for Service Bus / Event Grid **consumers** (not HTTP requests), used by background/queue processing code. Pushes `TraceKey`, `Service`, `Component`, `ProcessType` (`"Function"`) via `Serilog.Context.LogContext.PushProperty`. `TraceKey` here comes from the message's own `TraceKey` `ApplicationProperty` (set by the publisher via `TenantScopedMessagingProvider`), falling back to the current `Activity.TraceId`, then a fresh GUID if neither exists.
-- **`AppLevel` has no application-level source at all** — confirmed via `grep -rn "AppLevel"` across `Source/`, zero matches, and absent from `devs-log-structure.md`'s own schema. It is purely a Logstash/Graylog-side derived field (GITIN-1835): the Serilog CLEF `Level` a log call already carries by virtue of which method was called (`_logger.LogWarning(...)`, `LogError(...)`, etc.) — standard Serilog/`ILogger` behavior, not a custom enrichment.
-
-## Where they live in the Graylog JSON
-
-**Event Hub apps** (Business/Catalog/Platform/Orders/Person/Admin) — nested three layers deep in the raw message:
-
-```
-event_original (string)
-  → JSON.parse → records[0].resultDescription (string, Serilog CLEF)
-      → JSON.parse → .Properties.TraceKey / .Properties.TenantId / .Properties.Service
-      → .Level  (→ becomes top-level AppLevel)
-```
-
-After the Logstash pipeline (`azure-eventhub-to-graylog.conf`) runs, the actual top-level Graylog message JSON has `TraceKey`, `TenantId`, `Service`, `Environment`, `AppLevel` as flat sibling fields alongside `resultDescription` itself (still present, unmodified, for anyone who needs the full raw CLEF blob) — confirmed via a real Business-PRO sample (GITIN-1883, 2026-08-18):
-
-```json
-{
-  "resultDescription": "{\"Timestamp\":\"...\",\"Level\":\"Error\",\"MessageTemplate\":\"...\",\"Properties\":{\"Service\":\"Business\",\"Environment\":\"Production\",\"TraceKey\":\"SFCADMWEB.POS:19.2026-08-18T21:22:47.7880000+00:00\",\"TenantId\":\"d3186bc6d7b2\", ...}}",
-  "AppLevel": "Error",
-  "TraceKey": "SFCADMWEB.POS:19.2026-08-18T21:22:47.7880000+00:00",
-  "TenantId": "d3186bc6d7b2",
-  "Service": "Business",
-  "Environment": "Production"
-}
-```
-
-**After GITIN-1892** (2026-08-19), the same Event Hub apps additionally carry `Version`, `ProcessType`, `Component`, `RequestId`, `SourceContext` as flat siblings (and `UserId`/`Category`/the 6 conditional fields, when non-empty/present) — confirmed via a real Business-PRO sample:
-
-```json
-{
-  "resultDescription": "{...same as before, plus Properties.Version/.UserId/.ProcessType/.Component/.RequestId/.SourceContext, all still nested and unsearchable here...}",
-  "AppLevel": "Information",
-  "TraceKey": "SFCADMWEB.POS:14.2026-08-19T14:20:19.6120000+00:00",
-  "TenantId": "d3186bc6d7b2",
-  "Service": "Business",
-  "Environment": "Production",
-  "Version": "1.0.0+c6668229d20569923c2854855bc06bad8185dbfc",
-  "ProcessType": "Api",
-  "Component": "Api",
-  "RequestId": "0HNNTTQ6EU0I1:00000058",
-  "SourceContext": "SmartFran.Cloud.Business.Infrastructure.Repositories.Domain.Entities.Movement.POSMovementType"
-}
-```
-
-`UserId` is absent here — it arrived empty (`""`) in this real message, and the guard correctly skips promoting empty strings.
-
-**Sales** (direct-GELF CLEF sink) — one layer shallower, no `resultDescription`/`records` envelope at all; the CLEF payload **is** the message body. Before GITIN-1883's unification pass, GELF's own automatic flattening handled this with no Logstash involvement, producing `Properties_*`-prefixed fields; now Logstash explicitly reads the top-level `Properties` object, promotes the 4 fields to bare names, then **stringifies** the leftover `Properties` object so GELF stops auto-flattening it:
-
-```
-(top-level message body, Serilog CLEF)
-  .Level                → top-level AppLevel (Logstash AppLevel block's priority-1 branch, unchanged since GITIN-1835)
-  .Properties.TraceKey    → top-level TraceKey     (GITIN-1883, explicit — no longer Properties_TraceKey)
-  .Properties.TenantId    → top-level TenantId     (GITIN-1883, explicit — no longer Properties_TenantId)
-  .Properties.Service     → top-level Service      (GITIN-1883, explicit — no longer Properties_Service)
-  .Properties.Environment → top-level Environment  (GITIN-1883, explicit — no longer Properties_Environment)
-  .Properties (leftover)  → stringified to JSON, no longer a live Hash — prevents GELF from re-flattening it
-```
-
-Confirmed on real live Sales-PROD traffic post-deploy (GITIN-1883, 2026-08-18): a genuine post-deploy message shows `Service: "Sales"`, `Environment: "Production"`, `TraceKey`, `TenantId: "d3186bc6d7b2"` all bare, and **zero** `Properties_*` fields remaining.
-
-## Full field list (Graylog query reference)
-
-Every field this doc tracks, as a `_exists_:<field>` query would find it — mirrors `devs-log-structure.md` §9, but scoped to what's actually confirmed reaching Graylog (not just what the app emits):
-
-```
-_exists_:Service            // always present
-_exists_:Environment         // always present
-_exists_:Version              // confirmed live 2026-08-19 (GITIN-1892)
-_exists_:TraceKey             // always present
-_exists_:TenantId             // present except system/background messages
-_exists_:UserId                // present only when the Auth0 "sub" claim resolves — not seen in any real sample yet
-_exists_:ProcessType          // confirmed live 2026-08-19 (GITIN-1892)
-_exists_:Component            // confirmed live 2026-08-19 (GITIN-1892) — value discrepancy, see H2 above
-_exists_:AppLevel             // always present (Logstash-derived, GITIN-1835)
-_exists_:RequestId            // confirmed live 2026-08-19 (GITIN-1892)
-_exists_:SourceContext        // confirmed live 2026-08-19 (GITIN-1892) — varies by call site
-_exists_:Category             // confirmed live 2026-09-14 (638 hits/24h) — a helper has now fired; not observed live as of 2026-08-19, corrected here
-_exists_:ErrorCode            // still 0 hits as of 2026-09-14 — LogDomainError only
-_exists_:Operation            // still 0 hits as of 2026-09-14 — LogTransientFailure/LogUnrecoverableFailure only
-_exists_:Recovered            // still 0 hits as of 2026-09-14 — LogTransientFailure only
-_exists_:Handled              // still 0 hits as of 2026-09-14 — LogUnrecoverableFailure only
-_exists_:AuditAction          // still 0 hits as of 2026-09-14 — LogSecurityAudit only
-_exists_:AuditOutcome         // still 0 hits as of 2026-09-14 — LogSecurityAudit only
-_exists_:StatusCode           // confirmed live 2026-08-26, both branches (GITIN-1940); AppServiceHTTPLogs branch had a real gap fixed 2026-09-14 (GITIN-2034) — 1.04M hits/24h post-fix
-_exists_:Path                 // confirmed live 2026-08-26, both branches (GITIN-1940); AppServiceHTTPLogs branch gap fixed 2026-09-14 (GITIN-2034) — ~1.1M hits/24h post-fix
-_exists_:Method                // confirmed live 2026-08-26, both branches (GITIN-1940); AppServiceHTTPLogs branch gap fixed 2026-09-14 (GITIN-2034) — ~1.1M hits/24h post-fix
-_exists_:ElapsedMilliseconds   // confirmed live 2026-08-26, both branches (GITIN-1940); AppServiceHTTPLogs branch gap fixed 2026-09-14 (GITIN-2034) — 921K hits/24h post-fix. Separate open issue: sometimes absent on Service:"Sales" direct-GELF specifically, unexplained, see GITIN-1940 section above
-_exists_:ClientIP              // confirmed live 2026-08-26, AppServiceHTTPLogs (GITIN-1940); branch gap fixed 2026-09-14 (GITIN-2034) — 848K hits/24h post-fix
-_exists_:FunctionName          // FunctionAppLogs only (GITIN-2050, 2026-09-15) — which function/endpoint fired
-_exists_:FunctionInvocationId  // FunctionAppLogs only (GITIN-2050)
-_exists_:FunctionEventName     // FunctionAppLogs only (GITIN-2050) — excludes the meaningless "0" placeholder value
-_exists_:ClientService         // FunctionAppLogs, SFC-PosWasmRelay-PRO only (GITIN-2050) — the POS client's own declared Service, distinct from the relay's own Service
-_exists_:TraceId               // confirmed live 2026-09-23 (GITIN-2098) — Sales 138 hits/5min, Business 106 hits/5min
-_exists_:SpanId                // confirmed live 2026-09-23 (GITIN-2098) — same enricher as TraceId, always present alongside it in samples checked
-_exists_:ParentId              // confirmed live 2026-09-23 (GITIN-2098) — not always present alongside TraceId/SpanId (6/10 on the Sales sample)
-```
-
-`Attempt`/`Action`/`Outcome` (the message-template-derived PascalCase companions to `_recovered`/`_audit_action`/`_audit_outcome` — see `devs-log-structure.md` §9) are **not promoted to top-level Graylog fields** — they exist in the app's `Properties`, but no ticket has flattened them. Not currently in scope for any open ticket.
-
-## `name` resolution for Sales (GITIN-1835 open item, field names updated by GITIN-1883)
-
-The Stage 1 Graylog Pipeline Rule that resolves `name`/`resource_group`/`resource_path`/etc. and routes into `PROD-Sales-AppServicePlan` is scoped **only** to `Service: "Sales"` + `Environment: "Production"` (originally `Properties_Service`/`Properties_Environment` under GITIN-1835's naming; migrated to the bare field names as part of GITIN-1883's unification — see rule `GITIN-1835: CLEF Azure resource fields for Sales PRO`, id `6a7f2cb84814bcaed30c8de3`). Confirmed live pre-migration (GITIN-1883, 2026-08-18, 30-min window): 150 messages `Sales`/`Development` and 2 `SmartFran.Cloud.Sales.API`/*(empty)* had the Service field populated but no `name` resolved — this specific gap (other Service/Environment combinations besides Sales+Production) is **not fixed**, still flagged for whoever picks up GITIN-1835's open item #3.
-
-## Related tickets
-
-- GITIN-1811 (closed) — `AppServiceConsoleLogs` unsupported on Windows/.NET; Sales' direct-GELF sink workaround.
-- GITIN-1835 (closed) — universal `AppLevel`; Sales CLEF `message`/`full_message`/`source`/resource-fields formatting. 3 of its Graylog Pipeline Rules updated by GITIN-1883 (field names only, same logic) to track the new bare `Service`/`Environment` names.
-- GITIN-1883 (closed) — promoted `TraceKey`/`TenantId`/`Service`/`Environment` to top-level fields for the 6 Event Hub apps, then unified Sales onto the same bare names (removing `Properties_` prefix), updating GITIN-1835's dependent Pipeline Rules in the same change.
-- GITIN-1892 (closed, 2026-08-19, parent GITIN-1835) — promoted the remaining 13 fields from `devs-log-structure.md` §3.2/§3.3 (`Version`/`UserId`/`ProcessType`/`Component`/`RequestId`/`SourceContext`/`Category`/`ErrorCode`/`Operation`/`Recovered`/`Handled`/`AuditAction`/`AuditOutcome`) for the same 6 Event Hub apps and Sales. Deployed across 3 incremental patches the same day: initial promotion (wrong source keys for 5 helper-conditional fields, caught by validating against `SmartFranLogExtensions.cs` directly), a corrective patch fixing those 5 keys, and a third patch adding `Version` after a §3.2 coverage audit found it had never been promoted. Full detail in `cloud/events/20260819_promote-remaining-clef-fields/`.
-- GITIN-1940 (2026-08-25, extended 2026-08-26) — promoted `StatusCode`/`Path`/`Method`/`ElapsedMilliseconds` from the built-in ASP.NET Core "Request finished" hosting-diagnostics log line (not a `SmartFranLogExtensions` helper), for both Event Hub apps and Sales; extended 2026-08-26 to also promote the same 4 fields from Azure's own `AppServiceHTTPLogs` category (`CsMethod`/`CsUriStem`/`ScStatus`/`TimeTaken`, cast to matching types), plus `ClientIP` (`properties.CIp`, AppServiceHTTPLogs only, no equivalent in the other source). Motivated by Sales `WsFeAr/CaeRequest` 408s having no structured field to query on. Full detail in `cloud/events/20260825_sales-caerequest-408-timeout/`.
-- GITIN-2034 (2026-09-14) — fixed a real gap in GITIN-1940's `AppServiceHTTPLogs` branch: it only handled one of two raw ingestion shapes Azure sends for this category, silently promoting nothing for the other (flat/unwrapped) shape. Found via a real Sales-PRO message with all 5 fields missing; fixed to accept `properties` as either Hash or String, and to cast `ScStatus` from either Integer or numeric-String. Deployed (one failed attempt first — a stray apostrophe broke the Logstash config string, caught by syntax validation before restart, reverted with no service impact) and reconfirmed live fleet-wide. Also found, separately: 64,866 unrelated Graylog indexing failures on a `time`/`date` field mismatch (out of scope, flagged for its own ticket), and a still-unexplained `ElapsedMilliseconds`-only gap on the `Service:"Sales"` direct-GELF branch (not resolved by this ticket). Full detail in `cloud/events/20260914_gitin2034-timetaken-elapsedms-promotion/`.
-- GITIN-2098 (2026-09-23) — promoted `TraceId`/`SpanId`/`ParentId` (W3C distributed-tracing triplet, stamped by a dedicated Serilog enricher on every log line, same universal reach as `TraceKey`) for the 6 Event Hub apps and Sales. Never targeted by any prior ticket despite being present since before GITIN-1883. Deployed with no rollback needed (syntax validated clean on the first attempt). Confirmed live on Sales-PRO and Business-PRO; not independently verified on PosWasmRelay's legacy shape, though the same unconditional-Hash mechanism that already promotes `TraceKey`/`TenantId`/`Service`/`Environment` there should apply. Full detail in `cloud/events/20260923_gitin2098-traceid-not-promoted-graylog/`.
-- GITIN-2218 (2026-10-13, open) — Graylog visibility: line charts by HTTP verb and by status code and endpoint tables per service on the Operations dashboard (see the Operations dashboard section).
-- GITIN-2221 (2026-10-13, subtask of GITIN-2218) — `NormalizedPath`: HTTP `Path` normalized from the controller routes in the live Logstash filter.
-
-## Related docs
-
-- `docs/devs-log-structure.md` — canonical log schema, dev-authored, source of truth for intended behavior.
-- `docs/infrastructure.md` — `Organization.tenantId`, the same value that ends up in `TenantId`.
+- GITIN-1883 / GITIN-1892: `20260819_promote-remaining-clef-fields/`
+- GITIN-1940: `20260825_sales-caerequest-408-timeout/`
+- GITIN-2034: `20260914_gitin2034-timetaken-elapsedms-promotion/`
+- GITIN-2050: `20260915_functionapp-onboarding/`
+- GITIN-2098: `20260923_gitin2098-traceid-not-promoted-graylog/`
+- GITIN-2221: `operations/events/20261013_gitin2221-normalizar-http-paths/`
+- Related docs: `docs/devs-log-structure.md` (intended schema), `docs/infrastructure.md` (`Organization.tenantId`, Graylog retention and index sets).

@@ -1,6 +1,5 @@
 # SmartLoyalty — SSL/TLS Certificate Reference
 
-**Last updated:** 2026-09-09
 **Subscription:** Smart IT - Grido (`0190fa7d-4ccf-4e3d-beb1-323b5780bfc8`)
 
 Certificate inventory, automation status, and architecture for every public-facing SmartLoyalty/Grido service. Split out of `infrastructure.md` since this topic has its own shared architecture (DNS delegation, a common Service Principal, a shared Key Vault) that cuts across multiple otherwise-unrelated hosts. The actual investigation/implementation work lives in `operations/` (this is a cross-cutting concern owned by the SSL-automation epic, not a loyalty-specific ticket stream) — this doc is the loyalty-side reference for which hostnames are covered, not covered, and how the pieces fit together.
@@ -29,9 +28,9 @@ Where automation exists, it follows the same pattern everywhere, established in 
 | MobileAppService | `mobileservice.clubgrido.com.ar:8043` | `SFCG-MOBI-LB` (Standard LB, L4 only) | Windows Cert Store, per VM | N/A — LB doesn't re-encrypt | **Automated, verified** | `GITIN-1774` |
 | ClubSite AR | `www.clubgrido.com.ar` | `WAF_APPs` | Key Vault (`sfcg-waf-apps-kv`) | Windows Cert Store, per VM (`SFCG-CLUB-01`/`02`) | **Automated, verified** | `GITIN-1770` |
 | ClubSite PY | `www.clubgrido.com.py` | `WAF_APPs` | Key Vault (`sfcg-waf-apps-kv`) | Windows Cert Store, per VM (`SFCG-CLUB-01`/`02`) | **Automated, verified** | `GITIN-1769` |
-| WebSite | `gestion.clubgrido.com.ar` | `WAF_APPs`, single backend (`SFCG-WSIT-01`), no redundancy | Direct PFX, not migrated | Unconfirmed — check `backendHttpSettingsCollection` for re-encryption before assuming scope matches ClubSite | Not started | `GITIN-1771` |
-| WebServiceV2 | — (not yet documented here) | No `WAF_APPs`/L7 device in front (per `infrastructure.md`) | Direct/manual, not migrated | N/A — no gateway to re-encrypt | Not started | `GITIN-1772` |
-| WebServiceCG | — (not yet documented here) | No `WAF_APPs`/L7 device in front | Direct/manual, not migrated | N/A | Not started | `GITIN-1773` |
+| WebSite | `gestion.clubgrido.com.ar` | `WAF_APPs`, single backend (`SFCG-WSIT-01`), no redundancy | Key Vault (`gestion-clubgrido-com-ar`, gateway object `gestion-clubgrido-com-ar-kv`, valid 2026-09-22 to 2026-12-21) | Windows Cert Store on `SFCG-WSIT-01` (`Backend_WebSite` re-encrypts; its trust list gained `letsencrypt-isrg-root-x1`) | **Automated, verified** (2026-09-22) | `GITIN-1771` |
+| WebServiceV2 | `webservicev2.smartfran.com` | `SFCG-WSV2-LB` (Standard L4; each VM terminates TLS, no gateway) | Per VM, Windows Cert Store + IIS binding; no Key Vault | N/A | **In progress** (2026-09-13): DNS zone `_acme-challenge.webservicev2.smartfran.com`, SP role and GoDaddy NS delegation done and `dig`-verified; win-acme install on both VMs pending | `GITIN-1772` |
+| WebServiceCG | `bot-security.smartfran.com` (user-stated) | `SFCG-WSCG-LB` (own L4 LB, public IP `SFCG-WSCG-IP`; TCP 443 rule; probe `SWAGGER` HTTPS 443 `/swagger/ui/index`; single backend `SFCG-WSCG-01`) | Today a paid wildcard `*.smartfran.com` (Sectigo, valid 2026-02-25 to 2027-03-28), not Let's Encrypt | N/A | **In progress** (2026-09-13): DNS zone, SP role and NS delegation done; whether the wildcard is bound elsewhere on `SFCG-WSCG-01`'s IIS (blast radius) not checked; win-acme install not started | `GITIN-1773` |
 | WebService (on-premise SmartFran, `SFCG-WEBS-01/02/03`) | — | No `WAF_APPs`/L7 device in front | Direct/manual, not migrated | N/A | **Out of epic scope** — not one of `GITIN-1768`'s 6 subtasks | — |
 
 `fs-api` appears as a monitored service name in Zabbix's SSL-expiry checks (see below) but has no corresponding entry in `infrastructure.md`'s host table — not yet mapped to a real hostname/VM in this repo. Don't assume it maps to any host above without checking.
@@ -58,10 +57,11 @@ flowchart TD
     subgraph GW["Application Gateway WAF_APPs"]
         LAR["Listener_ClubSite_HTTPS (AR)"]
         LPY["Listener_ClubSite_HTTPS_PY"]
-        LWEB["Listener_WebSite_HTTPS<br/>⚠ still direct PFX"]
+        LWEB["Listener_WebSite_HTTPS<br/>KV object gestion-clubgrido-com-ar-kv"]
     end
     KV -->|public cert, versionless secret| LAR
     KV -->|public cert, versionless secret| LPY
+    KV -->|public cert, versionless secret| LWEB
 
     subgraph CLUB["SFCG-CLUB-01 / SFCG-CLUB-02"]
         BEAR["Backend_ClubSite (AR)<br/>local cert, IIS binding"]
@@ -79,13 +79,11 @@ flowchart TD
     LB --> MOBI
     DNSMOBI -->|validates| MOBICERT
 
-    subgraph NotStarted["Not automated (direct PFX / manual)"]
-        WSIT["SFCG-WSIT-01 — WebSite<br/>GITIN-1771, behind WAF_APPs too"]
+    subgraph NotStarted["Not automated (manual / DNS delegation only)"]
         WSV2["SFCG-WSV2-01/02 — WebServiceV2<br/>GITIN-1772"]
         WSCG["SFCG-WSCG-01 — WebServiceCG<br/>GITIN-1773"]
         WEBS["SFCG-WEBS-01/02/03 — WebService<br/>out of epic scope"]
     end
-    GW -.-> WSIT
 
     ZBX["Zabbix server (sf-monitoreo)<br/>get_ssl_enddate_&lt;service&gt; per host"]
     ZBX -.monitors expiry.-> MOBI
@@ -103,10 +101,13 @@ Fully automated and verified on both VMs (`GITIN-1774`). No backend-leg complica
 ### ClubSite AR / ClubSite PY
 Both legs automated and verified on both `WAF_APPs`-fronted hostnames sharing `SFCG-CLUB-01`/`SFCG-CLUB-02`. Shared runbook (written for AR, reused verbatim for PY): `operations/docs/waf_apps_cert_automation_runbook.md`. Full investigation detail: `operations/events/20260806_automatizar_clubsite_ar/`, `operations/events/20260806_automatizar_clubsite_py/`.
 
-Both hostnames currently have an orphaned direct-PFX certificate object left on the gateway after their listener migrated to the Key Vault-backed object (`clubgrido.2023.2024` for AR, `www.clubgrido.com.py_2026_v2` for PY) — cleanup vs. keep-as-backup is an open decision on both, not yet made.
+The three gateway hostnames each have an orphaned direct-PFX object left after their listener moved to the Key Vault-backed one (`clubgrido.2023.2024` for AR, `www.clubgrido.com.py_2026_v2` for PY, `website_2024` for WebSite): cleanup vs keep-as-backup is an open decision, not yet made.
 
-### WebSite, WebServiceV2, WebServiceCG
-Not started. `GITIN-1771` (WebSite) is the next candidate — it's also behind `WAF_APPs`, so the same pattern (and the same "check for backend re-encryption before declaring done" caution) should apply, but this hasn't been verified yet: unconfirmed whether `gestion.clubgrido.com.ar`'s DNS access matches `clubgrido.com.ar`'s (should, same domain) or whether its HTTP listener has the same backend-less-redirect issue. `GITIN-1772`/`GITIN-1773` (WebServiceV2/WebServiceCG) sit behind no `WAF_APPs`/L7 device per `infrastructure.md` — their automation design (if any) hasn't been scoped yet and may not follow the Key Vault pattern at all, since there's no gateway to reference a Key Vault secret from.
+### WebSite
+Automated and verified end to end on 2026-09-22 (`GITIN-1771`, `operations/events/20260913_automatizar_website/`): public leg in Key Vault with the gateway listener repointed (`website_2024` is now orphaned, like the ClubSite ones), backend leg through win-acme on `SFCG-WSIT-01` (Windows Cert Store + IIS). `gestion.clubgrido.com.ar` has a real backend (`Backend_WebSite`), not a redirect. Traps met there are in the `WAF_APPs` runbook (shared bindings on port 4430 not all updated, the second wizard run's overwrite prompt, the trust list that only knew the old GoDaddy CA).
+
+### WebServiceV2 and WebServiceCG
+Both sit behind plain L4 load balancers, so the pattern is the MobileAppService one (own certificate per VM, Windows store + IIS, no Key Vault). As of 2026-09-13 (the events' last entries) DNS zone, role assignment and the GoDaddy NS delegation (`smartfran.com` is on GoDaddy, `pdns11`/`pdns12`) were done and verified for both; the win-acme install was pending (on both `SFCG-WSV2-01` and `-02` independently; on the single node `SFCG-WSCG-01`). WebServiceCG replaces a shared paid wildcard, so check where else `*.smartfran.com` is bound before swapping it. Events: `operations/events/20260913_automatizar_webservicev2/`, `20260913_automatizar_webservicecg/`; state after that date was not read.
 
 ### WebService (on-premise SmartFran)
 `SFCG-WEBS-01/02/03` is **not** one of `GITIN-1768`'s six subtasks — its certificate situation hasn't been investigated under this epic at all. Zabbix's `smartfran`-named SSL-expiry check (see below) may or may not correspond to this service; not confirmed.
@@ -126,7 +127,7 @@ When auditing a VM's Zabbix onboarding for cert-expiry coverage, check the `Zabb
 ## Related
 
 - `operations/docs/mobileappservice_ssl_renewal_runbook.md` — MobileAppService, full procedure.
-- `operations/docs/waf_apps_cert_automation_runbook.md` — `WAF_APPs`-fronted hosts (ClubSite AR/PY today, designed for WebSite too), full procedure including the backend-leg trust-chain steps.
+- `operations/docs/waf_apps_cert_automation_runbook.md` — `WAF_APPs`-fronted hosts (ClubSite AR/PY and WebSite), full procedure including the backend-leg trust-chain steps.
 - `operations/events/20260805_waf_services_cert_automation_feasibility/` — shared technical context for the `WAF_APPs` hosts (topology, Key Vault decision, cert sprawl).
 - `operations/events/20260807_automatizar_ssl_loyalty_epic/` — epic-level status/Mermaid tracker for `GITIN-1768`'s six subtasks (ticket-status view; this doc is the architecture/reference view — they answer different questions).
 - `infrastructure.md` — host/network reference this doc was split out of.

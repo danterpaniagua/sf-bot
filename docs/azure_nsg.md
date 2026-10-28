@@ -1,6 +1,5 @@
 # Azure NSG Reference
 
-**Last updated:** 2026-07-10
 **Subscription:** Smart IT - Grido (`0190fa7d-4ccf-4e3d-beb1-323b5780bfc8`)
 
 ---
@@ -41,11 +40,13 @@ Peering has `allowGatewayTransit: true`, `allowForwardedTraffic: true`. If `sfcg
 | DC 1 | `192.168.40.4` |
 | DC 2 | `192.168.40.5` |
 
-**Rule:** when adding deny rules covering `192.168.0.0/16`, always carve out `192.168.40.0/24` with a higher-priority allow rule targeting the DC IPs. Kerberos NLA uses dynamic RPC ports — use port `*` scoped to the DC IPs, not a port list.
+**Rule:** when adding deny rules covering `192.168.0.0/16`, always carve out `192.168.40.0/24` with a higher-priority allow rule targeting the DC IPs. Kerberos NLA uses dynamic RPC ports — use port `*` scoped to the DC IPs, not a port list. Symptom of a missing carve-out: RDP with NLA to a dev VM fails with error `0x0` ("cannot contact the domain controller"); a first test with the fixed ports 88, 389, 636, 53 and 445 timed out (`operations/events/20260710_sfdev_acceso_dc_azure/`). Open there: narrow `Allow-AADDS-Outbound` to the fixed Kerberos ports plus the dynamic RPC range 49152-65535 in a maintenance window, and check whether other dev VMs on `SmartFran-vnet` need the same rule.
 
 ---
 
 ## Known NSGs
+
+**Dev-to-prod isolation (`operations/events/20260630_sfdev02_acceso_prod/`, 2026-06-30):** `sfdev02` (`10.2.0.4`) reached the prod subnet `192.168.50.0/24` (confirmed by RDP to `192.168.50.121`) through two independent paths: the peering route `192.168.0.0/16` plus an allow-all outbound rule (`Subredes_out`, P100 at the time; it is now the P1000 catch-all behind the two denies) and prod `sfcgnetsec01` P110 accepting every port from `192.168.50.0/24`; and the two Private Endpoints below, which bypass NSG filtering on the service side. The deny rules in `sfdev02-nsg` fixed the first path. Still open from that event: dev inbound RDP (P300, P440) and SQL 1433 (P410) open to `*`, justification of the peering (a UDR or a subnet NSG on the prod side denying `10.2.0.0/16`), the prod rules P115, P126 and P1400 open to `*`, and identification of the second endpoint (`192.168.50.191`). The RBAC check of the investigating user (Cost Management Reader and Billing Reader) was ruled out as a vector.
 
 ### sfdev02-nsg — SFCG-REGR-DEV (Dev VM)
 
@@ -104,9 +105,11 @@ IP purpose labels below (Claro/Fibertel/APIM Grido/etc.) come from `smartfran-do
 
 Not actioned as part of `GITIN-1909` (unrelated to that ticket's root cause). Before treating this as a real cleanup item, confirm with whoever owns NSG hygiene on `sfcgnetsec01` whether the 3-IP "clean" lists are still the intended target — do not assume the external doc is authoritative over the live Azure state.
 
-**WebServiceV2 ingress rule (`GITIN-1238`, fixed 2026-08-27)** — same pattern as the MobileAppService rules above (a hardcoded destination-IP list, not a subnet/ASG-based rule): `WebService_V2_PRO` (priority 123, Inbound, Allow, source `*`, TCP, port 8080) gates real client traffic to `SFCG-WSV2-01`/`-02` (`192.168.50.171`/`.172`). Confirmed root cause of `SFCG-WSV2-02` never receiving real traffic despite a healthy LB probe: `destinationAddressPrefixes` listed `192.168.50.171` and `192.168.50.173` but never `192.168.50.172` (VM2) — Azure's own probe traffic (`168.63.129.16`) bypasses NSG evaluation, so the gap was invisible to health checks. Fixed by adding `.172` to the list (`.174` was also added in the same edit; purpose unconfirmed). Full detail: `loyalty/events/20260826_wsv2lb_vm2_trustedlaunch_no_traffic/`.
+**WebServiceV2 ingress rule (`GITIN-1238`)** — same pattern as the MobileAppService rules above (a hardcoded destination-IP list, not a subnet/ASG-based rule): `WebService_V2_PRO` (priority 123, Inbound, Allow, source `*`, TCP, port 8080) gates real client traffic to `SFCG-WSV2-01`/`-02` (`192.168.50.171`/`.172`). Confirmed root cause of `SFCG-WSV2-02` never receiving real traffic despite a healthy LB probe: `destinationAddressPrefixes` listed `192.168.50.171` and `192.168.50.173` but never `192.168.50.172` (VM2) — Azure's own probe traffic (`168.63.129.16`) bypasses NSG evaluation, so the gap was invisible to health checks. The list now includes `.172` (and `.174`, purpose unconfirmed; `.173` is in the list with no purpose recorded either). Full detail: `loyalty/events/20260826_wsv2lb_vm2_trustedlaunch_no_traffic/`.
 
-See `loyalty/docs/infrastructure.md` and `/loyalty-azure-lb` for the LB-side detail. Full rule table for `sfcgnetsec01` was pulled 2026-08-21 but only the 8043-relevant rows are recorded here — the rest of the table above is still the 2026-06-30 snapshot; a full refresh wasn't in scope for this pass.
+**Two NSG layers apply and a flow must pass both:** the NIC-level NSG (`SFCG-WSV2-01-nsg`, rule `SFCG-WSV2-LB-allow-inbound`, P999, any source to any destination, TCP 8080: wide open, identical on both VMs) and the subnet-level `sfcgnetsec01` (DMZ subnet, shared with `SFCG-MOBI-LB`). Everything pointed at the LB, the VM and the NIC for a long time because the asymmetry sat only in the subnet rule's destination list. `az network watcher test-ip-flow --direction Inbound --protocol TCP --local <vm ip>:<port> --remote <public ip>:* --vm <vm> --nic <nic>` names the deciding rule (`defaultSecurityRules/DenyAllInBound` for VM2, `securityRules/SFCG-WSV2-LB-allow-inbound` for VM1) and settles configured-versus-effective questions in one call. The event explains the healthy probe by Azure's probe address (`168.63.129.16`) being exempt from NSG evaluation; that was inferred, not tested (Azure's default `AllowAzureLoadBalancerInBound` rule would also admit it, and the saved effective-rule exports were not checked for it), so treat the mechanism as unconfirmed; the rule gap itself was verified with `test-ip-flow` (`Deny` for VM2 before the fix, `Allow` after), and the ticket closed 2026-08-27 once an isolated-pool test showed VM2 serving correctly (a 50-request batch right after the NSG change all landed on VM1 through the LB, which took longer to explain).
+
+See `loyalty/docs/infrastructure.md` and `/loyalty-azure-lb` for the LB-side detail. Only the 8043-relevant rows of the `sfcgnetsec01` rule table were refreshed (2026-08-21); the rest of the table above is the 2026-06-30 snapshot.
 
 ---
 
@@ -158,6 +161,16 @@ az network nsg rule list \
     ([.destinationAddressPrefix] + .destinationAddressPrefixes | map(select(. != "" and . != null)) | join(",")),
     ([.destinationPortRange] + .destinationPortRanges | map(select(. != "" and . != null)) | join(","))
   ]) | @tsv'
+```
+
+### Which rule decides a flow (effective, not configured)
+
+```bash
+az network watcher test-ip-flow \
+  --direction Inbound --protocol TCP \
+  --local <VM_PRIVATE_IP>:<PORT> --remote <CLIENT_PUBLIC_IP>:12345 \
+  --vm <VM_NAME> --nic <NIC_NAME> --resource-group <RG> \
+  --subscription 0190fa7d-4ccf-4e3d-beb1-323b5780bfc8
 ```
 
 ### Get Azure AD DS DC IPs

@@ -1,16 +1,16 @@
-# Runbook — Rotación de contraseña de la cuenta `itservices` (identidad IIS transversal SmartLoyalty)
+# Runbook — `itservices` account password rotation (shared SmartLoyalty IIS identity)
 
-> Origen: evento `20260723_itservices_bloqueo_password`. Ver también `20260610_kerberos_rc4_aadds` (AADDS123) para el detalle completo de por qué esta cuenta es un punto único de dependencia crítico.
+> Source: event `20260723_itservices_bloqueo_password`. See also `20260610_kerberos_rc4_aadds` (AADDS123) for why this account is a critical single point of dependency.
 
-## 1. Objetivo
+## 1. Goal
 
-Procedimiento para rotar de forma segura la contraseña de la cuenta Azure AD DS `itservices` (UPN `grupo.servicesit@smartfran.com`, objeto `CN=appaccess,OU=AADDC Users,DC=smartit,DC=azure`) sin provocar el bloqueo de la cuenta por `badPwdCount` excedido.
+Rotate safely the password of the Azure AD DS account `itservices` (UPN `grupo.servicesit@smartfran.com`, object `CN=appaccess,OU=AADDC Users,DC=smartit,DC=azure`) without the account being locked out for exceeding `badPwdCount`.
 
-## 2. Por qué esto no es una rotación de servidor individual
+## 2. Why this is not a single-server rotation
 
-`itservices` es la identidad de App Pool IIS **compartida** por los 12 servidores de producción de SmartLoyalty:
+`itservices` is the IIS App Pool identity **shared** by the 12 SmartLoyalty production servers:
 
-| Servidor | Servicio |
+| Server | Service |
 |---|---|
 | SFCG-WEBS-01, 02, 03 | SmartLoyalty WebService |
 | SFCG-WSV2-01, 02 | SmartLoyalty WebServiceV2 |
@@ -20,27 +20,27 @@ Procedimiento para rotar de forma segura la contraseña de la cuenta Azure AD DS
 | SFCG-CLUB-01, 02 | Club Grido website |
 | SFCG-TO-01 | TaskOperatorService |
 
-Si se actualiza la contraseña en un solo servidor, el resto sigue autenticando con la credencial anterior. Cada intento fallido incrementa `badPwdCount` **de forma local en el DC que lo atiende** (no se replica entre réplicas), pero al superar el umbral de bloqueo del dominio, `lockoutTime` sí se replica de inmediato a todas las réplicas — bloqueando la cuenta para **toda** la flota simultáneamente, incluidos los servidores ya actualizados correctamente.
+If the password is updated on one server only, the rest keep authenticating with the old credential. Each failed attempt increments `badPwdCount` **locally on the DC that serves it** (not replicated between replicas), but once the domain lockout threshold is exceeded `lockoutTime` **is** replicated at once to all replicas, locking the account for the **whole** fleet, including servers already updated correctly.
 
-**Regla de oro: nunca actualizar `itservices` en un solo servidor sin ventana de mantenimiento para completar el resto en el mismo intervalo.**
+**Golden rule: never update `itservices` on a single server without a maintenance window to finish the rest in the same interval.**
 
-## 3. Prerrequisitos
+## 3. Prerequisites
 
-- Ventana de mantenimiento coordinada — actualizar los 12 servidores en el mismo intervalo, minimizando el tiempo en que coexisten contraseñas distintas en la flota.
-- Cuenta con permisos delegados sobre `smartit.azure` (grupo `AAD DC Administrators` en Entra ID) para poder desbloquear/consultar el objeto vía LDAP desde cualquier servidor de la flota.
-- Acceso RDP/PowerShell a cada uno de los 12 servidores.
-- IPs de los controladores de dominio AADDS: `192.168.40.4`, `192.168.40.5` (subred `192.168.40.0/24`, RG `DefaultGroup01`, suscripción Smart IT - Grido `0190fa7d-4ccf-4e3d-beb1-323b5780bfc8`).
-- **IIS detenido en cada VM antes de actualizar la identidad** — detener el servicio IIS (`iisreset /stop` o el servicio `W3SVC`) en cada uno de los 12 servidores antes de tocar el App Pool. Evita que un pool arranque o recicle a mitad de la actualización con una credencial a medio configurar, generando otro intento fallido de logon adicional al recuento de `badPwdCount`.
+- A coordinated maintenance window: update the 12 servers in the same interval, minimising how long different passwords coexist.
+- An account with delegated permissions over `smartit.azure` (`AAD DC Administrators` group in Entra ID) to unlock/query the object over LDAP from any fleet server.
+- RDP/PowerShell access to each of the 12 servers.
+- AADDS domain controller IPs: `192.168.40.4`, `192.168.40.5` (subnet `192.168.40.0/24`, RG `DefaultGroup01`, subscription Smart IT - Grido `0190fa7d-4ccf-4e3d-beb1-323b5780bfc8`).
+- **IIS stopped on each VM before updating the identity** (`iisreset /stop` or the `W3SVC` service) on all 12 servers before touching the App Pool. This stops a pool from starting or recycling mid-update with a half-configured credential, which would add a failed logon to the `badPwdCount`.
 
-## 4. Procedimiento
+## 4. Procedure
 
-### 4.1 Reset de contraseña en Entra ID
+### 4.1 Password reset in Entra ID
 
-Realizar el cambio de contraseña una única vez, en Entra ID (portal o `az ad user update`), y documentar el valor exacto en el gestor de secretos correspondiente antes de tocar cualquier servidor. No reescribir la contraseña manualmente en cada servidor a partir de memoria — copiar siempre desde el secreto documentado.
+Change the password once, in Entra ID (portal or `az ad user update`), and record the exact value in the secrets manager before touching any server. Do not retype the password on each server from memory: always copy it from the recorded secret.
 
-### 4.2 Verificar sincronización del hash hacia AADDS
+### 4.2 Check hash sync to AADDS
 
-Desde cualquier servidor unido al dominio, confirmar que `pwdLastSet` refleja el cambio reciente **en ambas réplicas** antes de continuar:
+From any domain-joined server, confirm `pwdLastSet` shows the recent change **on both replicas** before continuing:
 
 ```powershell
 foreach ($dc in "192.168.40.4","192.168.40.5") {
@@ -54,44 +54,27 @@ foreach ($dc in "192.168.40.4","192.168.40.5") {
 }
 ```
 
-Si ambos DC no muestran el mismo timestamp reciente, esperar unos minutos y repetir antes de avanzar — la sincronización hacia AADDS es asíncrona.
+If the two DCs do not show the same recent timestamp, wait a few minutes and repeat before moving on: sync to AADDS is asynchronous.
 
-### 4.3 Rollout coordinado
+### 4.3 Coordinated rollout
 
-Actualizar la identidad de App Pool en los 12 servidores dentro de la misma ventana, en el orden que resulte operativamente más simple (no hay dependencia de orden entre ellos). Por cada servidor:
+Update the App Pool identity on the 12 servers within the same window, in whatever order is simplest (no order dependency). On each server:
 
-1. IIS Manager → Application Pools → seleccionar el pool → Advanced Settings → Identity → Custom account → ingresar `smartit\itservices` (o `grupo.servicesit@smartfran.com`) y la nueva contraseña (copiada del secreto documentado, no retipeada).
-2. Recycle del App Pool para validar el nuevo logon inmediatamente.
-3. Confirmar que el sitio responde (no queda en estado "stopped" por fallo de logon).
+1. IIS Manager → Application Pools → select the pool → Advanced Settings → Identity → Custom account → enter `smartit\itservices` (or `grupo.servicesit@smartfran.com`) and the new password (copied from the recorded secret, not retyped).
+2. Recycle the App Pool to validate the new logon immediately.
+3. Confirm the site responds (not left "stopped" by a logon failure).
 
-### 4.4 Verificación final
+### 4.4 Final check
 
-Repetir el chequeo de `badPwdCount`/`lockoutTime` en ambos DC tras completar el rollout — debe permanecer estable (sin incrementos) una vez que todos los servidores quedaron alineados:
+Repeat the `badPwdCount` / `lockoutTime` check on both DCs after the rollout: it must stay stable (no increments) once all servers are aligned (script in 5.2).
 
-```powershell
-foreach ($dc in "192.168.40.4","192.168.40.5") {
-    $root = New-Object DirectoryServices.DirectoryEntry("LDAP://$dc/CN=appaccess,OU=AADDC Users,DC=smartit,DC=azure")
-    $searcher = New-Object DirectoryServices.DirectorySearcher($root)
-    $searcher.SearchScope = "Base"
-    $searcher.PropertiesToLoad.AddRange(@("lockoutTime","badPwdCount"))
-    $result = $searcher.FindOne()
-    $lockoutTime = if ($result.Properties["lockouttime"].Count -gt 0) { [Int64]$result.Properties["lockouttime"][0] } else { 0 }
-    "$dc -> badPwdCount: " + $result.Properties["badpwdcount"][0]
-    if ($lockoutTime -ne 0) {
-        "$dc -> LOCKED since: " + [DateTime]::FromFileTime($lockoutTime)
-    } else {
-        "$dc -> not locked"
-    }
-}
-```
+Complement with the Zabbix map of fleet service state, http://sf-monitoreo.smartfran.com:8080/zabbix.php?action=map.view&sysmapid=2: confirm all 12 IIS services are green before closing the rollout.
 
-Complementar con el mapa de Zabbix que muestra el estado de todos los servicios de la flota: http://sf-monitoreo.smartfran.com:8080/zabbix.php?action=map.view&sysmapid=2 — confirmar que los 12 servicios IIS aparecen en verde antes de dar el rollout por cerrado.
+## 5. Diagnostics — reusable scripts
 
-## 5. Diagnóstico — scripts reutilizables
+All run on any server joined to the `smartit.azure` domain, without the RSAT `ActiveDirectory` module (they use `System.DirectoryServices` directly).
 
-Todos estos scripts corren en cualquier servidor unido al dominio `smartit.azure`, sin necesidad del módulo RSAT `ActiveDirectory` (usan `System.DirectoryServices` directamente).
-
-### 5.1 Localizar el objeto por UPN/mail (cuando el sAMAccountName no coincide con el UPN)
+### 5.1 Locate the object by UPN/mail (when sAMAccountName does not match the UPN)
 
 ```powershell
 $searcher = New-Object DirectoryServices.DirectorySearcher
@@ -105,9 +88,9 @@ $searcher.FindAll() | ForEach-Object {
 }
 ```
 
-> No usar una búsqueda ANR (`anr=<término>`) como primer intento: ANR solo indexa `displayName`, `sAMAccountName`, `sn`, `givenName`, `legacyExchangeDN` y `proxyAddresses` — si el término buscado no aparece en ninguno de esos atributos, la búsqueda devuelve vacío sin error, dando una falsa impresión de que el objeto no existe.
+> Do not use an ANR search (`anr=<term>`) as a first attempt: ANR indexes only `displayName`, `sAMAccountName`, `sn`, `givenName`, `legacyExchangeDN` and `proxyAddresses`; if the term is in none of them the search returns empty with no error, falsely suggesting the object does not exist.
 
-### 5.2 Verificar bloqueo y `badPwdCount` por DC
+### 5.2 Check lockout and `badPwdCount` per DC
 
 ```powershell
 foreach ($dc in "192.168.40.4","192.168.40.5") {
@@ -126,9 +109,9 @@ foreach ($dc in "192.168.40.4","192.168.40.5") {
 }
 ```
 
-> **No usar `[ADSI]"LDAP://..."` directo para leer `lockoutTime`.** Ese atributo es un `IADsLargeInteger` (objeto COM) cuando se accede vía `DirectoryEntry`/`[ADSI]`, y `[Int64]$de.Properties["lockoutTime"].Value` falla con `Cannot convert the "System.__ComObject" value...`. `DirectorySearcher` marshala el valor correctamente a un entero nativo — usar siempre esa vía para atributos de 64 bits.
+> **Do not read `lockoutTime` with `[ADSI]"LDAP://..."` directly.** Through `DirectoryEntry`/`[ADSI]` the attribute is an `IADsLargeInteger` (COM object) and `[Int64]$de.Properties["lockoutTime"].Value` fails with `Cannot convert the "System.__ComObject" value...`. `DirectorySearcher` marshals it to a native integer: always use it for 64-bit attributes.
 
-### 5.3 Desbloquear la cuenta
+### 5.3 Unlock the account
 
 ```powershell
 try {
@@ -141,31 +124,36 @@ try {
 }
 ```
 
-Requiere permisos delegados de escritura sobre el objeto (grupo `AAD DC Administrators`). Un error aquí normalmente indica falta de ese permiso, no un problema técnico del script.
+Needs delegated write permission on the object (`AAD DC Administrators`). An error here usually means missing that permission, not a script problem.
 
-### 5.4 Probar la credencial de forma aislada (sin tocar IIS)
+### 5.4 Test the credential in isolation (without touching IIS)
 
-Antes de aplicar un cambio en IIS Manager, validar la credencial de forma aislada. Esto evita gastar intentos de logon (y por lo tanto `badPwdCount`) reconfigurando y recargando pools repetidamente:
+Before changing anything in IIS Manager, validate the credential on its own. This avoids spending logon attempts (and so `badPwdCount`) reconfiguring and reloading pools repeatedly:
 
 ```powershell
 Start-Process cmd -Credential (Get-Credential smartit\itservices)
 ```
 
-Escribir la contraseña una sola vez, a mano (no pegar) — descarta problemas de layout de teclado en caracteres especiales. Evitar `runas` para esta prueba: si existe una credencial cacheada en Credential Manager (`cmdkey /list`) para esa cuenta, `runas` la reutiliza en silencio sin volver a pedir contraseña, lo que puede llevar a conclusiones erróneas sobre si la contraseña nueva es correcta.
+Type the password once, by hand (do not paste): rules out keyboard-layout problems with special characters. Avoid `runas` for this test: if a cached credential for the account exists in Credential Manager (`cmdkey /list`), `runas` silently reuses it without asking for a password, which can lead to wrong conclusions about whether the new password is right.
 
-## 6. Errores conocidos y su lectura correcta
+## 6. Known errors and their correct reading
 
-| Síntoma | Causa real | Cómo confirmarlo |
+| Symptom | Real cause | How to confirm |
 |---|---|---|
-| IIS: "The specified password is invalid" | Frecuentemente **cuenta bloqueada**, no contraseña incorrecta — IIS no distingue ambos casos con claridad | Sección 5.2 |
-| `runas` no pide contraseña | Credencial cacheada en Credential Manager reutilizada en silencio | `cmdkey /list` / usar `Start-Process -Credential` en su lugar |
-| `net user <cuenta> /domain` → "user name could not be found" | `net user` requiere `sAMAccountName` exacto, no acepta UPN ni un valor supuesto incorrecto | Sección 5.1 para confirmar el `sAMAccountName` real |
-| `badPwdCount` distinto entre los dos DC | Comportamiento esperado — este atributo no se replica entre réplicas | No es un hallazgo por sí solo; mirar `lockoutTime` (sí replicado) |
-| Cuenta se vuelve a bloquear minutos después de desbloquearla | Otro servidor de la flota sigue autenticando con la contraseña anterior | Confirmar que los 12 servidores de la sección 2 estén alineados antes de dar el rollout por completado |
+| IIS: "The specified password is invalid" | Often **account locked**, not a wrong password; IIS does not clearly tell them apart | Section 5.2; `Start-Process -Credential` (5.4) returns an explicit "account is currently locked out" |
+| `runas` does not ask for a password | Cached Credential Manager credential silently reused | `cmdkey /list` / use `Start-Process -Credential` instead |
+| `net user <account> /domain` → "user name could not be found" | `net user` needs the exact `sAMAccountName`; it does not accept a UPN or a wrong guess | Section 5.1 to confirm the real `sAMAccountName` |
+| `badPwdCount` differs between the two DCs | Expected: the attribute is not replicated between replicas | Not a finding by itself; look at `lockoutTime` (replicated) |
+| Account locks again minutes after unlocking | Another fleet server still authenticates with the old password | Confirm all 12 servers of section 2 are aligned before calling the rollout complete |
 
-## 7. Referencias
+## 6bis. Open items (event `20260723_itservices_bloqueo_password`)
 
-- `operations/events/20260723_itservices_bloqueo_password/` — evento que originó este runbook.
-- `operations/events/20260610_kerberos_rc4_aadds/` — AADDS123, dependencia crítica de `itservices` sobre cifrado Kerberos.
-- `operations/events/20260710_sfdev_acceso_dc_azure/` — IPs y topología de los DC de AADDS.
-- Mapa Zabbix — estado de todos los servicios: http://sf-monitoreo.smartfran.com:8080/zabbix.php?action=map.view&sysmapid=2
+- No alert exists on `badPwdCount` / lockout of `itservices` (Zabbix or Azure Monitor); proposed after the July 2026 event, not implemented. Until then the first sign of a lockout is IIS failing across the fleet.
+- The first (non-fleet) password change that caused that event was never traced to a server; the fleet rollout of 2026-07-23 was confirmed by the user (all App Pools running, Zabbix map green) without a direct AADDS-side recheck, so use section 4.4 after every rotation.
+
+## 7. References
+
+- `operations/events/20260723_itservices_bloqueo_password/`: event that originated this runbook.
+- `operations/events/20260610_kerberos_rc4_aadds/`: AADDS123, critical dependency of `itservices` on Kerberos encryption.
+- `operations/events/20260710_sfdev_acceso_dc_azure/`: AADDS DC IPs and topology.
+- Zabbix map, state of all services: http://sf-monitoreo.smartfran.com:8080/zabbix.php?action=map.view&sysmapid=2

@@ -1,134 +1,140 @@
-# Runbook — Actualización de SonarQube (`sfcg-sonarqube`)
+# Runbook — SonarQube upgrade (`sfcg-sonarqube`)
 
-> Origen: ticket `GITIN-1327`, evento `operations/events/20260905_sonarqube_upgrade/`. Ver ese evento (`investigation.md`) para el detalle completo de la investigación (fuentes de cada dato, hallazgos intermedios, teorías descartadas). Este documento es la referencia de infraestructura persistente; el evento es el registro de trabajo de la tarea puntual.
+> Source: ticket `GITIN-1327`, event `operations/events/20260905_sonarqube_upgrade/` (its `investigation.md` holds the sources of each fact, intermediate findings and discarded theories). This document is the persistent infrastructure reference; the event is the work record.
 
-## 1. Objetivo
+## 1. Goal
 
-Actualizar la instancia de SonarQube Community Edition (9.9.3) corriendo en `sfcg-sonarqube` a una versión actual de SonarQube Community Build, siguiendo la ruta de actualización oficial y sin perder datos ni disponibilidad más allá de la ventana de mantenimiento planificada.
+Upgrade the SonarQube Community Edition (9.9.3) instance on `sfcg-sonarqube` to a current SonarQube Community Build, following the official upgrade path, with no data loss and no downtime beyond the planned maintenance window.
 
-## 2. Topología y estado actual (confirmado)
+## 2. Topology and starting state (confirmed 2026-09-05, before any jump)
 
-- **Host:** `sfcg-sonarqube` (VM Azure, login `azureuser`), Ubuntu 20.04.6 LTS.
-- **Versión/edición actual:** SonarQube **9.9.3** (build 79811), **Community Edition** (LGPL v3) — confirmado vía UI ("About") y vía classpath del proceso real.
-- **Instalación:** manual, sin symlink — `/opt/ssd01/sonarq/sonarqube/` es un directorio real (no symlink a una versión), corre como `sonarqube:sonarqube`, servicio systemd `sonarqube.service`.
-- **Otros directorios en `/opt/ssd01/sonarq/`:** `sonarqube-9.6.1.59531/` (versión anterior, sin configurar, leftover) y `sonarqube-10/` (reportado por el usuario como intento de actualización abandonado — no verificado independientemente en detalle). El directorio raíz `/opt/ssd01/sonarq/data/` (esqueleto `es8` vacío) está huérfano/sin uso — probablemente residuo de ese intento a 10.x (ES8 vs. el ES7 real de 9.9.3).
-- **Datos reales:** `/opt/ssd01/sonarq/sonarqube/data/` (184M — índice ES7, plugins instalados). `sonar.path.data`/`sonar.path.temp` no están configurados explícitamente (usan el default relativo al home de instalación).
-- **Java:** OpenJDK 17.0.15 (paquete Ubuntu) — suficiente hasta el primer salto (24.12), insuficiente a partir de 26.1.
-- **Base de datos:** PostgreSQL 13.15 (`pgdg20.04`), local, `127.0.0.1:5432`, DB `sonarqube`, usuario `sonarqube` — suficiente hasta 25.x, insuficiente a partir de 26.x (requiere 15+).
-- **Webserver:** nginx como reverse proxy (`/etc/nginx/conf.d/sonar.conf`), termina TLS con el wildcard cert de SmartFran, proxy directo a `127.0.0.1:9000` sin reescritura de path. Hostname público: `sf-sonarqube.smartfran.com`.
-- **Host specs:** 2 CPU lógicas (1 core físico con hyperthreading — sin margen), 7.7GB RAM, 159GB libres en `/opt/ssd01`. `vm.max_map_count=552428` y límites de file descriptors (65536, vía systemd) ya cumplen los requisitos de Elasticsearch — sin necesidad de tuning de SO.
+- **Host:** `sfcg-sonarqube` (Azure VM, login `azureuser`), Ubuntu 20.04.6 LTS. Azure subscription `0190fa7d-4ccf-4e3d-beb1-323b5780bfc8` (Smart IT - Grido), resource group `DEFAULTGROUP01` (via IMDS).
+- **Version/edition:** SonarQube **9.9.3** (build 79811), **Community Edition** (LGPL v3), confirmed in the UI ("About") and from the real process classpath.
+- **Install:** manual, no symlink. `/opt/ssd01/sonarq/sonarqube/` is a real directory, runs as `sonarqube:sonarqube`, systemd service `sonarqube.service`.
+- **Other directories in `/opt/ssd01/sonarq/`:** `sonarqube-9.6.1.59531/` (older version, unconfigured leftover) and `sonarqube-10/` (reported as an abandoned upgrade attempt; not verified in detail). The root `/opt/ssd01/sonarq/data/` (empty `es8` skeleton) is orphaned, probably left by that 10.x attempt (ES8 vs the real ES7 of 9.9.3).
+- **Data:** `/opt/ssd01/sonarq/sonarqube/data/` (184M: ES7 index, installed plugins). `sonar.path.data` / `sonar.path.temp` are not set (default, relative to the install home).
+- **Java:** OpenJDK 17.0.15 (Ubuntu package): enough for the first jump (24.12), not for 26.1.
+- **Database:** PostgreSQL 13.15 (`pgdg20.04`), local `127.0.0.1:5432`, DB `sonarqube`, user `sonarqube`: enough up to 25.x, not from 26.x (needs 15+).
+- **Web server:** nginx reverse proxy (`/etc/nginx/conf.d/sonar.conf`), TLS with the SmartFran wildcard certificate, proxy to `127.0.0.1:9000` with no path rewrite. Public hostname `sf-sonarqube.smartfran.com`.
+- **Host specs:** 2 logical CPUs (1 physical core with hyperthreading, no headroom), 7.7 GB RAM, 159 GB free on `/opt/ssd01`. `vm.max_map_count=552428` and file-descriptor limits (65536, via systemd) already meet the Elasticsearch requirements: no OS tuning needed.
 
-## 3. Ruta de actualización confirmada
+## 3. Confirmed upgrade path
 
-SonarQube Community Edition fue renombrada a Community Build después de la versión 10.7 (nuevo esquema de versionado CalVer). Cualquier instancia anterior a 2024 debe pasar obligatoriamente por `24.12.0.100206` antes de llegar a cualquier release 2025+; además, cruzar un límite de año calendario requiere pasar por el release de diciembre de ese año.
-
-**Ruta decidida:**
+SonarQube Community Edition became Community Build after 10.7 (CalVer versioning). Any instance older than 2024 must go through `24.12.0.100206` before any 2025+ release; crossing a calendar-year boundary also requires the December release of that year.
 
 ```
 9.9.3 (LTA) → 24.12.0.100206 → 26.1.0.118079 → 26.9.0.129388
 ```
 
-- El salto intermedio "natural" sería `25.12.0.117093`, pero esa versión tiene un bug de migración de base de datos documentado y reportado por otros usuarios (issues reales en el foro de SonarSource) — `26.1.0.118079` lo resuelve y está documentado como sustituto válido para ese hop.
-- `26.9.0.129388` es la última versión de Community Build disponible al momento de esta investigación (verificar de nuevo antes de ejecutar, por si hay una versión más nueva).
+- The "natural" intermediate hop would be `25.12.0.117093`, but it has a documented database-migration bug reported by other users (SonarSource forum). `26.1.0.118079` resolves it and is documented as a valid substitute for that hop.
+- `26.9.0.129388` was the latest Community Build when this was investigated: check again before executing.
 
-## 4. Requisitos de infraestructura por salto
+## 4. Infrastructure requirements per jump
 
-| Salto | Java requerido | PostgreSQL requerido |
+| Jump | Java | PostgreSQL |
 |---|---|---|
-| 9.9.3 → 24.12.0.100206 | JRE/JDK 17 (actual, sin cambios) | 13.15 (actual, sin cambios) |
-| 24.12.0.100206 → 26.1.0.118079 | **JDK 21 o 25 completo** (no alcanza con JRE) | **PostgreSQL 15+** (rango soportado 15-18) |
-| 26.1.0.118079 → 26.9.0.129388 | Sin cambios adicionales | Sin cambios adicionales |
+| 9.9.3 → 24.12.0.100206 | JRE/JDK 17 (current) | 13.15 (current) |
+| 24.12.0.100206 → 26.1.0.118079 | **full JDK 21 or 25** (a JRE is not enough) | **PostgreSQL 15+** (supported 15-18) |
+| 26.1.0.118079 → 26.9.0.129388 | no change | no change |
 
-Ambos cambios de infraestructura (Java y PostgreSQL) caen en el mismo punto de la secuencia.
+Both infrastructure changes (Java and PostgreSQL) fall at the same point of the sequence.
 
-## 4bis. Requisito de actualización de sistema operativo
+## 4bis. Operating-system upgrade requirement
 
-Verificado: instalar PostgreSQL 15+ en Ubuntu 20.04 (host actual) ya **no es un procedimiento limpio**. El repositorio oficial PGDG dejó de construir/alojar paquetes para Ubuntu 20.04 (focal) desde julio de 2025 — esa versión de Ubuntu también está EOL del lado de PGDG. Los paquetes de PG 15/16/17 solo son alcanzables vía un repositorio de archivo, que el propio PGDG reconoce tiene "conflictos de dependencias con las bibliotecas base envejecidas" del sistema, haciendo la instalación no confiable. Independientemente, Ubuntu 20.04 llegó a fin de soporte estándar en abril/mayo de 2025 — más de un año atrás a la fecha de esta investigación (2026-09-05), salvo que el host esté enrolado en Ubuntu Pro/ESM (no confirmado).
+Installing PostgreSQL 15+ on Ubuntu 20.04 is no longer a clean procedure. The official PGDG repository stopped building/hosting packages for 20.04 (focal) in July 2025; PG 15/16/17 are reachable only through an archive repository that PGDG itself says has "dependency conflicts with the aging base libraries", so the install is unreliable. Ubuntu 20.04 also left standard support in April/May 2025 unless the host is enrolled in Ubuntu Pro/ESM.
 
-**Pre-check confirmado (2026-09-05):** no hay suscripción Ubuntu Pro/ESM activa (`pro status` — "This machine is not attached to an Ubuntu Pro subscription"). El mirror en uso es `azure.archive.ubuntu.com` (mirror regional de Azure), que sigue sirviendo `focal` correctamente pese al EOL estándar — `apt-get update` funciona sin errores. `do-release-upgrade -c` confirma: `New release '22.04.5 LTS' available`.
+**Pre-check (2026-09-05):** no Ubuntu Pro/ESM subscription (`pro status`: "This machine is not attached to an Ubuntu Pro subscription"). The mirror is `azure.archive.ubuntu.com`, which still serves `focal` (`apt-get update` works). `do-release-upgrade -c` reports `New release '22.04.5 LTS' available`.
 
-**Riesgo nuevo, no cubierto en el diseño original:** cinco repos de terceros están fijados específicamente a `focal`: `ppa:deadsnakes`, Docker CE (`download.docker.com/linux/ubuntu focal`), Microsoft Azure CLI (`packages.microsoft.com/ubuntu/20.04/prod focal`), Trivy, y **tres repos de Zabbix** (`zabbix-agent2-plugins`, `zabbix-tools`, `zabbix/6.0`, todos con sufijo `focal`). Tras el upgrade a `jammy` (22.04), estos repos van a fallar (404) hasta que se re-apunten a `jammy` — `do-release-upgrade` probablemente los deshabilite automáticamente durante el proceso (comportamiento estándar y seguro para fuentes de terceros no reconocidas), pero hay que re-habilitarlos/re-apuntarlos manualmente después. El agente Zabbix ya instalado seguirá corriendo sin interrupción inmediata, pero no recibirá actualizaciones hasta corregir esto — acción de seguimiento obligatoria post-upgrade, dado el requisito explícito de mantener Zabbix funcionando.
+**Risk not in the original design:** third-party repos pinned to `focal`: `ppa:deadsnakes`, Docker CE (`download.docker.com/linux/ubuntu focal`), Microsoft Azure CLI (`packages.microsoft.com/ubuntu/20.04/prod focal`), Trivy, and three Zabbix repos (`zabbix-agent2-plugins`, `zabbix-tools`, `zabbix/6.0`, all `focal`). After the move to `jammy` they fail (404) until re-pointed; `do-release-upgrade` probably disables unrecognised third-party sources, but they must be re-enabled/re-pointed by hand. The installed Zabbix agent keeps running but gets no updates until fixed: a mandatory follow-up, since Zabbix must keep working.
 
-Confirmado vía IMDS: suscripción `0190fa7d-4ccf-4e3d-beb1-323b5780bfc8` (Smart IT - Grido), resource group `DEFAULTGROUP01`.
+**Decision (user):** upgrade the host OS **in place** (`do-release-upgrade`, 20.04 → 22.04). The tool only allows the next LTS, so 24.04 would be a second, sequential upgrade (check that restriction against the current tool before executing). It is a higher-risk operation on a live production host (touches nginx, systemd and every installed package) and needs its own rollback: take a VM snapshot immediately before the OS upgrade, not only once at the start of the project (section 7).
 
-**Decisión (confirmada por el usuario):** actualizar el sistema operativo del host **in-place** (`do-release-upgrade`, 20.04 → 22.04 → 24.04 — la herramienta de Ubuntu solo permite saltar a la siguiente LTS, no saltear una, por lo que son dos actualizaciones secuenciales; verificar que esta restricción siga vigente contra la herramienta actual antes de ejecutar). Esto es una operación de mayor riesgo sobre un host de producción vivo (toca nginx, systemd, y cualquier otro paquete instalado, no solo las dependencias de SonarQube) y necesita su propio plan de rollback (el snapshot de VM de la sección 5 cubre esto — confirmar que se toma un snapshot inmediatamente antes de la actualización de SO específicamente, no solo una vez al inicio de todo el proyecto).
+## 4ter. The 20.04 → 22.04 jump: real problems and confirmed causes
 
-## 4ter. Salto 20.04 → 22.04 completado (2026-09-05) — problemas reales y causas confirmadas
+`do-release-upgrade` needed two passes (the first stopped halfway without rebooting). Three real dpkg failures, diagnosed from `/var/log/apt/term.log` (the generic "Errors were encountered" summary does NOT give the cause: search line by line for `dpkg: error processing archive ... (--unpack)` / `(--configure)`):
 
-`do-release-upgrade` requirió dos pasadas para completar (la primera quedó a mitad de camino, sin reiniciar). Tres fallas reales de dpkg diagnosticadas vía `/var/log/apt/term.log` (el resumen genérico "Errors were encountered" NO trae la causa real — buscar `dpkg: error processing archive ... (--unpack)`/`(--configure)` línea por línea):
+- **`dotnet-hostfxr-7.0`:** depended on `dotnet-host-7.0`, missing because the Microsoft repo is pinned to `focal`. Fixed with `apt --fix-broken install` (Ubuntu's own jammy-updates ships a compatible version).
+- **`cron` / `at`:** `error creating directory './var/spool/cron/crontabs': Operation not permitted`. `/var/spool/cron` had **both the immutable (`i`) and append-only (`a`)** attributes (deliberate pre-existing hardening): both had to be cleared (`chattr -ia`; `-i` alone is not enough) before dpkg could extract, then restored (`chattr +ia`). Confirmed intact after the reboot.
+- **`linux-azure-tools-5.15.0-1050`:** file conflict with the obsolete `linux-azure-5.15-tools-5.15.0-1050` (kernel package rename gap between focal/jammy). `apt-get remove` refuses to run while any other package is broken (global dpkg consistency check): fixed with `sudo dpkg --remove linux-azure-5.15-tools-5.15.0-1050`, bypassing the apt resolver.
 
-- **`dotnet-hostfxr-7.0`**: dependía de `dotnet-host-7.0`, ausente porque el repo de Microsoft está fijado a `focal` — resuelto con `apt --fix-broken install` (Ubuntu's propio jammy-updates ya trae una versión compatible).
-- **`cron`/`at`**: `error creating directory './var/spool/cron/crontabs': Operation not permitted`. Causa: `/var/spool/cron` tenía **tanto el atributo inmutable (`i`) como append-only (`a`)** seteados (hardening deliberado preexistente, no introducido por este upgrade) — hubo que limpiar AMBOS (`chattr -ia`, no alcanza con solo `-i`) antes de que dpkg pudiera finalizar la extracción, y restaurar ambos (`chattr +ia`) después. Confirmado intacto post-reboot.
-- **`linux-azure-tools-5.15.0-1050`**: conflicto de archivo con el paquete obsoleto `linux-azure-5.15-tools-5.15.0-1050` (gap de renombrado de paquetes de kernel entre focal/jammy). `apt-get remove` se negó a correr mientras hubiera cualquier otro paquete roto en la base de datos de dpkg (chequeo global de consistencia) — la solución fue `sudo dpkg --remove linux-azure-5.15-tools-5.15.0-1050` directo, sin pasar por el resolver de apt.
+**Verified after the reboot, all healthy:** kernel `6.8.0-1065-azure`, SonarQube 24.12.0.100206 (`status: UP`, started by itself via systemd), `postgresql@13-main` with SonarQube reconnected, nginx (`HTTP 200` using the Host-header trick, section 7), Zabbix Agent 2 uninterrupted.
 
-**Verificado post-reboot, todo saludable:** kernel `6.8.0-1065-azure`, SonarQube 24.12.0.100206 (`status: UP`, arrancó solo vía systemd sin intervención manual), PostgreSQL `postgresql@13-main` con SonarQube ya reconectado, nginx (`HTTP 200` vía el truco de Host header), Zabbix Agent 2 sin interrupción.
+**Third-party repos:** of the 5 pinned to `focal`, `do-release-upgrade` automatically disabled 2 of the 3 Zabbix ones (`zabbix.list`, `zabbix-agent2-plugins.list`, with `jammy` already substituted in the comment) but left `zabbix-tools.list` active and untouched; Docker CE and Azure CLI were also untouched. All 5 were re-pointed/re-enabled to `jammy` and verified with `apt-get update` (all resolve). Trivy needed no change: its repo uses a `generic` component, not a distribution codename (it was wrongly in the original risk list).
 
-**Repos de terceros — completado (2026-09-05):** de los 5 fijados a `focal`, `do-release-upgrade` deshabilitó automáticamente 2 de los 3 de Zabbix (`zabbix.list`, `zabbix-agent2-plugins.list`, con el codename `jammy` ya pre-sustituido en el comentario) pero dejó `zabbix-tools.list` activo y sin tocar. Docker CE y Azure CLI tampoco fueron tocados por la herramienta. Los 5 fueron re-apuntados/re-habilitados a `jammy` y verificados con `apt-get update` (todos resuelven limpio). Trivy no necesitaba cambio — su repo usa un componente `generic`, no un codename de distribución (estaba mal incluido en la lista original de riesgo).
+**`ppa:deadsnakes`:** its only real purpose on this host was Python 3.10 for `get-fq.py` (a script unrelated to SonarQube that pulls Grido data into the Fabric bronze layer, hosted on this VM). Ubuntu 22.04 provides `python3.10` natively, so the repo was removed, together with `python3.9` / `python3.9-minimal` (no consumers identified).
 
-**`ppa:deadsnakes` investigado:** su único propósito real en este host era proveer Python 3.10 para `get-fq.py` (script ajeno a SonarQube, trae datos de Grido a la capa bronze de Fabric, alojado en esta misma VM). Ubuntu 22.04 ya provee `python3.10` nativamente, así que el repo dejó de ser necesario — eliminado, junto con `python3.9`/`python3.9-minimal` (sin consumidores identificados).
+## 5. Scope decision: the 24.04 jump is out of scope
 
-## 5. Decisión de alcance: salto a 24.04 descartado
+24.04 is not needed: PGDG supports PostgreSQL 15/16/17 on Ubuntu 22.04 until well into 2029, and JDK 21 is available cleanly on 22.04 via Adoptium, so both blockers that motivated the OS upgrade are solved on 22.04. 24.04 also has no clean Python 3.10 source for `get-fq.py` (the main deadsnakes PPA does not publish it for `noble`, only its unstable nightly channel). **22.04 → 24.04 is out of scope of this ticket.** If it is taken up later, `get-fq.py` must first be containerised (Docker is already installed on the host) or otherwise decoupled from the OS Python version.
 
-Re-evaluado si 24.04 era realmente necesario: **no lo es.** PGDG soporta PostgreSQL 15/16/17 en Ubuntu 22.04 sin fecha de corte hasta bien entrado 2029, y JDK 21 está disponible limpiamente en 22.04 vía Adoptium — ambos bloqueantes que motivaron la actualización de SO ya están resueltos en 22.04. Además, 24.04 no tiene una fuente limpia de Python 3.10 para `get-fq.py`: el PPA principal de deadsnakes no lo publica para `noble` (solo su canal nightly/inestable, no apto para producción). **El salto 22.04 → 24.04 queda fuera de alcance de este ticket** — si se retoma en el futuro, `get-fq.py` debe containerizarse (Docker ya está instalado en este host) o desacoplarse de otro modo de la versión de Python del sistema operativo antes de intentarlo.
+## 6. Recommended sequence (one change at a time)
 
-## 6. Secuencia recomendada (aísla variables — un cambio por vez)
-
-1. `9.9.3 → 24.12.0.100206` primero, sobre el SO/Java 17/PostgreSQL 13.15 **actuales** — valida el procedimiento de swap de binario/rollback específico de SonarQube sin mezclarlo con cambios de sistema operativo.
-2. **Actualización de SO** (20.04 → 22.04, sin continuar a 24.04 — ver sección 5), en su propia ventana de mantenimiento dedicada, con SonarQube 24.12 ya corriendo — verificar que SonarQube + PostgreSQL 13.15 + nginx sigan funcionando correctamente después de la actualización de SO antes de tocar cualquier otra cosa. Aísla fallas causadas por el SO de fallas causadas por la actualización de SonarQube.
-3. **Actualización de Java 21/25 + PostgreSQL 15+** sobre Ubuntu 22.04, ambos disponibles limpiamente vía los repositorios oficiales PGDG/Adoptium.
+1. `9.9.3 → 24.12.0.100206` first, on the **current** OS / Java 17 / PostgreSQL 13.15: validates the SonarQube-specific binary swap and rollback without mixing in OS changes.
+2. **OS upgrade** 20.04 → 22.04 (not 24.04, section 5), in its own maintenance window with SonarQube 24.12 already running; verify SonarQube + PostgreSQL 13.15 + nginx before touching anything else. Separates OS-caused failures from SonarQube-upgrade failures.
+3. **Java 21/25 + PostgreSQL 15+** on Ubuntu 22.04, both available cleanly from the official PGDG / Adoptium repositories.
 4. `24.12.0.100206 → 26.1.0.118079`.
 5. `26.1.0.118079 → 26.9.0.129388`.
 
-## 7. Plan de rollback
+## 6bis. Executed 2026-09-05: what the plan did not say
 
-Las migraciones de esquema de SonarQube son de un solo sentido — no hay downgrade de base de datos. El rollback real depende de backups tomados inmediatamente antes de cada salto, no de un backup único al inicio.
+The whole chain ran on 2026-09-05 (event `operations/events/20260905_sonarqube_upgrade/`): SonarQube `9.9.3 → 24.12.0.100206 → 26.1.0.118079 → 26.9.0.129388`, Ubuntu 22.04.5 LTS, Java 17 → 21 (Temurin, Adoptium repo, Java 17 kept), PostgreSQL 13.15 → 15.19; no data loss, no Zabbix agent gap over the 2+ hours. Findings that change how to repeat it:
 
-**Pre-flight (una sola vez, antes de tocar nada — y repetir el snapshot puntualmente antes de la actualización de SO de la sección 5, paso 2):**
-- Snapshot de disco de la VM `sfcg-sonarqube` en Azure.
-- `pg_dump` completo de la base `sonarqube`.
-- Backup de `/opt/ssd01/sonarq/sonarqube/data/` (184M — índice ES7 + plugins). No hace falta respaldar `sonarqube/temp/` (estado regenerable).
-- Backup de `sonar.properties`, `sonar.conf` (nginx) y la unit de systemd `sonarqube.service`.
+- **PostgreSQL 13 → 15 with `pg_upgradecluster`** (Debian/Ubuntu native tool): the new `15/main` cluster took port 5432 directly, so `sonar.properties` needed no change. Check: 21 projects, 102 tables. The old `13/main` stays stopped in `/opt/ssd01/postgresql/13/main` as the rollback plan.
+- **Java selection:** setting `JAVA_HOME` in the systemd unit does nothing (`sonar.sh` resolves `java` through `update-alternatives`; SonarQube ended up on Java 17 until `update-alternatives --set java` was run in manual mode). From the 26.1 jump the version is fixed with **`SONAR_JAVA_PATH`**, the variable `sonar.sh` actually reads; confirm from the process list that all SonarQube `java` processes run from the Temurin 21 path.
+- **26.9.0.129388:** the downloaded package did not keep the execute bit of the scripts in `bin/` after unzip (`chmod +x` missing); systemd had also entered its start-limit state and needed a reset. The database migration took about 2 minutes, the longest of the three.
+- **Housekeeping left (no urgency):** after an observation period with 26.9 stable, `pg_dropcluster 13 main`, then archive/delete the old install directories in `/opt/ssd01/sonarq/` (`sonarqube-9.9.3.79811/`, `sonarqube-9.6.1.59531/`, `sonarqube-24.12.0.100206/`, `sonarqube-26.1.0.118079/`).
+- **Disk monitoring:** `/opt/ssd01` (ext4, 251 GB) reached 96-100 % in July with no Zabbix alert because of the ext4 root reserve; see `docs/zabbix_observability.md` → "Filesystem free-space trigger on ext4 data disks" (`operations/events/20260720_sonarqube_disco_lleno/`).
 
-**Por cada salto (24.12, 26.1, 26.9):**
-- Extraer la nueva versión en un directorio propio nuevo (`sonarqube-24.12.0.100206/`, etc.) — nunca sobrescribir el directorio de la versión corriendo. **Nota:** `azureuser` no tiene permiso de escritura directo sobre `/opt/ssd01/sonarq/` — el `unzip`/`chown`/`cp` de esta etapa necesitan `sudo` (o una sesión `sudo su`), confirmado en la ejecución real del salto 1.
-- Copiar el `sonar.properties` ya configurado (no retipear credenciales de DB) al `conf/` de la nueva versión.
-- **Mecanismo de corte confirmado (salto 1):** la unit `sonarqube.service` no usa `WorkingDirectory` — `ExecStart`/`ExecStop` embeben el path literal `/opt/ssd01/sonarq/sonarqube/bin/linux-x86-64/sonar.sh`. Por eso el corte es un **swap de directorios** (`mv sonarqube sonarqube-<version-vieja>` seguido de `mv sonarqube-<version-nueva> sonarqube`), no una edición de la unit — cero cambios de systemd, sin `daemon-reload`.
-- `pg_dump` nuevo inmediatamente antes de este salto puntual (no reusar el del salto anterior).
-- Detener `sonarqube.service`, apuntarlo al nuevo directorio, iniciar, revisar `logs/sonar.log` y `logs/ce.log`.
-- **Migración de base de datos manual, confirmado en el salto 1:** al iniciar, SonarQube NO corre la migración de esquema automáticamente — queda en estado `DB_MIGRATION_NEEDED`, visible en `sonar.log` ("The database must be manually upgraded. Please backup the database and browse /setup") y vía `GET /api/system/status`. Hay que disparar la migración explícitamente (UI en `/setup`, o `POST /api/system/migrate_db`) en cada salto — no asumir que el arranque del servicio ya completó la migración. `ce.log` no existe todavía en este estado (Compute Engine no arranca hasta después de migrar) — no es un error. `GET /api/server/version` ya no existe como endpoint desde esta versión en adelante; usar `/api/system/status` para chequear versión/estado.
-- Si falla: detener, apuntar de nuevo al directorio anterior (intacto), restaurar el `pg_dump` de este salto, reiniciar.
-- No borrar/archivar la versión anterior hasta confirmar que el siguiente salto está estable.
-- **Verificación correcta post-salto (confirmado en salto 1):** curlear el hostname público directamente desde la propia VM puede devolver `000` aunque todo funcione bien — esta VM no resuelve su propio nombre DNS público. Verificar con `curl -H "Host: sf-sonarqube.smartfran.com" https://127.0.0.1/` (forzando el header) en vez de `curl https://sf-sonarqube.smartfran.com/` desde la misma VM. La confirmación real de extremo a extremo es desde fuera de la VM (navegador o `curl` externo).
-- Zabbix Agent 2 debe verificarse sano (activo, sin gaps de reporte) antes y después de cada salto — ver sección 4bis para el punto de mayor riesgo (actualización de SO).
+## 7. Rollback plan
 
-**Java:** instalar JDK 21/25 en paralelo al JDK 17 existente (`update-alternatives`), sin desinstalar 17 — un rollback a 24.12 después de un intento fallido de 26.1 todavía necesita Java 17.
+SonarQube schema migrations are one-way: there is no database downgrade. Rollback depends on backups taken immediately before each jump, not on one backup at the start.
 
-**PostgreSQL:** el upgrade mayor 13→15 es una operación separada y más difícil de revertir (`pg_upgrade` o dump/restore a un cluster nuevo) — mantener el cluster PG 13 detenido pero intacto (no borrado) hasta confirmar estabilidad de PG 15 + SonarQube 26.1 durante un período de observación, no solo inmediatamente después del corte.
+**Pre-flight (once, before touching anything; repeat the snapshot right before the OS upgrade of section 6, step 2):**
+- Azure disk snapshot of the VM `sfcg-sonarqube`.
+- Full `pg_dump` of the `sonarqube` database.
+- Backup of `/opt/ssd01/sonarq/sonarqube/data/` (184M: ES7 index + plugins). `sonarqube/temp/` need not be backed up (regenerable).
+- Backup of `sonar.properties`, `sonar.conf` (nginx) and the `sonarqube.service` unit.
 
-## 7bis. Rol adicional del host: agente Jenkins compartido (`sonarqube-srv`), confirmado 2026-09-23 (`GITIN-2099`)
+**For each jump (24.12, 26.1, 26.9):**
+- Extract the new version into its own new directory (`sonarqube-24.12.0.100206/`, etc.), never over the running version. `azureuser` cannot write to `/opt/ssd01/sonarq/`: the `unzip` / `chown` / `cp` need `sudo` (confirmed in the real execution of jump 1).
+- Copy the already configured `sonar.properties` to the new `conf/` (do not retype DB credentials).
+- **Cut-over mechanism (confirmed, jump 1):** `sonarqube.service` has no `WorkingDirectory`; `ExecStart` / `ExecStop` embed the literal path `/opt/ssd01/sonarq/sonarqube/bin/linux-x86-64/sonar.sh`. The cut-over is therefore a **directory swap** (`mv sonarqube sonarqube-<old-version>`, then `mv sonarqube-<new-version> sonarqube`), not a unit edit: no systemd change, no `daemon-reload`.
+- New `pg_dump` immediately before this specific jump (do not reuse the previous jump's).
+- Stop `sonarqube.service`, point it at the new directory, start, check `logs/sonar.log` and `logs/ce.log`.
+- **Manual database migration (confirmed, jump 1):** on start SonarQube does NOT run the schema migration; it stays in `DB_MIGRATION_NEEDED`, visible in `sonar.log` ("The database must be manually upgraded. Please backup the database and browse /setup") and in `GET /api/system/status`. Trigger it explicitly on every jump (UI at `/setup`, or `POST /api/system/migrate_db`). `ce.log` does not exist yet in this state (Compute Engine starts only after migrating): not an error. `GET /api/server/version` no longer exists from this version on; use `/api/system/status` for version/state.
+- If it fails: stop, point back to the previous (intact) directory, restore this jump's `pg_dump`, restart.
+- Do not delete/archive the previous version until the next jump is stable.
+- **Correct post-jump check (confirmed, jump 1):** `curl` to the public hostname from the VM itself can return `000` even when everything works, because the VM does not resolve its own public DNS name. Use `curl -H "Host: sf-sonarqube.smartfran.com" https://127.0.0.1/`. The real end-to-end confirmation is from outside the VM (browser or external `curl`).
+- Zabbix Agent 2 must be healthy (active, no reporting gaps) before and after each jump; the OS upgrade (section 4bis) is the highest-risk point.
 
-Además de correr SonarQube, `sfcg-sonarqube` también es el agente Jenkins **`sonarqube-srv`** (Ubuntu, vía SSH), compartido entre los pipelines de SF-LOYALTY y SF-PEDIDOS (ver `sf-devops/jenkins/SF-PEDIDOS/smartpedidos.md`). Este rol es independiente del servicio de SonarQube — no está documentado en la investigación original de `GITIN-1327`.
+**Java:** install JDK 21/25 alongside the existing JDK 17 (`update-alternatives`), without uninstalling 17: a rollback to 24.12 after a failed 26.1 attempt still needs Java 17.
 
-**Hallazgo confirmado (2026-09-23):** tras actualizar el controller Jenkins (`SFCG-JENKINS-01`) de Java 17 a Java 21 (ver `loyalty/docs/infrastructure.md` → `SFCG-JENKINS-01`), el agente `sonarqube-srv` empezó a fallar la conexión SSH/Remoting con `java.lang.UnsupportedClassVersionError` (class file version 65 = Java 21 vs. 61 = Java 17 máximo soportado) — el `java` del sistema en este host (resuelto vía `update-alternatives`, **no** `SONAR_JAVA_PATH`) seguía apuntando a `java-17-openjdk-amd64` al momento del hallazgo, pese a que Temurin 21 ya estaba instalado en el host desde el propio `GITIN-1327` (sección 6/7).
+**PostgreSQL:** the 13 → 15 major upgrade is a separate, harder-to-revert operation (`pg_upgrade` or dump/restore into a new cluster): keep the PG 13 cluster stopped but intact (not deleted) until PG 15 + SonarQube 26.1 are stable over an observation period, not only right after the cut-over.
 
-**Causa de que `java-17` volviera a ser el default del sistema:** no investigada — el `update-alternatives --set java` a Temurin 21 documentado en la sección 6 fue explícitamente reconocido en su momento como "trade-off aceptado... nada más depende de 21 todavía"; en algún punto posterior algo lo revirtió a 17 (no confirmado si fue un `apt upgrade` rutinario re-disparando el modo `auto`, una reversión manual, u otra causa). Como el propio servicio de SonarQube nunca dependió de este default del sistema (usa `SONAR_JAVA_PATH` desde el salto a 26.1, sección 6), este drift no tuvo ningún efecto visible sobre SonarQube — solo se manifestó cuando **otro** consumidor del `java` del sistema (el agente Jenkins) empezó a necesitar una versión compatible con Java 21.
+## 7bis. Additional host role: shared Jenkins agent (`sonarqube-srv`), confirmed 2026-09-23 (`GITIN-2099`)
 
-**Fix aplicado (2026-09-23):** `sudo update-alternatives --set java /usr/lib/jvm/temurin-21-jdk-amd64/bin/java` (modo manual, no `auto`). **Verificado sin impacto en SonarQube** antes y después del cambio: `GET /api/system/status` → `{"version":"26.9.0.129388","status":"UP"}` sin interrupción, uptime del servicio intacto (sin reinicio), los 5 procesos `java` de SonarQube siguen corriendo bajo `/usr/lib/jvm/temurin-21-jdk-amd64/bin/java` vía el drop-in `SONAR_JAVA_PATH` — confirma que ambos mecanismos (el `SONAR_JAVA_PATH` de SonarQube y el `update-alternatives` de todo lo demás en el host) son efectivamente independientes, tal como predice el hallazgo original de la sección 6.
+Besides SonarQube, `sfcg-sonarqube` is the Jenkins agent **`sonarqube-srv`** (Ubuntu, over SSH), shared by the SF-LOYALTY and SF-PEDIDOS pipelines (see `sf-devops/jenkins/SF-PEDIDOS/smartpedidos.md`). The role is independent of the SonarQube service and was not covered by the original `GITIN-1327` investigation.
 
-**Lección para el futuro:** en este host específicamente, un cambio al `java` default del sistema (`update-alternatives`) es seguro respecto a SonarQube — pero no es la única cosa que corre `java` en esta VM (el agente Jenkins es otra). Antes de asumir que un drift del default del sistema es inofensivo, confirmar qué más depende de él (no solo SonarQube).
+**Confirmed finding (2026-09-23):** after the Jenkins controller (`SFCG-JENKINS-01`) moved from Java 17 to Java 21 (see `loyalty/docs/infrastructure.md` → `SFCG-JENKINS-01`), the `sonarqube-srv` agent failed its SSH/Remoting connection with `java.lang.UnsupportedClassVersionError` (class file 65 = Java 21 vs 61 = maximum for Java 17). The system `java` on this host (resolved through `update-alternatives`, **not** `SONAR_JAVA_PATH`) still pointed to `java-17-openjdk-amd64`, although Temurin 21 had been installed on the host since `GITIN-1327` itself.
 
-## 8. Fuera de alcance
+**Why `java-17` became the system default again:** not investigated. The `update-alternatives --set java` to Temurin 21 recorded in the `GITIN-1327` event was accepted at the time as a trade-off ("nothing else depends on 21 yet"); later something reverted it to 17 (not confirmed whether a routine `apt upgrade` re-triggering `auto` mode, a manual revert, or another cause). SonarQube never depended on this system default (it uses `SONAR_JAVA_PATH` since the jump to 26.1), so the drift had no visible effect on it; it showed only when **another** consumer of the system `java` (the Jenkins agent) needed a Java 21-compatible version.
 
-- **AI Code Assurance / detección de código generado por IA:** feature de Developer Edition en adelante (pago) — no disponible en Community Build sin importar la versión alcanzada. Requeriría una decisión separada de cambio de edición/licencia, fuera del alcance de `GITIN-1327` tal como está entendido hoy.
-- El directorio `sonarqube-10/` (intento de actualización abandonado, reportado por el usuario) no fue verificado en detalle — antes de ejecutar, conviene confirmar que no contiene estado de migración parcial que pueda confundir el intento real.
-- **Salto de SO a Ubuntu 24.04:** descartado para este ticket (ver sección 5) — iniciativa futura separada, condicionada a desacoplar `get-fq.py` de la versión de Python del sistema operativo primero.
+**Fix applied (2026-09-23):** `sudo update-alternatives --set java /usr/lib/jvm/temurin-21-jdk-amd64/bin/java` (manual mode, not `auto`). **Verified with no SonarQube impact** before and after: `GET /api/system/status` → `{"version":"26.9.0.129388","status":"UP"}` with no interruption, service uptime intact (no restart), the 5 SonarQube `java` processes still running from `/usr/lib/jvm/temurin-21-jdk-amd64/bin/java` through the `SONAR_JAVA_PATH` drop-in: the SonarQube `SONAR_JAVA_PATH` and the host-wide `update-alternatives` are independent mechanisms.
 
-## 9. Referencias
+**Lesson:** on this host, changing the system default `java` (`update-alternatives`) is safe for SonarQube, but SonarQube is not the only `java` consumer (the Jenkins agent is another). Before assuming a drift of the system default is harmless, confirm what else depends on it.
+
+## 8. Out of scope
+
+- **AI Code Assurance / AI-generated code detection:** a Developer Edition (paid) feature onward, not available in Community Build at any version. It would need a separate edition/licence decision, outside `GITIN-1327` as understood today.
+- The `sonarqube-10/` directory (abandoned upgrade attempt, user-reported) was not verified in detail: before executing, confirm it holds no partial migration state that could confuse the real attempt.
+- **OS jump to Ubuntu 24.04:** discarded for this ticket (section 5); a separate future initiative, conditional on decoupling `get-fq.py` from the OS Python version first.
+
+## 9. References
 
 - https://docs.sonarsource.com/sonarqube-community-build/server-update-and-maintenance/update/determine-path
 - https://docs.sonarsource.com/sonarqube-community-build/server-installation/server-host-requirements
 - https://community.sonarsource.com/t/upgrade-path-for-our-sonarqube-community-edition-9-9-3-instance/149250
 - https://community.sonarsource.com/t/sonarqube-community-build-25-12-0-117093-released/153805
 - https://community.sonarsource.com/t/postgresql-compatibility-for-sonarqube-upgrade-from-9-9-3-to-25-4/145051
-- https://www.postgresql.org/message-id/aCtIvml4sCYnRSjp@msg.df7cb.de (PGDG drops Ubuntu focal packages, julio 2025)
-- https://ubuntu.com/blog/ubuntu-20-04-lts-end-of-life-standard-support-is-coming-to-an-end-heres-how-to-prepare (fin de soporte estándar Ubuntu 20.04)
+- https://www.postgresql.org/message-id/aCtIvml4sCYnRSjp@msg.df7cb.de (PGDG drops Ubuntu focal packages, July 2025)
+- https://ubuntu.com/blog/ubuntu-20-04-lts-end-of-life-standard-support-is-coming-to-an-end-heres-how-to-prepare (Ubuntu 20.04 end of standard support)

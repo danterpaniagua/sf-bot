@@ -1,35 +1,37 @@
-# Scripts Zabbix symlinkeados desde directorios home personales — riesgo pendiente de verificar
+# Zabbix scripts symlinked from personal home directories — risk pending verification
 
-**Origen:** hallazgo tangencial durante la sesion de diseno de triggers FEPE (2026-07-24, ver `events/20260714_fepe_zabbix_healthcheck/`), al listar `/usr/bin/get-*` en `sf-monitoreo.smartfran.com` para confirmar el symlink de `get-fepe-status`.
+**Origin:** incidental finding while designing the FEPE triggers (2026-07-24, see `events/20260714_fepe_zabbix_healthcheck/`), when listing `/usr/bin/get-*` on `sf-monitoreo.smartfran.com` to confirm the `get-fepe-status` symlink.
 
-## Hallazgo
+## Finding
 
-Al menos dos UserParameter scripts en uso en el host `Zabbix server` (`sf-monitoreo.smartfran.com`) symlinkean desde un directorio home personal en lugar de `/opt/scripts/` (la convencion documentada en el skill `ope-zabbix`):
+At least two UserParameter scripts in use on the `Zabbix server` host (`sf-monitoreo.smartfran.com`) are symlinked from a personal home directory instead of `/opt/scripts/` (the convention documented in the `ope-zabbix` skill):
 
-| Symlink | Target | Fecha del symlink |
+| Symlink | Target | Symlink date |
 |---|---|---|
 | `/usr/bin/get-cw-metrics` | `/home/ubuntu/scritps/aws-cloudwatch/get-metrics/get-metrics.py` | 2024-07-01 |
 | `/usr/bin/get-enddate` | `/home/ubuntu/scritps/sslenddate/get_enddate.sh` | 2025-04-24 |
 
-(Nota: el nombre del directorio tiene un typo — `scritps`, no `scripts` — presente en ambos paths, lo que sugiere que comparten origen/copia.)
+(The directory name has a typo, `scritps` instead of `scripts`, in both paths, which suggests a shared origin/copy.)
 
-Este es el mismo patron de riesgo ya confirmado como causa raiz en dos incidentes documentados:
-- ARCA: bloqueo de ejecucion del script para el usuario `zabbix` por permisos `750` en `/home/ubuntu` (`2026-06-06_arca_api_check_ops-events.md`).
-- FEPE: bloqueo de resolucion de un `Include` relativo en `zabbix_agent2.conf` al testear desde `/home/ubuntu` (`20260714_fepe_zabbix_healthcheck_ops-events.md`, hallazgo del 2026-07-14 22:32).
+This is the same risk pattern already confirmed as root cause in two documented incidents:
+- ARCA: script execution blocked for the `zabbix` user by `750` permissions on `/home/ubuntu` (`2026-06-06_arca_api_check_ops-events.md`).
+- FEPE: a relative `Include=./zabbix_agent2.d/plugins.d/*.conf` (line 497 of `zabbix_agent2.conf`; the main `Include`, line 281, is absolute) could not be resolved when testing as `zabbix` from `/home/ubuntu` (`20260714_fepe_zabbix_healthcheck_ops-events.md`, finding of 2026-07-14 22:32).
 
-## Estado — no confirmado, solo inferido por patron
+## Status — not confirmed, inferred from the pattern only
 
-**No se verifico** si `/home/ubuntu` tiene actualmente permisos que bloqueen al usuario `zabbix`, ni si estos dos scripts especificos fallan en la practica — a diferencia de ARCA y FEPE, que fueron confirmados fallando. Es posible que estos dos items nunca hayan tenido el problema (por ejemplo, si el UserParameter no depende de que `zabbix` pueda listar el directorio padre, o si los permisos de `/home/ubuntu` cambiaron desde que se creo el symlink). Marcar como pendiente de verificacion, no como incidente confirmado.
+It was **not verified** whether `/home/ubuntu` currently has permissions that block the `zabbix` user, or whether these two scripts actually fail; unlike ARCA and FEPE, which were confirmed failing. These two items may never have had the problem (for example if the UserParameter does not depend on `zabbix` being able to list the parent directory, or if `/home/ubuntu` permissions changed since the symlink was created). Treat as pending verification, not as a confirmed incident.
 
-## Verificacion sugerida (no ejecutada)
+## Suggested check (not run)
 
 ```bash
 namei -l /home/ubuntu/scritps/aws-cloudwatch/get-metrics/get-metrics.py
 namei -l /home/ubuntu/scritps/sslenddate/get_enddate.sh
 
-# Confirmar si las keys resuelven corriendo como el usuario zabbix
-sudo -u zabbix zabbix_agent2 -t <key_de_get-cw-metrics> -c /etc/zabbix/zabbix_agent2.conf
-sudo -u zabbix zabbix_agent2 -t <key_de_get-enddate> -c /etc/zabbix/zabbix_agent2.conf
+# Confirm the keys resolve when run as the zabbix user
+sudo -u zabbix zabbix_agent2 -t <get-cw-metrics key> -c /etc/zabbix/zabbix_agent2.conf
+sudo -u zabbix zabbix_agent2 -t <get-enddate key> -c /etc/zabbix/zabbix_agent2.conf
 ```
 
-Si alguno falla, remediacion: reubicar a `/opt/scripts/` y symlinkear desde `/usr/bin/`, siguiendo el mismo procedimiento que ARCA y FEPE (`ope-zabbix` skill, Step 1).
+If either fails, remediation: move to `/opt/scripts/` and symlink from `/usr/bin/`, following the same procedure as ARCA and FEPE (`ope-zabbix` skill, Step 1).
+
+Related: `get_enddate.sh` is also the script behind the 8 SSL-expiry items (it runs from the `ubuntu` user's crontab, see `docs/zabbix_observability.md` → SSL certificate expiration, `GITIN-2249`).

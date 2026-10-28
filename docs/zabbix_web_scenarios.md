@@ -7,6 +7,8 @@ Reference for the web scenarios of the shared Zabbix instance (`sf-monitoreo.sma
 ## Reading a scenario after a deployment
 
 - **Items.** `web.test.fail[<scenario>]` is `0` when every step passed, otherwise the number of the failing step (the `#` column below). `web.test.error[<scenario>]` keeps the text of the last error and only gets a value when a step fails, so its age is the age of the last failure.
+- **Where they run and how to read them by API.** The scenarios run from the Zabbix proxy `sfcg-monitoreo` (seen from `172.191.99.60`, the address the `Zabbix-MobileApp` NSG rule allows; matched to proxy `10609` by name only); a manual test from another machine that times out proves nothing about the scenario's path. Items per step: `web.test.rspcode["<scenario>",<step>]`, `web.test.time["<scenario>",<step>,resp]`, plus `web.test.in`; history 30 d, trends 90 d. `item.get` returns them only with `"webitems": true`, and the keys carry quotes (a comparison without the quotes finds nothing).
+- **Order and failures.** Steps run in order and the scenario stops at the first failed step: the later steps get no new values (in the 2026-10-15 Mobile episode, step 3 had no value for the 55 failing checks). A timeout or a reset stores no response code, so a trigger on `web.test.rspcode` keeps seeing the last `200` and does not fire; read `web.test.fail` (the failing step number) or add a no-data check (hypothesis from `GITIN-2239`, not tested with a real outage).
 - **When to read.** Interval (`delay`) is 1 m for every scenario except `[PROD] MobileApp` (30 s); each step has a 15 s timeout and the scenario `retries` is 1. Read the result after at least one full interval following the end of the deploy; a failure recorded while the service was restarting is expected and clears on the next run. The scenarios run from the proxy, so a change to a scenario can take a configuration-sync interval to show (not measured, see `zabbix_observability.md`).
 - **Common settings (all 16).** Expected status code 200 on every step, except the Sonarqube login step on `SFCG-TO-01` (no code configured, any response passes). `verify_peer` and `verify_host` are off: **an expired, wrong or untrusted certificate does not fail any of these scenarios**; certificate expiry has its own triggers. No HTTP authentication and no HTTP proxy in the scenario settings; agent string `Zabbix`.
 - **Depth used below.** L1 = HTTP 200 only; L2 = also a required text in the response; L3 = exercises a data or authenticated path with a required text.
@@ -44,7 +46,8 @@ The host `sfcg-monitoreo` is shown in Zabbix with the display name `Zabbix Proxy
 
 - **A pass proves:** the service answers its healthcheck, accepts a login of the monitoring account and returns an additional-information response containing `Ok`.
 - **It does not prove:** other endpoints, other accounts, the Mobile hosts one by one (the URL is the public name, so the hit goes to whichever host the balancer chooses), or that step 3 uses the value captured in `{cid}` (the pull masks the values, not checked).
-- **After a deploy:** the strongest functional smoke test of the Mobile service. A failure at step 2 or 3 with step 1 passing points to the application or its data, not to IIS being down.
+- **After a deploy:** the strongest functional smoke test of the Mobile service. A failure at step 2 or 3 with step 1 passing points to the application or its data, not to IIS being down. Step 1 failing with 404 after a deploy means the deployment removed `healthcheck.ashx`, which also takes the balancer's probe down (`GITIN-2238`: both backends out for ~3 h).
+- **Step 1 does not prove login (2026-10-15, `GITIN-2241`):** from 09:15:27 to 09:56:29 UTC `web.test.fail` was `2` in 55 consecutive checks (step 2 hung to the 15 s timeout, `Operation timed out after 15000 milliseconds with 0 bytes received`, no HTTP code), while step 1 returned `200` in 0.52-1.55 s all the time and the balancer probe stayed at 100 %. The window matches the index rebuild of `Sml.CustomerPointsLog`; the link was not shown (cause unconfirmed).
 
 ### `[PROD] Website` (1 m)
 
@@ -77,7 +80,8 @@ The host `sfcg-monitoreo` is shown in Zabbix with the display name `Zabbix Proxy
 
 - **A pass proves:** the WebService answers the healthcheck handler and returns 200 for the service description. The response content of step 2 is not checked.
 - **It does not prove:** a real `SaleProvider` call, or each WEBS host (the URL is the balanced public name; this pull has no scenario per WEBS host).
-- **After a deploy:** expect a transient `400` at step 1 if the host answering is above the handler's load limit (see above).
+- **After a deploy:** expect a transient `400` at step 1 if the host answering is above the handler's load limit (see above). Step order matters: `Healthcheck` was added 2026-10-18 and ordered as step 1 in the frontend, so while it fails `Landing` gets no samples and the older triggers that read `Landing` (25746, 25753, no tags, notify no one; 25753 compares `avg(response time, 20m) > 300` on an item in seconds, so it cannot fire at the 0.15-2.9 s seen) stay silent. A scenario per WEBS backend was created and removed the same day (the user wanted a single one through the balancer); with `SourceIP` distribution the check lands on one backend and did not show the WEBS-02 saturation episodes.
+- **Which `healthcheck.ashx`:** WEBS-02/03 hold the older 2,268-byte handler (2025-11-06, 400 above the CPU/commit limit); WEBS-01 had a newer one (2026-01-14, checks SQL and Redis, returns JSON and **always HTTP 200**, even `Unhealthy`) that was replaced by the older version on 2026-10-16. A step that only checks the status code cannot see a database or Redis failure through the newer handler: it would need a required text such as `"status":"Healthy"` (capital H; `healthy` is inside `Unhealthy`). Whether the Mobile and WebServiceV2 handlers behave like it was not verified (their hashes differ).
 
 ### `[PROD] WebServiceV2` (1 m)
 
@@ -119,12 +123,17 @@ L1 on every step: HTTP 200, no required text. A pass only shows that each page o
 
 - **After a deploy:** the Swagger URLs carry a `#!` fragment, which the browser keeps and the HTTP request does not send, so those steps request the Swagger UI page only. `/Help` and the `.svc` URL are help/description pages. None of these steps calls an API.
 - Both scenarios timed out (15 s, no bytes received) at 06:01 on 2026-10-19; see the snapshot.
+- **Corrections made by hand on 2026-10-16 (`GITIN-2239`, read back):** `Loyalty PreProd` lost its step 9 (`WebServiceV2-03`, the only step without a required status code); in `Loyalty Test02` the Clubsite AR URL and the Clubsite PY redirect handling were fixed. Still different: Test02's Website, Mobile, WebService and WebServiceCG steps do not follow redirects, PreProd's do; the PROD Clubsite AR and PY `GetAllBenefits` steps still differ the same way. QA has access and may edit the scenarios (user-stated), so re-pull before relying on any of this.
 
 ## Tools
 
 - **`Sonarqube` on `sfcg-monitoreo`:** one step, `/sessions/new` with a `return_to` parameter (masked), L1.
 - **`Sonarqube` on `SFCG-TO-01`:** 1 Landing (required text `SonarQube`), 2 Login (POST of masked credentials to the root page, no status code configured, no required text). Step 2 cannot fail on the response, so it proves the POST was sent and answered, not that the login worked.
 - **`Jenkins` on `sfcg-monitoreo`:** one step, `:8443/login` with a `from` parameter (masked), L1.
+
+## Triggers on these scenarios (read 2026-10-15 to 2026-10-18, re-read before relying)
+
+Four healthcheck triggers (ids 26921-26924, Mobile and WebServiceV2) and four file-existence triggers (26925-26928) were created in `GITIN-2239` and tagged `env=PROD`; delivery to the Chat was tested. They have only fired in controlled tests (12 events from 2026-10-15 to the 2026-10-17 read, all "slow response" from deliberately lowered thresholds), never on a real event. The older WebServiceV2 triggers (26860, 26861 "HTTP Code not 200", High, 20-minute average, no tags) reached no one and stayed unacknowledged 8 days (`GITIN-2025`); they were not changed.
 
 ## Gaps visible in the configuration
 
